@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="mb-4">My Purchases</h1>
+
+    <div class="list-group">
+        {% for order in orders %}
+            <a href="{% url 'order_detail' order.pk %}" class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">Order #{{ order.id }} - {{ order.product.title }}</h5>
+                    <small>{{ order.created_at|date:"M. d, Y" }}</small>
+                </div>
+                <p class="mb-1">Sold by: {{ order.seller.username }}</p>
+                <small>Status: {{ order.get_status_display }}</small>
+            </a>
+        {% empty %}
+            <p>You have not purchased any items yet.</p>
+        {% endfor %}
+    </div>
+{% endblock %}

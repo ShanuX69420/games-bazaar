@@ -7,7 +7,9 @@ from . import views
 urlpatterns = [
     # Main pages
     path('', views.home, name='home'),
+    path('search/', views.search_results, name='search_results'),
     path('product/<int:pk>/', views.product_detail, name='product_detail'),
+    path('my-purchases/', views.my_purchases, name='my_purchases'),
 
     # Auth
     path('register/', views.RegisterView.as_view(), name='register'),

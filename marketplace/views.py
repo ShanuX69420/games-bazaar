@@ -6,7 +6,7 @@ from django.urls import reverse_lazy
 from django.views import generic
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
-from django.db.models import Sum
+from django.db.models import Sum, Q
 
 from .models import Product, Order, ChatMessage, Review
 from .forms import ProductForm, ReviewForm
@@ -112,3 +112,27 @@ def complete_order(request, pk):
         order.commission_paid = order.calculate_commission()
         order.save()
     return redirect('order_detail', pk=order.pk)
+
+
+def search_results(request):
+    query = request.GET.get('q', '')
+    if query:
+        # Search in product title and description (case-insensitive)
+        results = Product.objects.filter(
+            Q(title__icontains=query) | Q(description__icontains=query),
+            is_active=True
+        )
+    else:
+        results = Product.objects.none() # Return no results if query is empty
+
+    return render(request, 'marketplace/search_results.html', {
+        'query': query,
+        'results': results
+    })
+
+
+
+@login_required
+def my_purchases(request):
+    orders = Order.objects.filter(buyer=request.user).order_by('-created_at')
+    return render(request, 'marketplace/my_purchases.html', {'orders': orders})

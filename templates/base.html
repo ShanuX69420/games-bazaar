@@ -10,6 +10,12 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="{% url 'home' %}">Gamer's Market</a>
+
+            <form class="d-flex mx-auto" action="{% url 'search_results' %}" method="get">
+                <input class="form-control me-2" type="search" name="q" placeholder="Search for products..." aria-label="Search" style="width: 400px;">
+                <button class="btn btn-outline-success" type="submit">Search</button>
+            </form>
+
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -17,7 +23,10 @@
                 <ul class="navbar-nav ms-auto">
                     {% if user.is_authenticated %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'seller_dashboard' %}">Dashboard</a>
+                            <a class="nav-link" href="{% url 'my_purchases' %}">My Purchases</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'seller_dashboard' %}">My Sales</a>
                         </li>
                         <li class="nav-item">
                             <form action="{% url 'logout' %}" method="post" class="d-flex">
