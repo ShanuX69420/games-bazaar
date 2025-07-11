@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h2>{{ product.title }}</h2>
+    {% if product.image %}
+        <img src="{{ product.image.url }}" alt="{{ product.title }}" style="max-width: 400px; height: auto;">
+    {% endif %}
+    <p><strong>Seller:</strong> {{ product.seller.username }}</p>
+    <p><strong>Price:</strong> ${{ product.price }}</p>
+    <p><strong>Description:</strong></p>
+    <p>{{ product.description|linebreaks }}</p>
+
+    <a href="{% url 'create_order' product.pk %}" style="display: inline-block; background: green; color: #fff; padding: 12px 25px; text-decoration: none; font-size: 1.2rem;">Buy Now</a>
+{% endblock %}

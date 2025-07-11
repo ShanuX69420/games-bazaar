@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h2>Order #{{ order.id }} Details</h2>
+    
+    <div class="order-info" style="border: 1px solid #ddd; padding: 15px; margin-bottom: 20px;">
+        <p><strong>Product:</strong> {{ order.product.title }}</p>
+        <p><strong>Total Price:</strong> ${{ order.total_price }}</p>
+        <p><strong>Order Status:</strong> <span id="order-status">{{ order.get_status_display }}</span></p>
+        <p><strong>Buyer:</strong> {{ order.buyer.username }}</p>
+        <p><strong>Seller:</strong> {{ order.seller.username }}</p>
+        <p><strong>Order Placed:</strong> {{ order.created_at }}</p>
+
+        <div style="background-color: #ffdfde; border: 2px solid red; padding: 10px; margin-top: 20px;">
+            <p><strong>-- DEBUG INFO --</strong></p>
+            <p>Value of order.status: <strong>'{{ order.status }}'</strong></p>
+            <p>Value of request.user: <strong>'{{ request.user.username }}'</strong></p>
+            <p>Value of order.buyer: <strong>'{{ order.buyer.username }}'</strong></p>
+            <hr>
+            <p>Is status 'PROCESSING'? 👉 {% if order.status == 'PROCESSING' %}<strong>True</strong>{% else %}<strong>False</strong>{% endif %}</p>
+            <p>Is current user the buyer? 👉 {% if request.user == order.buyer %}<strong>True</strong>{% else %}<strong>False</strong>{% endif %}</p>
+        </div>
+        {% if order.status == 'PROCESSING' and request.user == order.buyer %}
+        <form action="{% url 'complete_order' order.pk %}" method="post" style="margin-top: 15px;">
+            {% csrf_token %}
+            <button type="submit">Confirm Receipt & Complete Order</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <div style="border: 1px solid #ddd; padding: 15px; margin-top: 20px;">
+        <h3>Chat</h3>
+        <div id="chat-log" style="height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; background-color: #f9f9f9;">
+            {% for message in chat_messages %}
+                <div>
+                    <strong>{{ message.sender.username }}</strong> <small>({{ message.timestamp|date:"M. d, Y, P" }})</small>:
+                    <p style="margin: 0;">{{ message.message }}</p>
+                </div>
+                <hr>
+            {% endfor %}
+        </div>
+        <form id="chat-form">
+            <input id="chat-message-input" type="text" size="100" style="padding: 8px; width: 80%;" placeholder="Enter message...">
+            <input id="chat-message-submit" type="submit" value="Send" style="padding: 8px;">
+        </form>
+    </div>
+
+    <div style="border: 1px solid #ddd; padding: 15px; margin-top: 20px;">
+        <h3>Review</h3>
+        {% if existing_review %}
+            <p><strong>Your Rating:</strong> {{ existing_review.rating }} / 5 Stars</p>
+            <p><strong>Your Comment:</strong></p>
+            <p>{{ existing_review.comment|linebreaks }}</p>
+        {% elif order.status == 'COMPLETED' and request.user == order.buyer %}
+            <p>Order complete! Please leave a review for the seller.</p>
+            <form method="post">
+                {% csrf_token %}
+                {{ review_form.as_p }}
+                <button type="submit">Submit Review</button>
+            </form>
+        {% elif order.status != 'COMPLETED' and request.user == order.buyer %}
+            <p>You can leave a review once the order is marked as complete.</p>
+        {% else %}
+            <p>The buyer will be able to leave a review once the order is complete.</p>
+        {% endif %}
+    </div>
+
+    {{ order.id|json_script:"order-id" }}
+    <script>
+        const orderId = JSON.parse(document.getElementById('order-id').textContent);
+        const chatSocket = new WebSocket('ws://' + window.location.host + '/ws/chat/' + orderId + '/');
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const chatLog = document.querySelector('#chat-log');
+            const messageDiv = document.createElement('div');
+            const messageHeader = `<strong>${data.sender}</strong> <small>(${data.timestamp})</small>:`;
+            const messageText = `<p style="margin: 0;">${data.message}</p>`;
+            messageDiv.innerHTML = messageHeader + messageText;
+            chatLog.appendChild(messageDiv);
+            chatLog.appendChild(document.createElement('hr'));
+            chatLog.scrollTop = chatLog.scrollHeight;
+        };
+        chatSocket.onclose = function(e) { console.error('Chat socket closed unexpectedly'); };
+        document.querySelector('#chat-message-submit').onclick = function(e) {
+            e.preventDefault();
+            const messageInputDom = document.querySelector('#chat-message-input');
+            const message = messageInputDom.value;
+            chatSocket.send(JSON.stringify({'message': message}));
+            messageInputDom.value = '';
+            return false;
+        };
+    </script>
+{% endblock %}

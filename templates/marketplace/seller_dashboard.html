@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load math_filters %}
+
+{% block content %}
+    <h2>My Dashboard</h2>
+    <a href="{% url 'create_product' %}" style="margin-bottom: 20px; display: inline-block;">+ Add New Product</a>
+
+    <div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; background-color: #f4f4f4;">
+        <h3>Earnings Summary</h3>
+        <p><strong>Total Sales:</strong> ${{ total_sales|floatformat:2 }}</p>
+        <p><strong>Commissions Paid:</strong> -${{ total_commission|floatformat:2 }}</p>
+        <hr>
+        <p><strong>Net Earnings:</strong> ${{ net_earnings|floatformat:2 }}</p>
+    </div>
+
+    <h3>Sales History (Completed Orders)</h3>
+    {% for order in completed_orders %}
+        <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
+            <h4>Order #{{ order.id }} - {{ order.product.title }}</h4>
+            <p><strong>Sale Price:</strong> ${{ order.total_price|floatformat:2 }}</p>
+            <p><strong>Commission:</strong> -${{ order.commission_paid|floatformat:2 }}</p>
+            <p><strong>Your Earning:</strong> ${{ order.total_price|sub:order.commission_paid|floatformat:2 }}</p>
+        </div>
+    {% empty %}
+        <p>You have no completed sales yet.</p>
+    {% endfor %}
+
+    <h3 style="margin-top: 30px;">My Product Listings</h3>
+    {% for product in products %}
+        <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
+            <h4>{{ product.title }}</h4>
+            <p>Price: ${{ product.price }}</p>
+            <p>Status: {% if product.is_active %}Active{% else %}Paused{% endif %}</p>
+        </div>
+    {% empty %}
+        <p>You have not listed any products yet.</p>
+    {% endfor %}
+{% endblock %}
