@@ -84,6 +84,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // =================== LIVE SEARCH ===================
     const searchInput = document.getElementById('live-search-input');
     const resultsDropdown = document.getElementById('search-results-dropdown');
     let searchTimeout;
@@ -93,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const query = searchInput.value.trim();
             clearTimeout(searchTimeout);
 
-            if (query.length < 1) { // Changed to 1 character
+            if (query.length < 1) {
                 resultsDropdown.style.display = 'none';
                 return;
             }
@@ -112,16 +113,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const columnDiv = document.createElement('div');
                                 columnDiv.className = 'search-result-column';
                                 
-                                // Create the links for the categories
                                 let categoriesHtml = game.categories.map(cat => 
                                     `<a href="${cat.url}">${cat.name}</a>`
                                 ).join('');
 
-                                // Build the column HTML
-                                columnDiv.innerHTML = `
-                                    <h6>${game.name}</h6>
-                                    ${categoriesHtml}
-                                `;
+                                columnDiv.innerHTML = `<h6>${game.name}</h6>${categoriesHtml}`;
                                 contentDiv.appendChild(columnDiv);
                             });
 
@@ -135,10 +131,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         console.error('Live search error:', error);
                         resultsDropdown.style.display = 'none';
                     });
-            }, 300); // 300ms is a good balance for performance
+            }, 300);
         });
 
-        // Hide dropdown if user clicks elsewhere
         document.addEventListener('click', function(e) {
             const searchContainer = searchInput.closest('div');
             if (!searchContainer.contains(e.target)) {
@@ -147,8 +142,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-</script>
-<script>
+
+
 // =================== UTILITY FUNCTIONS ===================
 function formatTimeSince(isoString) {
     if (!isoString) return '';
@@ -156,6 +151,8 @@ function formatTimeSince(isoString) {
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
 
+    if (seconds < 60) return "just now";
+    
     let interval = seconds / 31536000;
     if (interval > 1) return Math.floor(interval) + " years ago";
     interval = seconds / 2592000;
@@ -169,28 +166,43 @@ function formatTimeSince(isoString) {
     return "just now";
 }
 
+/**
+ * NEW: This function runs on an interval to keep all "was active" times updated.
+ */
+function updateRelativeTimestamps() {
+    // Find all elements showing an offline user's status
+    const elements = document.querySelectorAll('[data-iso-timestamp]');
+    elements.forEach(element => {
+        const isoTimestamp = element.dataset.isoTimestamp;
+        if (isoTimestamp) {
+            // Update its text with the newly calculated relative time
+            element.textContent = `was active ${formatTimeSince(isoTimestamp)}`;
+        }
+    });
+}
+
+/**
+ * FIXED: This function now correctly adds/removes the data attribute we need
+ * for the real-time updates.
+ */
 function updateUserStatusOnPage(data) {
     const statusChat = document.getElementById(`status-chat-${data.username}`);
-    const statusList = document.getElementById(`status-list-${data.username}`);
-    
+    if (!statusChat) return;
+
     if (data.is_online) {
-        if (statusChat) {
-            statusChat.textContent = 'Online';
-            statusChat.className = 'text-success';
-        }
-        if (statusList) {
-            statusList.textContent = 'Online';
-        }
+        statusChat.textContent = 'Online';
+        statusChat.className = 'text-success';
+        // User is online, so remove the timestamp attribute.
+        statusChat.removeAttribute('data-iso-timestamp');
     } else {
         const lastSeenText = `was active ${formatTimeSince(data.last_seen_iso)}`;
-        if (statusChat) {
-            statusChat.textContent = lastSeenText;
-            statusChat.className = 'text-muted';
-        }
-        // You might want to revert the list status to the last message, 
-        // or show the 'last active' time there too. We'll leave it as the last message for now.
+        statusChat.textContent = lastSeenText;
+        statusChat.className = 'text-muted';
+        // User is offline, so set the timestamp attribute. Our new function will find this.
+        statusChat.setAttribute('data-iso-timestamp', data.last_seen_iso);
     }
 }
+
 
 // =================== NOTIFICATION WEBSOCKET ===================
 {% if user.is_authenticated %}
@@ -226,7 +238,6 @@ function connectNotifications() {
             updateBadge('a[href="{% url 'seller_dashboard' %}"]', data.active_sales_count);
             updateBadge('a[href="{% url 'my_purchases' %}"]', data.active_purchases_count);
         } else if (notificationType === 'presence_update') {
-            // Call our new function to handle status updates
             updateUserStatusOnPage(data);
         }
     };
@@ -235,14 +246,14 @@ function connectNotifications() {
         setTimeout(connectNotifications, 1000);
     };
 }
+
+// Start the WebSocket connection
 connectNotifications();
+
+// NEW: Start the interval to update timestamps every 30 seconds
+setInterval(updateRelativeTimestamps, 30000);
+
 {% endif %}
-
-
-// =================== LIVE SEARCH SCRIPT ===================
-document.addEventListener('DOMContentLoaded', function() {
-    // ... (Your live search script from before)
-});
 </script>
  
 </body>
