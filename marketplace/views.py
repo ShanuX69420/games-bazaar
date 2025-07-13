@@ -19,22 +19,15 @@ from .forms import ProductForm, ReviewForm, WithdrawalRequestForm, SupportTicket
 
 def live_search(request):
     query = request.GET.get('q', '').strip()
-    
     if not query:
         return JsonResponse([], safe=False)
-
-    # --- THIS IS THE ONLY LINE THAT CHANGED ---
-    # We now use 'istartswith' and 'order_by' for proper alphabetical results.
     games = Game.objects.filter(title__istartswith=query).order_by('title').prefetch_related('categories')[:12]
-    
     results = []
-    
     for game in games:
         try:
             game_url = reverse_lazy('game_detail', kwargs={'pk': game.pk})
         except Exception:
             game_url = '#'
-
         categories_data = []
         for cat in game.categories.all():
             try:
@@ -42,13 +35,11 @@ def live_search(request):
                 categories_data.append({'name': cat.name, 'url': cat_url})
             except Exception:
                 continue
-
         results.append({
             'name': game.title,
             'url': game_url,
             'categories': categories_data
         })
-
     return JsonResponse(results, safe=False)
 
 class RegisterView(generic.CreateView):

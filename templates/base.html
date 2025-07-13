@@ -56,7 +56,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="{% url 'home' %}">Gamer's Market</a>
-            
+
             <div class="mx-auto" style="position: relative; width: 400px;">
                 <form class="d-flex" action="{% url 'search_results' %}" method="get" role="search">
                     <input id="live-search-input" class="form-control me-2" type="search" name="q" placeholder="Search for games..." aria-label="Search" autocomplete="off">
@@ -85,7 +85,7 @@
     {% if user.is_authenticated %}
         {{ request.user.username|json_script:"current-user-username" }}
     {% endif %}
-    
+
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         // =================== LIVE SEARCH ===================
@@ -116,7 +116,7 @@
                                 data.forEach(game => {
                                     const columnDiv = document.createElement('div');
                                     columnDiv.className = 'search-result-column';
-                                    
+
                                     let categoriesHtml = game.categories.map(cat => 
                                         `<a href="${cat.url}">${cat.name}</a>`
                                     ).join('');
@@ -156,7 +156,7 @@
         const seconds = Math.floor((now - date) / 1000);
 
         if (seconds < 60) return "just now";
-        
+
         let interval = seconds / 31536000;
         if (interval > 1) return Math.floor(interval) + " years ago";
         interval = seconds / 2592000;
@@ -232,7 +232,7 @@
         if (timestampElement) {
             timestampElement.textContent = formatTimeSince(data.last_message_timestamp);
         }
-        
+
         // --- THIS IS THE FIX ---
         // Get the active conversation ID from the DOM, if it exists
         const activeConvIdElement = document.getElementById('active-conversation-id');

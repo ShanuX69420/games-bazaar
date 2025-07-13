@@ -141,7 +141,7 @@ def review_creation_message(sender, instance, created, **kwargs):
         order = instance.order
         buyer = order.buyer
         seller = order.seller
-        
+
         conversation = Conversation.objects.filter(
             (Q(participant1=buyer) & Q(participant2=seller)) |
             (Q(participant1=seller) & Q(participant2=buyer))
