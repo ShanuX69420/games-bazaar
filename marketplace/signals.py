@@ -6,9 +6,11 @@ from channels.layers import get_channel_layer
 from django.db.models import Q
 from .models import Order, Review, Conversation, Message
 
-def send_system_message(conversation, content):
+# This function now correctly accepts a sender_user
+def send_system_message(conversation, content, sender_user):
     system_message = Message.objects.create(
         conversation=conversation,
+        sender=sender_user, # Assign the sender
         content=content,
         is_system_message=True
     )
@@ -20,7 +22,7 @@ def send_system_message(conversation, content):
             'type': 'chat_message',
             'message': system_message.content,
             'sender': 'Gamers Market',
-            'timestamp': str(system_message.timestamp.strftime("%b. %d, %Y, %I:%M %p")),
+            'timestamp': str(system_message.timestamp.isoformat()),
             'is_system_message': True
         }
     )
@@ -31,21 +33,17 @@ def order_signal_handler(sender, instance, created, **kwargs):
         (Q(participant1=instance.buyer) & Q(participant2=instance.seller)) |
         (Q(participant1=instance.seller) & Q(participant2=instance.buyer))
     ).first()
-    
+
     if not conversation: return
 
-    # This is the new, more detailed message for a new order
     if created and instance.status == 'PROCESSING':
-        message_content = (
-            f"The buyer {instance.buyer.username} has paid for order #{instance.id}. "
-            f"{instance.product.game.title} - {instance.product.listing_title}\n\n"
-            f"{instance.buyer.username}, do not forget to press the «Confirm order fulfillment» button once you finish."
-        )
-        send_system_message(conversation, message_content)
-        
-    elif not created and instance.status == 'COMPLETED' and instance.tracker.has_changed('status'):
-        message_content = f"The buyer has confirmed fulfillment for order #{instance.id} and the seller {instance.seller.username} has been paid."
-        send_system_message(conversation, message_content)
+        message_content = f"The buyer, {instance.buyer.username}, has paid for order #{instance.id} ({instance.product.listing_title})."
+        # Pass the buyer as the sender of the system event
+        send_system_message(conversation, message_content, instance.buyer)
+
+    elif not created and hasattr(instance, 'tracker') and instance.tracker.has_changed('status') and instance.status == 'COMPLETED':
+        message_content = f"The buyer has confirmed fulfillment for order #{instance.id}."
+        send_system_message(conversation, message_content, instance.buyer)
 
 @receiver(post_save, sender=Review)
 def review_creation_message(sender, instance, created, **kwargs):
@@ -57,4 +55,5 @@ def review_creation_message(sender, instance, created, **kwargs):
         ).first()
         if conversation:
             message_content = f"The buyer has left a {instance.rating}-star review."
-            send_system_message(conversation, message_content)
+            # Pass the buyer as the sender of the system event
+            send_system_message(conversation, message_content, instance.buyer)
