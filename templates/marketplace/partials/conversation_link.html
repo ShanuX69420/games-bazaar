@@ -1,20 +1,25 @@
 {% load time_filters %}
 
-{# This link will have the 'unread' class if its ID is in our list of unread conversation IDs #}
-<a href="{% url 'conversation_detail' other_user.username %}" class="list-group-item list-group-item-action {% if conv.id in unread_conversation_ids %}unread{% endif %} {% if active_conversation and conv.id == active_conversation.id %}active{% endif %}" data-username="{{ other_user.username }}">
+<a href="{% url 'conversation_detail' other_user.username %}" class="list-group-item list-group-item-action {% if conversation.id in unread_conversation_ids %}unread{% endif %} {% if active_conversation and conversation.id == active_conversation.id %}active{% endif %}" data-username="{{ other_user.username }}">
     <div class="d-flex align-items-center">
         <img src="https://i.imgur.com/v8Ld3iI.png" alt="{{ other_user.username }}" width="40" height="40" class="rounded-circle me-3">
         <div class="w-100">
             <div class="d-flex w-100 justify-content-between">
                 <h6 class="mb-1">{{ other_user.username }}</h6>
-                {% if conv.messages.last %}
-                    <small class="text-muted conversation-timestamp">{{ conv.messages.last.timestamp|relative_time }}</small>
+                {% if conversation.messages.last %}
+                    <small class="text-muted conversation-timestamp">{{ conversation.messages.last.timestamp|relative_time }}</small>
                 {% endif %}
             </div>
-            {% if conv.messages.last %}
+            {% if conversation.messages.last %}
                 <p class="mb-1 text-muted small conversation-last-message">
-                    {% if conv.messages.last.sender == request.user %}You: {% endif %}
-                    {{ conv.messages.last.content|truncatechars:25 }}
+                    {# This span will now hold the user's status #}
+                    <span id="status-list-{{ other_user.username }}">
+                        {% if other_user.profile.is_online %}
+                            Online
+                        {% else %}
+                            {{ conversation.messages.last.content|truncatechars:25 }}
+                        {% endif %}
+                    </span>
                 </p>
             {% endif %}
         </div>

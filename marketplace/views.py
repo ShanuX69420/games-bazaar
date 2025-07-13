@@ -204,45 +204,49 @@ def my_purchases(request):
 
 @login_required
 def messages_view(request, username=None):
-    conversations = Conversation.objects.filter(Q(participant1=request.user) | Q(participant2=request.user)).order_by('-updated_at')
-    
-    # --- NEW LOGIC ---
-    # Get a list of IDs for conversations that have messages waiting for the current user.
-    unread_conversation_ids = set(
-        Message.objects.filter(
-            conversation__in=conversations, 
-            is_read=False
-        ).exclude(
-            sender=request.user
-        ).values_list('conversation_id', flat=True)
-    )
-    # --- END NEW LOGIC ---
+    # Get all conversations for the logged-in user for the list on the left
+    conversations = Conversation.objects.filter(
+        Q(participant1=request.user) | Q(participant2=request.user)
+    ).order_by('-updated_at')
 
+    # Get the IDs of conversations with unread messages
+    unread_conversation_ids = set(Message.objects.filter(
+        conversation__in=conversations, is_read=False
+    ).exclude(sender=request.user).values_list('conversation_id', flat=True))
+
+    # Initialize variables
     active_conversation = None
     messages = []
     other_user = None
-    other_user_profile = None
 
     if username:
-        other_user = get_object_or_404(User, username=username)
-        other_user_profile = other_user
-        
-        active_conversation = conversations.filter(
-            (Q(participant1=request.user) & Q(participant2=other_user)) | 
-            (Q(participant1=other_user) & Q(participant2=request.user))
-        ).first()
-        
-        if active_conversation:
-            messages = active_conversation.messages.all().order_by('timestamp')
-            # When a conversation is opened, mark its messages as read.
-            active_conversation.messages.exclude(sender=request.user).update(is_read=True)
+        try:
+            # Get the user object for the person we want to chat with
+            other_user = User.objects.get(username__iexact=username)
+
+            # --- THE CORRECTED LOGIC ---
+            # Directly query for the specific conversation between the two users
+            active_conversation = Conversation.objects.filter(
+                participant1__in=[request.user, other_user],
+                participant2__in=[request.user, other_user]
+            ).first()
+            # --- END CORRECTED LOGIC ---
+
+            if active_conversation:
+                # If a conversation is found, load its messages and mark them as read
+                messages = active_conversation.messages.all().order_by('timestamp')
+                active_conversation.messages.exclude(sender=request.user).update(is_read=True)
+
+        except User.DoesNotExist:
+            # If the user in the URL doesn't exist, do nothing.
+            pass
 
     context = {
-        'conversations': conversations, 
-        'active_conversation': active_conversation, 
-        'other_user_profile': other_user_profile, 
+        'conversations': conversations,
+        'active_conversation': active_conversation,
+        'other_user_profile': other_user, # This now correctly passes the user object
         'messages': messages,
-        'unread_conversation_ids': unread_conversation_ids, # Pass the new list to the template
+        'unread_conversation_ids': unread_conversation_ids,
     }
     return render(request, 'marketplace/my_messages.html', context)
 

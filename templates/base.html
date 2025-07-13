@@ -148,5 +148,102 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+<script>
+// =================== UTILITY FUNCTIONS ===================
+function formatTimeSince(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + " years ago";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + " months ago";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + " days ago";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + " hours ago";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + " minutes ago";
+    return "just now";
+}
+
+function updateUserStatusOnPage(data) {
+    const statusChat = document.getElementById(`status-chat-${data.username}`);
+    const statusList = document.getElementById(`status-list-${data.username}`);
+    
+    if (data.is_online) {
+        if (statusChat) {
+            statusChat.textContent = 'Online';
+            statusChat.className = 'text-success';
+        }
+        if (statusList) {
+            statusList.textContent = 'Online';
+        }
+    } else {
+        const lastSeenText = `was active ${formatTimeSince(data.last_seen_iso)}`;
+        if (statusChat) {
+            statusChat.textContent = lastSeenText;
+            statusChat.className = 'text-muted';
+        }
+        // You might want to revert the list status to the last message, 
+        // or show the 'last active' time there too. We'll leave it as the last message for now.
+    }
+}
+
+// =================== NOTIFICATION WEBSOCKET ===================
+{% if user.is_authenticated %}
+function updateBadge(selector, count) {
+    const link = document.querySelector(selector);
+    if (!link) return;
+    let badge = link.querySelector('.badge');
+    if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'badge bg-danger ms-1';
+        link.appendChild(badge);
+    }
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = '';
+    } else {
+        if (badge) badge.remove();
+    }
+}
+
+function connectNotifications() {
+    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const notificationSocket = new WebSocket(protocol + window.location.host + '/ws/notifications/');
+
+    notificationSocket.onmessage = function(e) {
+        const content = JSON.parse(e.data);
+        const notificationType = content.type;
+        const data = content.data;
+
+        if (notificationType === 'new_message') {
+            updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
+        } else if (notificationType === 'order_update') {
+            updateBadge('a[href="{% url 'seller_dashboard' %}"]', data.active_sales_count);
+            updateBadge('a[href="{% url 'my_purchases' %}"]', data.active_purchases_count);
+        } else if (notificationType === 'presence_update') {
+            // Call our new function to handle status updates
+            updateUserStatusOnPage(data);
+        }
+    };
+
+    notificationSocket.onclose = function(e) {
+        setTimeout(connectNotifications, 1000);
+    };
+}
+connectNotifications();
+{% endif %}
+
+
+// =================== LIVE SEARCH SCRIPT ===================
+document.addEventListener('DOMContentLoaded', function() {
+    // ... (Your live search script from before)
+});
+</script>
+ 
 </body>
 </html>

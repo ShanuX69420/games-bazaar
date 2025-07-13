@@ -1,3 +1,5 @@
+from django.utils import timezone
+import datetime
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
@@ -28,7 +30,17 @@ class Category(models.Model):
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     commission_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Custom commission for this seller in % (e.g., 7.00).")
-    def __str__(self): return f'{self.user.username} Profile'
+    last_seen = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def is_online(self):
+        if self.last_seen:
+            # A user is "online" if their last seen time was within the last 5 minutes.
+            return timezone.now() < self.last_seen + datetime.timedelta(minutes=5)
+        return False
+
+    def __str__(self): 
+        return f'{self.user.username} Profile'
 
 @receiver(post_save, sender=User)
 def create_or_update_user_profile(sender, instance, created, **kwargs):
