@@ -1,6 +1,6 @@
 {% load time_filters %}
 
-<a href="{% url 'conversation_detail' other_user.username %}" class="list-group-item list-group-item-action {% if conversation.id in unread_conversation_ids %}unread{% endif %} {% if active_conversation and conversation.id == active_conversation.id %}active{% endif %}" data-username="{{ other_user.username }}">
+<a href="{% url 'conversation_detail' other_user.username %}" class="list-group-item list-group-item-action {% if conversation.id in unread_conversation_ids %}unread{% endif %} {% if active_conversation and conversation.id == active_conversation.id %}active{% endif %}" data-username="{{ other_user.username }}" data-conversation-id="{{ conversation.id }}">
     <div class="d-flex align-items-center">
         <img src="https://i.imgur.com/v8Ld3iI.png" alt="{{ other_user.username }}" width="40" height="40" class="rounded-circle me-3">
         <div class="w-100">

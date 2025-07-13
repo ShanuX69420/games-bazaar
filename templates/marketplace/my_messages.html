@@ -147,5 +147,146 @@
             };
         }
     </script>
+    <script>
+        // This function formats the time just like Django does.
+        function formatRelativeTimeJS(isoString) {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            const today = new Date();
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            if (date.toDateString() === today.toDateString()) {
+                return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+            } else if (date.toDateString() === yesterday.toDateString()) {
+                return 'yesterday';
+            } else {
+                return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            }
+        }
+
+        // This function finds the right conversation in the list and updates it.
+        function updateConversationList(data) {
+            const conversationList = document.querySelector('.list-group');
+            if (!conversationList) return;
+
+            // Find the specific conversation link using the ID we added earlier.
+            const conversationLink = conversationList.querySelector(`[data-conversation-id='${data.conversation_id}']`);
+            if (!conversationLink) return;
+
+            // Update the last message preview.
+            const lastMessageElem = conversationLink.querySelector('.conversation-last-message');
+            if (lastMessageElem) {
+                const truncatedMessage = data.last_message_content.length > 25 
+                    ? data.last_message_content.substring(0, 25) + '...' 
+                    : data.last_message_content;
+                lastMessageElem.textContent = truncatedMessage;
+            }
+
+            // Update the timestamp.
+            const timestampElem = conversationLink.querySelector('.conversation-timestamp');
+            if (timestampElem) {
+                timestampElem.textContent = formatRelativeTimeJS(data.last_message_timestamp);
+            }
+
+            // Mark the conversation as unread and move it to the top of the list.
+            conversationLink.classList.add('unread');
+            conversationList.prepend(conversationLink);
+        }
+
+        // This listens for the special notification from our server.
+        document.addEventListener('new-message-notification', function(e) {
+            // We get the message details from the event.
+            const messageData = e.detail;
+            
+            // We only update the list if we are on the messages page.
+            if (document.querySelector('.list-group')) {
+                updateConversationList(messageData);
+            }
+        });
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.notificationSocket) {
+                const originalOnMessage = window.notificationSocket.onmessage;
+                window.notificationSocket.onmessage = function(e) {
+                    if (originalOnMessage) {
+                        originalOnMessage(e); // Run the original code first.
+                    }
+                    
+                    const content = JSON.parse(e.data);
+                    if (content.type === 'new_message') {
+                        // Send out our custom event that the script above is listening for.
+                        const event = new CustomEvent('new-message-notification', { detail: content.data });
+                        document.dispatchEvent(event);
+                    }
+                }
+            }
+        });
+    </script>
+    
 {% endif %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        
+        function formatRelativeTimeJS(isoString) {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            const today = new Date();
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            if (date.toDateString() === today.toDateString()) {
+                return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+            } else if (date.toDateString() === yesterday.toDateString()) {
+                return 'yesterday';
+            } else {
+                return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            }
+        }
+
+        function updateConversationList(data) {
+            const conversationList = document.querySelector('.list-group');
+            if (!conversationList) return;
+
+            const conversationLink = conversationList.querySelector(`[data-username='${data.sender_username}']`);
+            if (!conversationLink) return;
+
+            const lastMessageElem = conversationLink.querySelector('.conversation-last-message');
+            if (lastMessageElem) {
+                const truncatedMessage = data.last_message_content.length > 25 
+                    ? data.last_message_content.substring(0, 25) + '...' 
+                    : data.last_message_content;
+                lastMessageElem.textContent = truncatedMessage;
+            }
+
+            const timestampElem = conversationLink.querySelector('.conversation-timestamp');
+            if (timestampElem) {
+                timestampElem.textContent = formatRelativeTimeJS(data.last_message_timestamp);
+            }
+
+            conversationLink.classList.add('unread');
+            conversationList.prepend(conversationLink);
+        }
+
+        // Check if the global notification socket from base.html exists
+        if (window.notificationSocket) {
+            const originalOnMessage = window.notificationSocket.onmessage;
+            window.notificationSocket.onmessage = function(e) {
+                if (originalOnMessage) {
+                    originalOnMessage(e);
+                }
+                
+                const content = JSON.parse(e.data);
+                if (content.type === 'new_message' && content.data) {
+                     // If we are on the messages page, update the list
+                    if (document.querySelector('.list-group')) {
+                        updateConversationList(content.data);
+                    }
+                }
+            }
+        }
+    });
+</script>
 {% endblock %}
