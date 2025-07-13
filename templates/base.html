@@ -205,6 +205,42 @@ function updateUserStatusOnPage(data) {
     }
 }
 
+/**
+ * NEW: This function updates the conversation list on the left in real-time.
+ */
+function updateConversationLink(data) {
+    // Find the link for the specific conversation using its ID
+    const conversationLink = document.querySelector(`.list-group-item[data-conversation-id="${data.conversation_id}"]`);
+    if (!conversationLink) return; // Exit if the user is not on the messages page
+
+    // Find the elements for the last message and timestamp inside the link
+    const lastMessageElement = conversationLink.querySelector('.conversation-last-message');
+    const timestampElement = conversationLink.querySelector('.conversation-timestamp');
+
+    // Update the last message text, cutting it off if it's too long
+    if (lastMessageElement) {
+        let truncatedMessage = data.last_message_content;
+        if (truncatedMessage.length > 25) {
+            truncatedMessage = truncatedMessage.substring(0, 25) + '...';
+        }
+        lastMessageElement.textContent = truncatedMessage;
+    }
+
+    // Update the timestamp to show a relative time like "just now"
+    if (timestampElement) {
+        timestampElement.textContent = formatTimeSince(data.last_message_timestamp);
+    }
+
+    // Mark the conversation as unread
+    conversationLink.classList.add('unread');
+
+    // Move the updated conversation to the top of the list for visibility
+    const parentList = conversationLink.parentNode;
+    if (parentList) {
+        parentList.prepend(conversationLink);
+    }
+}
+
 
 // =================== NOTIFICATION WEBSOCKET ===================
 {% if user.is_authenticated %}
@@ -235,6 +271,7 @@ function connectNotifications() {
         const data = content.data;
 
         if (notificationType === 'new_message') {
+            updateConversationLink(data); // This is our new function call
             updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
         } else if (notificationType === 'order_update') {
             updateBadge('a[href="{% url 'seller_dashboard' %}"]', data.active_sales_count);
