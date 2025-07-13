@@ -7,13 +7,12 @@ from django.db.models import Q
 from .models import Order, Review, Conversation, Message, User
 from channels.db import database_sync_to_async
 
-# --- NEW ASYNC HELPER FUNCTIONS ---
+# --- ASYNC HELPER FUNCTIONS ---
 
 @database_sync_to_async
 def get_unread_conversation_count(user):
     """
     Calculates the total number of conversations with unread messages for a user.
-    This logic is now consistent across the entire application.
     """
     user_conversations = Conversation.objects.filter(Q(participant1=user) | Q(participant2=user))
     return Message.objects.filter(
@@ -21,9 +20,12 @@ def get_unread_conversation_count(user):
         is_read=False
     ).exclude(sender=user).values('conversation').distinct().count()
 
-async def send_message_notification(user):
+# --- MODIFIED FUNCTION ---
+# This function now accepts the message object to build a rich payload.
+async def send_message_notification(user, system_message):
     """
-    Sends a notification to update the user's main 'Messages' badge.
+    Sends a notification to update the user's main 'Messages' badge
+    AND the conversation list preview.
     """
     count = await get_unread_conversation_count(user)
     channel_layer = get_channel_layer()
@@ -34,7 +36,14 @@ async def send_message_notification(user):
         {
             "type": "send_notification",
             "notification_type": "new_message",
-            "data": {'unread_conversations_count': count},
+            # This data payload is now rich with details, just like for user messages
+            "data": {
+                'unread_conversations_count': count,
+                'conversation_id': system_message.conversation.id,
+                'last_message_content': system_message.content,
+                'last_message_timestamp': str(system_message.timestamp.isoformat()),
+                'sender_username': 'Gamers Market', # Identify the sender as the system
+            },
         }
     )
 
@@ -67,13 +76,12 @@ async def send_order_update_notification(user):
         }
     )
 
-# --- END NEW ASYNC HELPER FUNCTIONS ---
-
-
+# --- MODIFIED FUNCTION ---
+# This function now returns the message object it creates.
 def send_system_message(conversation, content, sender_user):
     """
-    This function now only creates the message and sends it to the chat room.
-    The navbar notification is handled separately by the signal handlers.
+    This function creates the message, sends it to the chat room,
+    and now returns the created message object.
     """
     system_message = Message.objects.create(
         conversation=conversation,
@@ -93,39 +101,40 @@ def send_system_message(conversation, content, sender_user):
             'is_system_message': True
         }
     )
+    return system_message # Return the object
 
+# --- MODIFIED SIGNAL HANDLER ---
 @receiver(post_save, sender=Order)
 def order_signal_handler(sender, instance, created, **kwargs):
     buyer = instance.buyer
     seller = instance.seller
 
-    # Find the conversation between the buyer and seller
     conversation = Conversation.objects.filter(
         (Q(participant1=buyer) & Q(participant2=seller)) |
         (Q(participant1=seller) & Q(participant2=buyer))
     ).first()
 
-    # Determine message content and the recipient of the notification
     message_content = None
     notification_recipient = None
 
     if created and instance.status == 'PROCESSING':
         message_content = f"The buyer, {buyer.username}, has paid for order #{instance.id} ({instance.product.listing_title})."
-        notification_recipient = seller # Notify the seller of the new sale
+        notification_recipient = seller
     elif not created and instance.tracker.has_changed('status') and instance.status == 'COMPLETED':
         message_content = f"The buyer has confirmed fulfillment for order #{instance.id}."
-        notification_recipient = seller # Notify the seller of the completion
+        notification_recipient = seller
 
-    # If there's a message to send, send it and trigger the navbar notification
     if conversation and message_content and notification_recipient:
-        send_system_message(conversation, message_content, buyer)
-        async_to_sync(send_message_notification)(notification_recipient)
+        # 1. Create system message and get the object back
+        system_msg = send_system_message(conversation, message_content, buyer)
+        # 2. Send the rich notification using the message object
+        async_to_sync(send_message_notification)(notification_recipient, system_msg)
 
     # Always send order count updates to both users
     async_to_sync(send_order_update_notification)(buyer)
     async_to_sync(send_order_update_notification)(seller)
 
-
+# --- MODIFIED SIGNAL HANDLER ---
 @receiver(post_save, sender=Review)
 def review_creation_message(sender, instance, created, **kwargs):
     if created:
@@ -140,7 +149,7 @@ def review_creation_message(sender, instance, created, **kwargs):
 
         if conversation:
             message_content = f"The buyer has left a {instance.rating}-star review."
-            # Send the system message in the chat
-            send_system_message(conversation, message_content, buyer)
-            # Send the navbar notification to the seller
-            async_to_sync(send_message_notification)(seller)
+            # 1. Create system message and get the object back
+            system_msg = send_system_message(conversation, message_content, buyer)
+            # 2. Send the rich notification to the seller
+            async_to_sync(send_message_notification)(seller, system_msg)

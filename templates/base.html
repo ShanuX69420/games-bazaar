@@ -271,11 +271,13 @@ function connectNotifications() {
         const data = content.data;
 
         if (notificationType === 'new_message') {
-            updateConversationLink(data); // This is our new function call
+            updateConversationLink(data); // <-- THIS IS THE FIX
             updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
+            playNotificationSound(); // Play sound on new message
         } else if (notificationType === 'order_update') {
             updateBadge('a[href="{% url 'seller_dashboard' %}"]', data.active_sales_count);
             updateBadge('a[href="{% url 'my_purchases' %}"]', data.active_purchases_count);
+            playNotificationSound(); // Play sound on order update
         } else if (notificationType === 'presence_update') {
             updateUserStatusOnPage(data);
         }
