@@ -1,3 +1,4 @@
+# marketplace/consumers.py
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
@@ -5,7 +6,7 @@ from django.contrib.auth.models import User
 from django.db.models import Q
 from django.utils import timezone
 from .models import Conversation, Message
-from channels.layers import get_channel_layer # <-- THIS IS THE FIX
+from channels.layers import get_channel_layer 
 from asgiref.sync import async_to_sync
 
 @database_sync_to_async
@@ -63,6 +64,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             
             new_message = await self.create_message(self.conversation, self.user, message_content)
             
+            # Send message to the chat room
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -73,24 +75,30 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'is_system_message': False
                 }
             )
-            
-            unread_convo_count = await self.get_unread_conversation_count(self.other_user)
-            notification_group_name = f'notifications_{self.other_user.username}'
-            
-            await self.channel_layer.group_send(
-                notification_group_name,
-                {
-                    'type': 'send_notification',
-                    'notification_type': 'new_message',
-                    'data': {
-                        'unread_conversations_count': unread_convo_count,
-                        'conversation_id': self.conversation.id,
-                        'last_message_content': new_message.content,
-                        'last_message_timestamp': str(new_message.timestamp.isoformat()),
-                        'sender_username': self.user.username,
+
+            # --- START: THIS IS THE FIX ---
+            # After sending a message, notify BOTH users to update their conversation lists.
+            users_to_notify = [self.user, self.other_user]
+            for user in users_to_notify:
+                unread_convo_count = await self.get_unread_conversation_count(user)
+                notification_group_name = f'notifications_{user.username}'
+                
+                await self.channel_layer.group_send(
+                    notification_group_name,
+                    {
+                        'type': 'send_notification',
+                        'notification_type': 'new_message',
+                        'data': {
+                            'unread_conversations_count': unread_convo_count,
+                            'conversation_id': self.conversation.id,
+                            'last_message_content': new_message.content,
+                            'last_message_timestamp': str(new_message.timestamp.isoformat()),
+                            'sender_username': self.user.username,
+                        }
                     }
-                }
-            )
+                )
+            # --- END: THIS IS THE FIX ---
+
         except Exception as e:
             print(f"!!! CHATCONSUMER ERROR in receive method: {e} !!!")
 
@@ -119,7 +127,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def create_message(self, conversation, sender, content):
         message = Message.objects.create(conversation=conversation, sender=sender, content=content)
-        conversation.save()
+        conversation.save() # This updates the `updated_at` field
         return message
 
     @database_sync_to_async
