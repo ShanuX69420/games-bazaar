@@ -113,10 +113,17 @@ def create_product(request, game_pk, category_pk):
     context = {'form': form, 'game': game, 'category': category}
     return render(request, 'marketplace/product_form.html', context)
 
+# This is the corrected version
 @login_required
 def create_order(request, pk):
     product = get_object_or_404(Product, pk=pk)
-    order = Order.objects.create(buyer=request.user, seller=product.seller, product=product, total_price=product.price, status='PROCESSING')
+    order = Order.objects.create(
+        buyer=request.user,
+        seller=product.seller,
+        product=product,
+        total_price=product.price,
+        status='PROCESSING'
+    )
     order_url = reverse_lazy('order_detail', kwargs={'pk': order.pk})
     return JsonResponse({'status': 'success', 'order_url': order_url})
 
@@ -162,46 +169,24 @@ def my_purchases(request):
 
 @login_required
 def messages_view(request, username=None):
-    # Get all conversations for the user, sorted by the most recently updated
-    conversations = Conversation.objects.filter(
-        Q(participant1=request.user) | Q(participant2=request.user)
-    ).order_by('-updated_at')
-
+    conversations = Conversation.objects.filter(Q(participant1=request.user) | Q(participant2=request.user)).order_by('-updated_at')
     active_conversation = None
     messages = []
     other_user = None
-
-    # Determine which conversation to show
     if username:
-        # If a username is in the URL, find that specific conversation
         other_user = get_object_or_404(User, username=username)
-        active_conversation = conversations.filter(
-            (Q(participant1=request.user) & Q(participant2=other_user)) |
-            (Q(participant1=other_user) & Q(participant2=request.user))
-        ).first()
+        active_conversation = conversations.filter((Q(participant1=request.user) & Q(participant2=other_user)) | (Q(participant1=other_user) & Q(participant2=request.user))).first()
     elif conversations:
-        # Otherwise, default to the most recent valid conversation
         for conv in conversations:
-            # Find the first conversation that is not with the user themselves
             if (conv.participant1 == request.user and conv.participant2 != request.user) or \
                (conv.participant2 == request.user and conv.participant1 != request.user):
                 active_conversation = conv
                 break
-
-    # Get the messages and the "other user" for the active conversation
     if active_conversation:
         messages = active_conversation.messages.all().order_by('timestamp')
-        if active_conversation.participant1 == request.user:
-            other_user = active_conversation.participant2
-        else:
-            other_user = active_conversation.participant1
-
-    context = {
-        'conversations': conversations,
-        'active_conversation': active_conversation,
-        'other_user_profile': other_user,
-        'messages': messages,
-    }
+        if active_conversation.participant1 == request.user: other_user = active_conversation.participant2
+        else: other_user = active_conversation.participant1
+    context = {'conversations': conversations, 'active_conversation': active_conversation, 'other_user_profile': other_user, 'messages': messages}
     return render(request, 'marketplace/my_messages.html', context)
 
 @login_required
