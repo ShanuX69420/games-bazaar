@@ -1,38 +1,42 @@
 {% extends "base.html" %}
-{% load math_filters %}
 
 {% block content %}
-    <h2>My Dashboard</h2>
-    <a href="{% url 'create_product' %}" style="margin-bottom: 20px; display: inline-block;">+ Add New Product</a>
+    <h2 class="mb-4">My Dashboard</h2>
 
-    <div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; background-color: #f4f4f4;">
-        <h3>Earnings Summary</h3>
-        <p><strong>Total Sales:</strong> ${{ total_sales|floatformat:2 }}</p>
-        <p><strong>Commissions Paid:</strong> -${{ total_commission|floatformat:2 }}</p>
-        <hr>
-        <p><strong>Net Earnings:</strong> ${{ net_earnings|floatformat:2 }}</p>
+    <div class="card mb-4">
+        <div class="card-header">
+            Earnings Summary
+        </div>
+        <div class="card-body">
+            <p class="card-text"><strong>Total Sales:</strong> ${{ total_sales|floatformat:2 }}</p>
+            <p class="card-text"><strong>Commissions Paid:</strong> -${{ total_commission|floatformat:2 }}</p>
+            <hr>
+            <p class="card-text"><strong>Net Earnings:</strong> ${{ net_earnings|floatformat:2 }}</p>
+        </div>
     </div>
 
-    <h3>Sales History (Completed Orders)</h3>
-    {% for order in completed_orders %}
-        <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
-            <h4>Order #{{ order.id }} - {{ order.product.title }}</h4>
-            <p><strong>Sale Price:</strong> ${{ order.total_price|floatformat:2 }}</p>
-            <p><strong>Commission:</strong> -${{ order.commission_paid|floatformat:2 }}</p>
-            <p><strong>Your Earning:</strong> ${{ order.total_price|sub:order.commission_paid|floatformat:2 }}</p>
-        </div>
-    {% empty %}
-        <p>You have no completed sales yet.</p>
-    {% endfor %}
-
-    <h3 style="margin-top: 30px;">My Product Listings</h3>
-    {% for product in products %}
-        <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
-            <h4>{{ product.title }}</h4>
-            <p>Price: ${{ product.price }}</p>
-            <p>Status: {% if product.is_active %}Active{% else %}Paused{% endif %}</p>
-        </div>
-    {% empty %}
-        <p>You have not listed any products yet.</p>
-    {% endfor %}
+    <h3>All Orders</h3>
+    <div class="list-group">
+        {% for order in all_orders %}
+            <a href="{% url 'order_detail' order.pk %}" class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">Order #{{ order.id }} - {{ order.product.game.title }}: {{ order.product.listing_title }}</h5>
+                    <small>{{ order.created_at|date:"M. d, Y" }}</small>
+                </div>
+                <p class="mb-1">Buyer: {{ order.buyer.username }}</p>
+                <small>Status: 
+                    <span class="badge rounded-pill
+                        {% if order.status == 'COMPLETED' %}bg-success
+                        {% elif order.status == 'PROCESSING' %}bg-warning text-dark
+                        {% elif order.status == 'REFUNDED' or order.status == 'CANCELLED' %}bg-danger
+                        {% else %}bg-secondary
+                        {% endif %}">
+                        {{ order.get_status_display }}
+                    </span>
+                </small>
+            </a>
+        {% empty %}
+            <p>You have no sales yet.</p>
+        {% endfor %}
+    </div>
 {% endblock %}

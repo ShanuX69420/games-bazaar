@@ -1,63 +1,49 @@
-# marketplace/models.py
-
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save # Import post_save signal
+from django.db.models.signals import post_save
 from django.dispatch import receiver
-
+from model_utils import FieldTracker
 
 class SiteConfiguration(models.Model):
-    default_commission_rate = models.DecimalField(
-        max_digits=5, decimal_places=2, default=10.00,
-        help_text="Default site-wide commission rate in % (e.g., 10.00)."
-    )
+    default_commission_rate = models.DecimalField(max_digits=5, decimal_places=2, default=10.00, help_text="Default site-wide commission rate in % (e.g., 10.00).")
+    def __str__(self): return "Site Configuration"
 
-    def __str__(self):
-        return "Site Configuration"
+class FlatPage(models.Model):
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(unique=True, help_text="The URL-friendly version of the title, e.g., 'support-center'")
+    content = models.TextField()
+    updated_at = models.DateTimeField(auto_now=True)
+    def __str__(self): return self.title
 
-# --- CATEGORY MODEL (UPDATED) ---
+class Game(models.Model):
+    title = models.CharField(max_length=200, unique=True)
+    categories = models.ManyToManyField('Category', related_name='games')
+    def __str__(self): return self.title
+
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    # This field holds a custom commission rate for this specific category
-    commission_rate = models.DecimalField(
-        max_digits=5, decimal_places=2, null=True, blank=True, 
-        help_text="Custom commission rate in % (e.g., 15.00). Leave blank to use seller's or site default."
-    )
+    commission_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Custom commission rate in % (e.g., 15.00).")
+    def __str__(self): return self.name
 
-    def __str__(self):
-        return self.name
-
-# --- NEW PROFILE MODEL ---
-# This model extends the built-in User model to store our custom fields
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    # This field holds a custom commission rate for this specific seller
-    commission_rate = models.DecimalField(
-        max_digits=5, decimal_places=2, null=True, blank=True, 
-        help_text="Custom commission for this seller in % (e.g., 7.00). Leave blank to use category or site default."
-    )
+    commission_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Custom commission for this seller in % (e.g., 7.00).")
+    def __str__(self): return f'{self.user.username} Profile'
 
-    def __str__(self):
-        return f'{self.user.username} Profile'
-
-# --- NEW SIGNAL ---
-# This signal ensures a Profile is created automatically for each new User
 @receiver(post_save, sender=User)
-def create_user_profile(sender, instance, created, **kwargs):
+def create_or_update_user_profile(sender, instance, created, **kwargs):
     if created:
         Profile.objects.create(user=instance)
-
-@receiver(post_save, sender=User)
-def save_user_profile(sender, instance, **kwargs):
-    instance.profile.save()
-
-
-# --- All other models (Product, Order, etc.) remain the same ---
-# (You can copy them from your existing file if they are not here)
+    else:
+        try:
+            instance.profile.save()
+        except Profile.DoesNotExist:
+            Profile.objects.create(user=instance)
 
 class Product(models.Model):
     seller = models.ForeignKey(User, on_delete=models.CASCADE)
-    title = models.CharField(max_length=255)
+    game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name='listings')
+    listing_title = models.CharField(max_length=255)
     description = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True)
@@ -65,57 +51,28 @@ class Product(models.Model):
     is_virtual = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
-
-    def __str__(self):
-        return self.title
+    def __str__(self): return f'{self.game.title} - {self.listing_title}'
 
 class Order(models.Model):
-    STATUS_CHOICES = [
-        ('PENDING_PAYMENT', 'Pending Payment'),
-        ('PROCESSING', 'Processing'),
-        ('DELIVERED', 'Delivered'),
-        ('COMPLETED', 'Completed'),
-        ('DISPUTED', 'Disputed'),
-        ('REFUNDED', 'Refunded'),
-        ('CANCELLED', 'Cancelled'),
-    ]
-
+    STATUS_CHOICES = [('PENDING_PAYMENT', 'Pending Payment'), ('PROCESSING', 'Processing'), ('DELIVERED', 'Delivered'), ('COMPLETED', 'Completed'), ('DISPUTED', 'Disputed'), ('REFUNDED', 'Refunded'), ('CANCELLED', 'Cancelled')]
     buyer = models.ForeignKey(User, related_name='purchases', on_delete=models.CASCADE)
     seller = models.ForeignKey(User, related_name='sales', on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(default=1)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING_PAYMENT')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     commission_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-
+    tracker = FieldTracker()
+    def __str__(self): return f"Order #{self.id} for {self.product.listing_title}"
     def calculate_commission(self):
-        """
-        Calculates commission based on the hierarchy:
-        1. Seller's custom rate
-        2. Category's custom rate
-        3. Site's default rate
-        """
-        # Import inside the method to avoid circular import
         from .models import SiteConfiguration
-
-        # 1. Check for a seller-specific rate
-        if self.seller.profile.commission_rate is not None:
-            rate = self.seller.profile.commission_rate
-        # 2. Check for a category-specific rate
-        elif self.product.category and self.product.category.commission_rate is not None:
-            rate = self.product.category.commission_rate
-        # 3. Use the site-wide default
+        if self.seller.profile.commission_rate is not None: rate = self.seller.profile.commission_rate
+        elif self.product.category and self.product.category.commission_rate is not None: rate = self.product.category.commission_rate
         else:
             config = SiteConfiguration.objects.first()
             rate = config.default_commission_rate if config else 10.00
-
-        commission_amount = (self.total_price * rate) / 100
-        return commission_amount
-
-    def __str__(self):
-        return f"Order #{self.id} for {self.product.title}"
+        return (self.total_price * rate) / 100
 
 class Review(models.Model):
     order = models.OneToOneField(Order, on_delete=models.CASCADE)
@@ -124,15 +81,42 @@ class Review(models.Model):
     rating = models.PositiveSmallIntegerField()
     comment = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    def __str__(self): return f"Review by {self.buyer.username} for Order #{self.order.id}"
 
-    def __str__(self):
-        return f"Review by {self.buyer.username} for Order #{self.order.id}"
+class Conversation(models.Model):
+    participant1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversations1')
+    participant2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversations2')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    class Meta: unique_together = ('participant1', 'participant2')
+    def __str__(self): return f"Conversation between {self.participant1.username} and {self.participant2.username}"
 
-class ChatMessage(models.Model):
-    order = models.ForeignKey(Order, related_name='messages', on_delete=models.CASCADE)
-    sender = models.ForeignKey(User, on_delete=models.CASCADE)
-    message = models.TextField()
+class Message(models.Model):
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
+    content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+    is_system_message = models.BooleanField(default=False)
+    def __str__(self): return f"Message from {self.sender.username} at {self.timestamp}"
 
-    def __str__(self):
-        return f"Message from {self.sender.username} on Order #{self.order.id}"
+class WithdrawalRequest(models.Model):
+    STATUS_CHOICES = [('PENDING', 'Pending'), ('APPROVED', 'Approved'), ('REJECTED', 'Rejected')]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='withdrawal_requests')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
+    requested_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    admin_notes = models.TextField(blank=True, null=True)
+    def __str__(self): return f"Withdrawal request for {self.user.username} of ${self.amount}"
+
+class SupportTicket(models.Model):
+    STATUS_CHOICES = [('OPEN', 'Open'), ('IN_PROGRESS', 'In Progress'), ('CLOSED', 'Closed')]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='support_tickets')
+    subject = models.CharField(max_length=255)
+    message = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='OPEN')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    admin_response = models.TextField(blank=True, null=True)
+    def __str__(self): return f"Ticket #{self.id} by {self.user.username} - {self.subject}"

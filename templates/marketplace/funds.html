@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="mb-4">Funds</h1>
+
+    <div class="row">
+        <div class="col-md-5">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Available Balance</h5>
+                    <p class="card-text fs-2 fw-bold">${{ balance|floatformat:2 }}</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Request a Withdrawal</h5>
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        <button type="submit" class="btn btn-primary w-100">Submit Request</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-7">
+            <h4>Withdrawal History</h4>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col">Amount</th>
+                        <th scope="col">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in withdrawal_history %}
+                    <tr>
+                        <td>{{ item.requested_at|date:"M. d, Y" }}</td>
+                        <td>${{ item.amount|floatformat:2 }}</td>
+                        <td>
+                            <span class="badge 
+                                {% if item.status == 'APPROVED' %}bg-success
+                                {% elif item.status == 'PENDING' %}bg-warning text-dark
+                                {% elif item.status == 'REJECTED' %}bg-danger
+                                {% endif %}">
+                                {{ item.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3">No withdrawal requests yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

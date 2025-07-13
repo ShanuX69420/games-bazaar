@@ -1,49 +1,89 @@
-# marketplace/views.py
-
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.forms import UserCreationForm
 from django.urls import reverse_lazy
 from django.views import generic
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden
-from django.db.models import Sum, Q
+from django.http import JsonResponse, HttpResponseForbidden
+from django.db.models import Sum, Q, Count
+from django.db.models.functions import Lower
+from django.contrib.auth.models import User
+import string
+from collections import defaultdict
 
-from .models import Product, Order, ChatMessage, Review
-from .forms import ProductForm, ReviewForm
+from .models import (
+    Game, Category, Product, Order, Review, FlatPage, 
+    Conversation, Message, WithdrawalRequest, SupportTicket, SiteConfiguration, Profile
+)
+from .forms import ProductForm, ReviewForm, WithdrawalRequestForm, SupportTicketForm
 
-# --- AUTHENTICATION ---
 class RegisterView(generic.CreateView):
     form_class = UserCreationForm
     success_url = reverse_lazy('login') 
     template_name = 'registration/register.html'
 
-# --- MAIN PAGES ---
 def home(request):
-    products = Product.objects.filter(is_active=True)
-    return render(request, 'marketplace/home.html', {'products': products})
+    all_games = Game.objects.prefetch_related('categories').order_by(Lower('title'))
+    letters = list(string.ascii_uppercase)
+    context = {'games': all_games, 'letters': letters}
+    return render(request, 'marketplace/home.html', context)
 
+def search_results(request):
+    query = request.GET.get('q', '')
+    if query:
+        games = Game.objects.filter(title__icontains=query).prefetch_related('categories').order_by('title')
+    else:
+        games = Game.objects.none()
+    context = {'query': query, 'games': games}
+    return render(request, 'marketplace/search_results.html', context)
+
+@login_required
 def product_detail(request, pk):
     product = get_object_or_404(Product, pk=pk, is_active=True)
-    return render(request, 'marketplace/product_detail.html', {'product': product})
+    other_user = product.seller
+    if request.user.id < other_user.id:
+        p1, p2 = request.user, other_user
+    else:
+        p1, p2 = other_user, request.user
+    conversation, created = Conversation.objects.get_or_create(participant1=p1, participant2=p2)
+    messages = conversation.messages.all().order_by('timestamp')
+    context = {'product': product, 'other_user': other_user, 'messages': messages}
+    return render(request, 'marketplace/product_detail.html', context)
 
-# --- SELLER DASHBOARD ---
+def game_detail_view(request, pk):
+    game = get_object_or_404(Game, pk=pk)
+    categories = game.categories.all()
+    context = {'game': game, 'categories': categories}
+    return render(request, 'marketplace/game_detail.html', context)
+
+def listing_page_view(request, game_pk, category_pk):
+    game = get_object_or_404(Game, pk=game_pk)
+    current_category = get_object_or_404(Category, pk=category_pk)
+    listings = Product.objects.filter(game=game, category=current_category, is_active=True)
+    all_categories = game.categories.all().annotate(listing_count=Count('product', filter=Q(product__game=game, product__is_active=True)))
+    context = {'game': game, 'current_category': current_category, 'all_categories': all_categories, 'listings': listings}
+    return render(request, 'marketplace/listing_page.html', context)
+
+def public_profile_view(request, username):
+    profile_user = get_object_or_404(User, username=username)
+    products = Product.objects.filter(seller=profile_user, is_active=True)
+    context = {'profile_user': profile_user, 'products': products}
+    return render(request, 'marketplace/public_profile.html', context)
+
+def flat_page_view(request, slug):
+    page = get_object_or_404(FlatPage, slug=slug)
+    return render(request, 'marketplace/flat_page.html', {'page': page})
+
 @login_required
 def seller_dashboard(request):
-    products = Product.objects.filter(seller=request.user)
-    completed_orders = Order.objects.filter(seller=request.user, status='COMPLETED')
-
-    sales_data = completed_orders.aggregate(
-        total_sales=Sum('total_price'),
-        total_commission=Sum('commission_paid')
-    )
-
+    all_orders = Order.objects.filter(seller=request.user).order_by('-created_at')
+    completed_orders = all_orders.filter(status='COMPLETED')
+    sales_data = completed_orders.aggregate(total_sales=Sum('total_price'), total_commission=Sum('commission_paid'))
     total_sales = sales_data.get('total_sales') or 0
     total_commission = sales_data.get('total_commission') or 0
     net_earnings = total_sales - total_commission
-
     context = {
-        'products': products,
-        'completed_orders': completed_orders,
+        'products': Product.objects.filter(seller=request.user),
+        'all_orders': all_orders,
         'total_sales': total_sales,
         'total_commission': total_commission,
         'net_earnings': net_earnings,
@@ -51,58 +91,60 @@ def seller_dashboard(request):
     return render(request, 'marketplace/seller_dashboard.html', context)
 
 @login_required
-def create_product(request):
+def select_game_for_listing(request):
+    games = Game.objects.all().order_by('title')
+    return render(request, 'marketplace/select_game.html', {'games': games})
+
+@login_required
+def create_product(request, game_pk, category_pk):
+    game = get_object_or_404(Game, pk=game_pk)
+    category = get_object_or_404(Category, pk=category_pk)
     if request.method == 'POST':
         form = ProductForm(request.POST, request.FILES)
         if form.is_valid():
             product = form.save(commit=False)
             product.seller = request.user
+            product.game = game
+            product.category = category
             product.save()
             return redirect('seller_dashboard')
     else:
         form = ProductForm()
-    return render(request, 'marketplace/product_form.html', {'form': form})
+    context = {'form': form, 'game': game, 'category': category}
+    return render(request, 'marketplace/product_form.html', context)
 
-# --- ORDER MANAGEMENT ---
 @login_required
 def create_order(request, pk):
     product = get_object_or_404(Product, pk=pk)
-    order = Order.objects.create(
-        buyer=request.user,
-        seller=product.seller,
-        product=product,
-        total_price=product.price,
-        status='PROCESSING'
-    )
-    return redirect('order_detail', pk=order.pk)
+    order = Order.objects.create(buyer=request.user, seller=product.seller, product=product, total_price=product.price, status='PROCESSING')
+    order_url = reverse_lazy('order_detail', kwargs={'pk': order.pk})
+    return JsonResponse({'status': 'success', 'order_url': order_url})
 
 @login_required
 def order_detail(request, pk):
     order = get_object_or_404(Order, pk=pk)
-
-    if request.user != order.buyer and request.user != order.seller:
-        return HttpResponseForbidden("You do not have permission to view this order.")
-
-    chat_messages = ChatMessage.objects.filter(order=order).order_by('timestamp')
+    if request.user != order.buyer and request.user != order.seller: return HttpResponseForbidden()
+    if request.user == order.buyer: other_user = order.seller
+    else: other_user = order.buyer
+    if request.user.id < other_user.id: p1, p2 = request.user, other_user
+    else: p1, p2 = other_user, request.user
+    conversation, created = Conversation.objects.get_or_create(participant1=p1, participant2=p2)
+    messages = conversation.messages.all().order_by('timestamp')
     existing_review = Review.objects.filter(order=order).first()
     review_form = ReviewForm()
-
     if request.method == 'POST' and 'rating' in request.POST:
-        form = ReviewForm(request.POST)
-        if form.is_valid() and order.status == 'COMPLETED' and request.user == order.buyer and not existing_review:
-            review = form.save(commit=False)
-            review.order = order
-            review.buyer = request.user
-            review.seller = order.seller
-            review.save()
-            return redirect('order_detail', pk=order.pk)
-
-    return render(request, 'marketplace/order_detail.html', {
-        'order': order,
-        'chat_messages': chat_messages,
-        'review_form': review_form,
-        'existing_review': existing_review,
-    })
+        if order and order.status == 'COMPLETED' and not existing_review:
+            form = ReviewForm(request.POST)
+            if form.is_valid():
+                review = form.save(commit=False)
+                review.order = order
+                review.buyer = request.user
+                review.seller = order.seller
+                review.save()
+                return JsonResponse({'status': 'success'})
+        return JsonResponse({'status': 'error', 'message': 'Could not submit review.'}, status=400)
+    context = {'order': order, 'other_user': other_user, 'messages': messages, 'review_form': review_form, 'existing_review': existing_review}
+    return render(request, 'marketplace/order_detail.html', context)
 
 @login_required
 def complete_order(request, pk):
@@ -113,26 +155,93 @@ def complete_order(request, pk):
         order.save()
     return redirect('order_detail', pk=order.pk)
 
-
-def search_results(request):
-    query = request.GET.get('q', '')
-    if query:
-        # Search in product title and description (case-insensitive)
-        results = Product.objects.filter(
-            Q(title__icontains=query) | Q(description__icontains=query),
-            is_active=True
-        )
-    else:
-        results = Product.objects.none() # Return no results if query is empty
-
-    return render(request, 'marketplace/search_results.html', {
-        'query': query,
-        'results': results
-    })
-
-
-
 @login_required
 def my_purchases(request):
     orders = Order.objects.filter(buyer=request.user).order_by('-created_at')
     return render(request, 'marketplace/my_purchases.html', {'orders': orders})
+
+@login_required
+def messages_view(request, username=None):
+    # Get all conversations for the user, sorted by the most recently updated
+    conversations = Conversation.objects.filter(
+        Q(participant1=request.user) | Q(participant2=request.user)
+    ).order_by('-updated_at')
+
+    active_conversation = None
+    messages = []
+    other_user = None
+
+    # Determine which conversation to show
+    if username:
+        # If a username is in the URL, find that specific conversation
+        other_user = get_object_or_404(User, username=username)
+        active_conversation = conversations.filter(
+            (Q(participant1=request.user) & Q(participant2=other_user)) |
+            (Q(participant1=other_user) & Q(participant2=request.user))
+        ).first()
+    elif conversations:
+        # Otherwise, default to the most recent valid conversation
+        for conv in conversations:
+            # Find the first conversation that is not with the user themselves
+            if (conv.participant1 == request.user and conv.participant2 != request.user) or \
+               (conv.participant2 == request.user and conv.participant1 != request.user):
+                active_conversation = conv
+                break
+
+    # Get the messages and the "other user" for the active conversation
+    if active_conversation:
+        messages = active_conversation.messages.all().order_by('timestamp')
+        if active_conversation.participant1 == request.user:
+            other_user = active_conversation.participant2
+        else:
+            other_user = active_conversation.participant1
+
+    context = {
+        'conversations': conversations,
+        'active_conversation': active_conversation,
+        'other_user_profile': other_user,
+        'messages': messages,
+    }
+    return render(request, 'marketplace/my_messages.html', context)
+
+@login_required
+def funds_view(request):
+    completed_orders = Order.objects.filter(seller=request.user, status='COMPLETED')
+    sales_data = completed_orders.aggregate(total_sales=Sum('total_price'), total_commission=Sum('commission_paid'))
+    total_sales = sales_data.get('total_sales') or 0
+    total_commission = sales_data.get('total_commission') or 0
+    net_earnings = total_sales - total_commission
+    approved_withdrawals = WithdrawalRequest.objects.filter(user=request.user, status='APPROVED').aggregate(total_withdrawn=Sum('amount'))
+    total_withdrawn = approved_withdrawals.get('total_withdrawn') or 0
+    balance = net_earnings - total_withdrawn
+    if request.method == 'POST':
+        form = WithdrawalRequestForm(request.POST, user=request.user, balance=balance)
+        if form.is_valid():
+            withdrawal_request = form.save(commit=False)
+            withdrawal_request.user = request.user
+            withdrawal_request.save()
+            return redirect('funds')
+    else:
+        form = WithdrawalRequestForm(user=request.user, balance=balance)
+    withdrawal_history = WithdrawalRequest.objects.filter(user=request.user).order_by('-requested_at')
+    context = {'balance': balance, 'form': form, 'withdrawal_history': withdrawal_history}
+    return render(request, 'marketplace/funds.html', context)
+
+@login_required
+def settings_view(request):
+    return render(request, 'marketplace/settings.html')
+
+@login_required
+def support_center_view(request):
+    if request.method == 'POST':
+        form = SupportTicketForm(request.POST)
+        if form.is_valid():
+            ticket = form.save(commit=False)
+            ticket.user = request.user
+            ticket.save()
+            return redirect('support_center')
+    else:
+        form = SupportTicketForm()
+    tickets = SupportTicket.objects.filter(user=request.user).order_by('-created_at')
+    context = {'form': form, 'tickets': tickets}
+    return render(request, 'marketplace/support_center.html', context)

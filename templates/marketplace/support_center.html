@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="mb-4">Support Center</h1>
+
+    <div class="row">
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Submit a New Ticket</h5>
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        <button type="submit" class="btn btn-primary w-100">Submit Ticket</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-7">
+    <h4>Your Ticket History</h4>
+    <div class="list-group">
+        {% for ticket in tickets %}
+            <div class="list-group-item">
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">{{ ticket.subject }}</h6>
+                    <small>{{ ticket.created_at|date:"M. d, Y" }}</small>
+                </div>
+                <p class="mb-1 text-muted">{{ ticket.message|truncatechars:100 }}</p>
+                <small>Status:
+                    <span class="badge 
+                        {% if ticket.status == 'OPEN' %}bg-success
+                        {% elif ticket.status == 'IN_PROGRESS' %}bg-warning text-dark
+                        {% elif ticket.status == 'CLOSED' %}bg-secondary
+                        {% endif %}">
+                        {{ ticket.get_status_display }}
+                    </span>
+                </small>
+
+                {% if ticket.admin_response %}
+                    <div class="alert alert-info mt-3">
+                        <strong>Admin Response:</strong>
+                        <p class="mb-0">{{ ticket.admin_response|linebreaks }}</p>
+                    </div>
+                {% endif %}
+            </div>
+        {% empty %}
+            <div class="list-group-item">No support tickets found.</div>
+        {% endfor %}
+    </div>
+</div>
+    </div>
+{% endblock %}

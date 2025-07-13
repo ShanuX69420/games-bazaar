@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h2>{% if form.instance.pk %}Edit Product{% else %}Add New Product{% endif %}</h2>
-    
+    <h2 class="mb-3">Create New Listing</h2>
+    <div class="alert alert-info">
+        You are creating a listing for **{{ category.name }}** in **{{ game.title }}**.
+    </div>
+
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit">Save Product</button>
+        <button type="submit" class="btn btn-primary mt-3">Save Listing</button>
     </form>
 {% endblock %}
