@@ -41,7 +41,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'type': 'chat_message',
                 'message': new_message.content,
                 'sender': self.user.username,
-                'timestamp': str(new_message.timestamp.strftime("%b. %d, %Y, %I:%M %p"))
+                'timestamp': str(new_message.timestamp.isoformat())
             }
         )
 

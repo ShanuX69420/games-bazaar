@@ -50,73 +50,89 @@
     {{ product.seller.username|json_script:"other-user-username" }}
     {{ request.user.username|json_script:"current-user-username" }}
     <script>
-        // This script handles both the chat and the "Buy Now" button
-        const buyNowBtn = document.querySelector('#buy-now-btn');
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    // This script handles both the chat and the "Buy Now" button
+    const buyNowBtn = document.querySelector('#buy-now-btn');
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-        if (buyNowBtn) {
-            buyNowBtn.addEventListener('click', function() {
-                const url = this.dataset.url;
-                buyNowBtn.textContent = 'Processing...';
-                buyNowBtn.disabled = true;
+    if (buyNowBtn) {
+        buyNowBtn.addEventListener('click', function() {
+            const url = this.dataset.url;
+            buyNowBtn.textContent = 'Processing...';
+            buyNowBtn.disabled = true;
 
-                fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                }).then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success' && data.order_url) {
-                        // On success, redirect to the new order page
-                        window.location.href = data.order_url;
-                    } else {
-                        alert(data.message || 'An error occurred.');
-                        buyNowBtn.textContent = 'Buy Now';
-                        buyNowBtn.disabled = false;
-                    }
-                });
-            });
-        }
-
-        // --- The rest of your working chat script ---
-        const otherUserUsername = JSON.parse(document.getElementById('other-user-username').textContent);
-        const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent);
-        const chatLog = document.querySelector('#chat-log');
-        const messageInputDom = document.querySelector('#chat-message-input');
-        let chatSocket = null;
-
-        function connect() {
-            chatSocket = new WebSocket('ws://' + window.location.host + '/ws/chat/' + otherUserUsername + '/');
-            chatSocket.onopen = function(e) { chatLog.scrollTop = chatLog.scrollHeight; };
-            chatSocket.onmessage = function(e) {
-                const data = JSON.parse(e.data);
-                const messageWrapper = document.createElement('div');
-                let messageHtml = '';
-                if (data.is_system_message) {
-                    messageHtml = `<div class="mb-3"><div class="d-flex justify-content-between"><div><strong>Gamers Market</strong><span class="badge bg-primary ms-1">notification</span></div><small class="text-muted">${data.timestamp}</small></div><div class="p-2 mt-1" style="background-color: #eef2fa; border-left: 3px solid #0d6efd; color: #445d89;"><i class="fas fa-info-circle me-1"></i> ${data.message}</div></div>`;
-                } else {
-                    messageHtml = `<div class="mb-3"><div class="d-flex justify-content-between"><strong>${data.sender}</strong><small class="text-muted">${data.timestamp}</small></div><p class="mb-0 text-break">${data.message}</p></div>`;
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
-                messageWrapper.innerHTML = messageHtml;
-                chatLog.appendChild(messageWrapper);
-                chatLog.scrollTop = chatLog.scrollHeight;
-            };
-            chatSocket.onclose = function(e) { setTimeout(() => connect(), 1000); };
-        }
-        if (document.getElementById('other-user-username')) { connect(); }
+            }).then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' && data.order_url) {
+                    window.location.href = data.order_url;
+                } else {
+                    alert(data.message || 'An error occurred.');
+                    buyNowBtn.textContent = 'Buy Now';
+                    buyNowBtn.disabled = false;
+                }
+            });
+        });
+    }
 
-        if (document.querySelector('#chat-form')) {
-            document.querySelector('#chat-form').onsubmit = function(e) {
-                e.preventDefault();
-                const message = messageInputDom.value;
-                if (message.trim() === '') return;
-                chatSocket.send(JSON.stringify({'message': message}));
-                messageInputDom.value = '';
-                return false;
-            };
+    // --- Unified Chat Script ---
+    const otherUserUsername = JSON.parse(document.getElementById('other-user-username').textContent);
+    const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent);
+    const chatLog = document.querySelector('#chat-log');
+    const messageInputDom = document.querySelector('#chat-message-input');
+    let chatSocket = null;
+
+    // This function formats the time correctly!
+    function formatSmartTimeJS(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        const today = new Date();
+        if (date.toDateString() === today.toDateString()) {
+            // This now has '2-digit' for the hour
+            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+        } else {
+            return date.toLocaleDateString('en-GB').replace(/\//g, '.');
         }
-    </script>
+    }
+
+    function connect() {
+        chatSocket = new WebSocket('ws://' + window.location.host + '/ws/chat/' + otherUserUsername + '/');
+        chatSocket.onopen = function(e) { chatLog.scrollTop = chatLog.scrollHeight; };
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const messageWrapper = document.createElement('div');
+            let messageHtml = '';
+
+            // We use our new function to format the timestamp
+            const formattedTime = formatSmartTimeJS(data.timestamp);
+
+            if (data.is_system_message) {
+                messageHtml = `<div class="mb-3"><div class="d-flex justify-content-between"><div><strong>Gamers Market</strong><span class="badge bg-primary ms-1">notification</span></div><small class="text-muted">${formattedTime}</small></div><div class="p-2 mt-1" style="background-color: #eef2fa; border-left: 3px solid #0d6efd; color: #445d89;"><i class="fas fa-info-circle me-1"></i> ${data.message}</div></div>`;
+            } else {
+                messageHtml = `<div class="mb-3"><div class="d-flex justify-content-between"><strong>${data.sender}</strong><small class="text-muted">${formattedTime}</small></div><p class="mb-0 text-break">${data.message}</p></div>`;
+            }
+            messageWrapper.innerHTML = messageHtml;
+            chatLog.appendChild(messageWrapper);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        };
+        chatSocket.onclose = function(e) { setTimeout(() => connect(), 1000); };
+    }
+    if (document.getElementById('other-user-username')) { connect(); }
+
+    if (document.querySelector('#chat-form')) {
+        document.querySelector('#chat-form').onsubmit = function(e) {
+            e.preventDefault();
+            const message = messageInputDom.value;
+            if (message.trim() === '') return;
+            chatSocket.send(JSON.stringify({'message': message}));
+            messageInputDom.value = '';
+            return false;
+        };
+    }
+</script>
 {% endif %}
 {% endblock %}

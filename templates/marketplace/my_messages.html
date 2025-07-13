@@ -8,18 +8,18 @@
         <div class="list-group">
             {% for conv in conversations %}
                 {% if conv.participant1 == request.user %}{% with other_user=conv.participant2 %}{% if other_user != request.user %}
-                <a href="{% url 'conversation_detail' other_user.username %}" class="list-group-item list-group-item-action {% if active_conversation and conv.id == active_conversation.id %}active{% endif %}">
-                    <div class="d-flex align-items-center">
-                        <img src="https://i.imgur.com/v8Ld3iI.png" alt="{{ other_user.username }}" width="40" height="40" class="rounded-circle me-3">
-                        <div class="w-100">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">{{ other_user.username }}</h6>
-                                {% if conv.messages.last %}<small class="text-muted">{{ conv.messages.last.timestamp|relative_time }}</small>{% endif %}
-                            </div>
-                            {% if conv.messages.last %}<p class="mb-1 text-muted small">{% if conv.messages.last.sender == request.user %}You: {% endif %}{{ conv.messages.last.content|truncatechars:25 }}</p>{% endif %}
-                        </div>
-                    </div>
-                </a>
+                <a href="{% url 'conversation_detail' other_user.username %}" class="list-group-item list-group-item-action {% if active_conversation and conv.id == active_conversation.id %}active{% endif %}" data-username="{{ other_user.username }}">
+    <div class="d-flex align-items-center">
+        <img src="https://i.imgur.com/v8Ld3iI.png" alt="{{ other_user.username }}" width="40" height="40" class="rounded-circle me-3">
+        <div class="w-100">
+            <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1">{{ other_user.username }}</h6>
+                {% if conv.messages.last %}<small class="text-muted conversation-timestamp">{{ conv.messages.last.timestamp|relative_time }}</small>{% endif %}
+            </div>
+            {% if conv.messages.last %}<p class="mb-1 text-muted small conversation-last-message">{% if conv.messages.last.sender == request.user %}You: {% endif %}{{ conv.messages.last.content|truncatechars:25 }}</p>{% endif %}
+        </div>
+    </div>
+</a>
                 {% endif %}{% endwith %}{% else %}{% with other_user=conv.participant1 %}{% if other_user != request.user %}
                 <a href="{% url 'conversation_detail' other_user.username %}" class="list-group-item list-group-item-action {% if active_conversation and conv.id == active_conversation.id %}active{% endif %}">
                     <div class="d-flex align-items-center">
@@ -91,43 +91,92 @@
     const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent);
     const chatLog = document.querySelector('#chat-log');
     const messageInputDom = document.querySelector('#chat-message-input');
+    const conversationList = document.querySelector('.list-group'); // Get the parent list
     let chatSocket = null;
+
+    // NEW: A function to format time like "yesterday" or "10:30 pm"
+    function formatRelativeTimeJS() {
+        const date = new Date(); // We'll just show the current time
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+    }
+
     function formatSmartTimeJS(isoString) {
         if (!isoString) return '';
         const date = new Date(isoString);
         const today = new Date();
         if (date.toDateString() === today.toDateString()) {
-            return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
         } else {
             return date.toLocaleDateString('en-GB').replace(/\//g, '.');
         }
     }
+
+    // NEW: A function to update the conversation list on the left
+    function updateConversationList(username, message, isYou) {
+        const conversationLink = document.querySelector(`.list-group-item[data-username='${username}']`);
+        if (!conversationLink) return;
+
+        const lastMessageEl = conversationLink.querySelector('.conversation-last-message');
+        const timestampEl = conversationLink.querySelector('.conversation-timestamp');
+
+        let messagePreview = message;
+        if (messagePreview.length > 25) {
+            messagePreview = messagePreview.substring(0, 25) + '...';
+        }
+        if (isYou) {
+            messagePreview = 'You: ' + messagePreview;
+        }
+
+        if (lastMessageEl) lastMessageEl.innerHTML = messagePreview;
+        if (timestampEl) timestampEl.textContent = formatRelativeTimeJS();
+
+        // Move the conversation to the top of the list
+        conversationList.prepend(conversationLink);
+    }
+
     function connect() {
         chatSocket = new WebSocket('ws://' + window.location.host + '/ws/chat/' + otherUserUsername + '/');
+
         chatSocket.onopen = function(e) { chatLog.scrollTop = chatLog.scrollHeight; };
+
         chatSocket.onmessage = function(e) {
             const data = JSON.parse(e.data);
             const messageWrapper = document.createElement('div');
             let messageHtml = '';
+
             if (data.is_system_message) {
                 messageHtml = `<div class="mb-3"><div class="d-flex justify-content-between"><div><strong>Gamers Market</strong><span class="badge bg-primary ms-1">notification</span></div><small class="text-muted">${formatSmartTimeJS(data.timestamp)}</small></div><div class="p-2 mt-1" style="background-color: #eef2fa; border-left: 3px solid #0d6efd; color: #445d89;"><i class="fas fa-info-circle me-1"></i> ${data.message}</div></div>`;
             } else {
                 messageHtml = `<div class="mb-3"><div class="d-flex justify-content-between"><strong>${data.sender}</strong><small class="text-muted">${formatSmartTimeJS(data.timestamp)}</small></div><p class="mb-0 text-break">${data.message}</p></div>`;
             }
+
             messageWrapper.innerHTML = messageHtml;
             chatLog.appendChild(messageWrapper);
             chatLog.scrollTop = chatLog.scrollHeight;
+
+            // UPDATE a conversation when a message is RECEIVED
+            if (!data.is_system_message) {
+                updateConversationList(data.sender, data.message, false);
+            }
         };
+
         chatSocket.onclose = function(e) { setTimeout(() => connect(), 1000); };
     }
+
     if (document.getElementById('other-user-username')) { connect(); }
+
     if (document.querySelector('#chat-form')) {
         document.querySelector('#chat-form').onsubmit = function(e) {
             e.preventDefault();
             const message = messageInputDom.value;
             if (message.trim() === '') return;
+
             chatSocket.send(JSON.stringify({'message': message}));
             messageInputDom.value = '';
+
+            // UPDATE the conversation when a message is SENT
+            updateConversationList(otherUserUsername, message, true);
+
             return false;
         };
     }
