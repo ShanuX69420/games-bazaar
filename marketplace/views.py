@@ -165,15 +165,28 @@ def create_order(request, pk):
 @login_required
 def order_detail(request, pk):
     order = get_object_or_404(Order, pk=pk)
-    if request.user != order.buyer and request.user != order.seller: return HttpResponseForbidden()
-    if request.user == order.buyer: other_user = order.seller
-    else: other_user = order.buyer
-    if request.user.id < other_user.id: p1, p2 = request.user, other_user
-    else: p1, p2 = other_user, request.user
+    # Security check: only buyer or seller can view
+    if request.user != order.buyer and request.user != order.seller:
+        return HttpResponseForbidden()
+
+    # Determine who the "other user" is in the conversation
+    if request.user == order.buyer:
+        other_user = order.seller
+    else:
+        other_user = order.buyer
+
+    # Get or create the conversation between the two users
+    if request.user.id < other_user.id:
+        p1, p2 = request.user, other_user
+    else:
+        p1, p2 = other_user, request.user
     conversation, created = Conversation.objects.get_or_create(participant1=p1, participant2=p2)
+    
+    # Load messages and handle review form submission
     messages = conversation.messages.all().order_by('timestamp')
     existing_review = Review.objects.filter(order=order).first()
     review_form = ReviewForm()
+
     if request.method == 'POST' and 'rating' in request.POST:
         if order and order.status == 'COMPLETED' and not existing_review:
             form = ReviewForm(request.POST)
@@ -185,7 +198,15 @@ def order_detail(request, pk):
                 review.save()
                 return JsonResponse({'status': 'success'})
         return JsonResponse({'status': 'error', 'message': 'Could not submit review.'}, status=400)
-    context = {'order': order, 'other_user': other_user, 'messages': messages, 'review_form': review_form, 'existing_review': existing_review}
+
+    context = {
+        'order': order,
+        'other_user': other_user,  # This now correctly identifies the chat partner
+        'product': order.product,  # Pass product for the chat panel logic
+        'messages': messages,
+        'review_form': review_form,
+        'existing_review': existing_review,
+    }
     return render(request, 'marketplace/order_detail.html', context)
 
 @login_required

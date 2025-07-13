@@ -68,7 +68,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'type': 'chat_message',
                     'message': new_message.content,
                     'sender': self.user.username,
-                    'timestamp': str(new_message.timestamp.isoformat())
+                    'timestamp': str(new_message.timestamp.isoformat()),
+                    'is_system_message': False  # User messages are not system messages
                 }
             )
             unread_convo_count = await self.get_unread_conversation_count(self.other_user)
@@ -84,12 +85,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             print(f"!!! CHATCONSUMER ERROR in receive method: {e} !!!")
 
-
+    # This is the important change. This function will now receive and handle
+    # the extra data ('is_system_message', 'timestamp') for correct rendering.
     async def chat_message(self, event):
         await self.send(text_data=json.dumps({
             'message': event['message'],
             'sender': event['sender'],
-            'timestamp': event['timestamp']
+            'timestamp': event.get('timestamp', ''),
+            'is_system_message': event.get('is_system_message', False)
         }))
 
     @database_sync_to_async
@@ -109,7 +112,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def create_message(self, conversation, sender, content):
         message = Message.objects.create(conversation=conversation, sender=sender, content=content)
-        conversation.save()
+        conversation.save() # Update the 'updated_at' field for sorting
         return message
 
     @database_sync_to_async
@@ -125,7 +128,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         ).exclude(
             sender=user
         ).values('conversation').distinct().count()
-
 
 class NotificationConsumer(AsyncWebsocketConsumer):
     async def connect(self):

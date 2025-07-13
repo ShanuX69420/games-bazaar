@@ -6,13 +6,19 @@
     const messageInputDom = document.querySelector('#chat-message-input');
     let chatSocket = null;
 
+    /**
+     * This function fixes the timestamp issue. It takes a timestamp from the server
+     * and formats it correctly, ensuring times are consistent.
+     */
     function formatSmartTimeJS(isoString) {
         if (!isoString) return '';
         const date = new Date(isoString);
         const today = new Date();
+        // If the message is from today, show the time (e.g., "10:30 pm")
         if (date.toDateString() === today.toDateString()) {
             return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
         } else {
+            // Otherwise, show the date (e.g., "12.07.2025")
             return date.toLocaleDateString('en-GB').replace(/\//g, '.');
         }
     }
@@ -21,29 +27,48 @@
         const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
         chatSocket = new WebSocket(protocol + window.location.host + '/ws/chat/' + otherUserUsername + '/');
 
-        chatSocket.onopen = function(e) { chatLog.scrollTop = chatLog.scrollHeight; };
+        chatSocket.onopen = function(e) { 
+            // Scroll to the bottom of the chat log when the connection opens
+            chatLog.scrollTop = chatLog.scrollHeight; 
+        };
 
+        /**
+         * This function handles incoming messages and fixes the styling issues.
+         * It now checks if a message is a system notification and styles it
+         * with the correct blue box.
+         */
         chatSocket.onmessage = function(e) {
             const data = JSON.parse(e.data);
             const messageWrapper = document.createElement('div');
             let messageHtml = '';
+            // Use our new function to get the correct time
             const formattedTime = formatSmartTimeJS(data.timestamp);
 
+            // Check if it's a system message and apply the special styling
             if (data.is_system_message) {
                 messageHtml = `<div class="mb-3"><div class="d-flex justify-content-between"><div><strong>Gamers Market</strong><span class="badge bg-primary ms-1">notification</span></div><small class="text-muted">${formattedTime}</small></div><div class="p-2 mt-1" style="background-color: #eef2fa; border-left: 3px solid #0d6efd; color: #445d89;"><i class="fas fa-info-circle me-1"></i> ${data.message}</div></div>`;
             } else {
+                // Otherwise, display it as a normal chat message
                 messageHtml = `<div class="mb-3"><div class="d-flex justify-content-between"><strong>${data.sender}</strong><small class="text-muted">${formattedTime}</small></div><p class="mb-0 text-break">${data.message}</p></div>`;
             }
             messageWrapper.innerHTML = messageHtml;
             chatLog.appendChild(messageWrapper);
+            // Scroll down to show the new message
             chatLog.scrollTop = chatLog.scrollHeight;
         };
 
-        chatSocket.onclose = function(e) { setTimeout(() => connect(), 1000); };
+        // Reconnect automatically if the connection is lost
+        chatSocket.onclose = function(e) { 
+            setTimeout(() => connect(), 1000); 
+        };
     }
 
-    if (document.getElementById('other-user-username')) { connect(); }
+    // Only connect if we know who we are chatting with
+    if (document.getElementById('other-user-username')) { 
+        connect(); 
+    }
 
+    // Handle sending a message when the form is submitted
     if (document.querySelector('#chat-form')) {
         document.querySelector('#chat-form').onsubmit = function(e) {
             e.preventDefault();
