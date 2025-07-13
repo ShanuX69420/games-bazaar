@@ -81,221 +81,226 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    {% if user.is_authenticated %}
+        {{ request.user.username|json_script:"current-user-username" }}
+    {% endif %}
     
-    {% include 'marketplace/partials/notification_script.html' %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // =================== LIVE SEARCH ===================
+        const searchInput = document.getElementById('live-search-input');
+        const resultsDropdown = document.getElementById('search-results-dropdown');
+        let searchTimeout;
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // =================== LIVE SEARCH ===================
-    const searchInput = document.getElementById('live-search-input');
-    const resultsDropdown = document.getElementById('search-results-dropdown');
-    let searchTimeout;
+        if (searchInput && resultsDropdown) {
+            searchInput.addEventListener('input', function() {
+                const query = searchInput.value.trim();
+                clearTimeout(searchTimeout);
 
-    if (searchInput && resultsDropdown) {
-        searchInput.addEventListener('input', function() {
-            const query = searchInput.value.trim();
-            clearTimeout(searchTimeout);
+                if (query.length < 1) {
+                    resultsDropdown.style.display = 'none';
+                    return;
+                }
 
-            if (query.length < 1) {
-                resultsDropdown.style.display = 'none';
-                return;
-            }
+                searchTimeout = setTimeout(() => {
+                    fetch(`/api/live-search/?q=${encodeURIComponent(query)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            resultsDropdown.innerHTML = ''; // Clear old results
 
-            searchTimeout = setTimeout(() => {
-                fetch(`/api/live-search/?q=${encodeURIComponent(query)}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        resultsDropdown.innerHTML = ''; // Clear old results
+                            if (data.length > 0) {
+                                const contentDiv = document.createElement('div');
+                                contentDiv.id = 'search-results-content';
 
-                        if (data.length > 0) {
-                            const contentDiv = document.createElement('div');
-                            contentDiv.id = 'search-results-content';
+                                data.forEach(game => {
+                                    const columnDiv = document.createElement('div');
+                                    columnDiv.className = 'search-result-column';
+                                    
+                                    let categoriesHtml = game.categories.map(cat => 
+                                        `<a href="${cat.url}">${cat.name}</a>`
+                                    ).join('');
 
-                            data.forEach(game => {
-                                const columnDiv = document.createElement('div');
-                                columnDiv.className = 'search-result-column';
-                                
-                                let categoriesHtml = game.categories.map(cat => 
-                                    `<a href="${cat.url}">${cat.name}</a>`
-                                ).join('');
+                                    columnDiv.innerHTML = `<h6>${game.name}</h6>${categoriesHtml}`;
+                                    contentDiv.appendChild(columnDiv);
+                                });
 
-                                columnDiv.innerHTML = `<h6>${game.name}</h6>${categoriesHtml}`;
-                                contentDiv.appendChild(columnDiv);
-                            });
-
-                            resultsDropdown.appendChild(contentDiv);
-                            resultsDropdown.style.display = 'block';
-                        } else {
+                                resultsDropdown.appendChild(contentDiv);
+                                resultsDropdown.style.display = 'block';
+                            } else {
+                                resultsDropdown.style.display = 'none';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Live search error:', error);
                             resultsDropdown.style.display = 'none';
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Live search error:', error);
-                        resultsDropdown.style.display = 'none';
-                    });
-            }, 300);
-        });
+                        });
+                }, 300);
+            });
 
-        document.addEventListener('click', function(e) {
-            const searchContainer = searchInput.closest('div');
-            if (!searchContainer.contains(e.target)) {
-                resultsDropdown.style.display = 'none';
-            }
-        });
-    }
-});
-
-
-// =================== UTILITY FUNCTIONS ===================
-function formatTimeSince(isoString) {
-    if (!isoString) return '';
-    const date = new Date(isoString);
-    const now = new Date();
-    const seconds = Math.floor((now - date) / 1000);
-
-    if (seconds < 60) return "just now";
-    
-    let interval = seconds / 31536000;
-    if (interval > 1) return Math.floor(interval) + " years ago";
-    interval = seconds / 2592000;
-    if (interval > 1) return Math.floor(interval) + " months ago";
-    interval = seconds / 86400;
-    if (interval > 1) return Math.floor(interval) + " days ago";
-    interval = seconds / 3600;
-    if (interval > 1) return Math.floor(interval) + " hours ago";
-    interval = seconds / 60;
-    if (interval > 1) return Math.floor(interval) + " minutes ago";
-    return "just now";
-}
-
-/**
- * NEW: This function runs on an interval to keep all "was active" times updated.
- */
-function updateRelativeTimestamps() {
-    // Find all elements showing an offline user's status
-    const elements = document.querySelectorAll('[data-iso-timestamp]');
-    elements.forEach(element => {
-        const isoTimestamp = element.dataset.isoTimestamp;
-        if (isoTimestamp) {
-            // Update its text with the newly calculated relative time
-            element.textContent = `was active ${formatTimeSince(isoTimestamp)}`;
+            document.addEventListener('click', function(e) {
+                const searchContainer = searchInput.closest('div');
+                if (!searchContainer.contains(e.target)) {
+                    resultsDropdown.style.display = 'none';
+                }
+            });
         }
     });
-}
 
-/**
- * FIXED: This function now correctly adds/removes the data attribute we need
- * for the real-time updates.
- */
-function updateUserStatusOnPage(data) {
-    const statusChat = document.getElementById(`status-chat-${data.username}`);
-    if (!statusChat) return;
 
-    if (data.is_online) {
-        statusChat.textContent = 'Online';
-        statusChat.className = 'text-success';
-        // User is online, so remove the timestamp attribute.
-        statusChat.removeAttribute('data-iso-timestamp');
-    } else {
-        const lastSeenText = `was active ${formatTimeSince(data.last_seen_iso)}`;
-        statusChat.textContent = lastSeenText;
-        statusChat.className = 'text-muted';
-        // User is offline, so set the timestamp attribute. Our new function will find this.
-        statusChat.setAttribute('data-iso-timestamp', data.last_seen_iso);
+    // =================== UTILITY FUNCTIONS ===================
+    function formatTimeSince(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
+
+        if (seconds < 60) return "just now";
+        
+        let interval = seconds / 31536000;
+        if (interval > 1) return Math.floor(interval) + " years ago";
+        interval = seconds / 2592000;
+        if (interval > 1) return Math.floor(interval) + " months ago";
+        interval = seconds / 86400;
+        if (interval > 1) return Math.floor(interval) + " days ago";
+        interval = seconds / 3600;
+        if (interval > 1) return Math.floor(interval) + " hours ago";
+        interval = seconds / 60;
+        if (interval > 1) return Math.floor(interval) + " minutes ago";
+        return "just now";
     }
-}
 
-/**
- * NEW: This function updates the conversation list on the left in real-time.
- */
-function updateConversationLink(data) {
-    // Find the link for the specific conversation using its ID
-    const conversationLink = document.querySelector(`.list-group-item[data-conversation-id="${data.conversation_id}"]`);
-    if (!conversationLink) return; // Exit if the user is not on the messages page
+    /**
+     * NEW: This function runs on an interval to keep all "was active" times updated.
+     */
+    function updateRelativeTimestamps() {
+        // Find all elements showing an offline user's status
+        const elements = document.querySelectorAll('[data-iso-timestamp]');
+        elements.forEach(element => {
+            const isoTimestamp = element.dataset.isoTimestamp;
+            if (isoTimestamp) {
+                // Update its text with the newly calculated relative time
+                element.textContent = `was active ${formatTimeSince(isoTimestamp)}`;
+            }
+        });
+    }
 
-    // Find the elements for the last message and timestamp inside the link
-    const lastMessageElement = conversationLink.querySelector('.conversation-last-message');
-    const timestampElement = conversationLink.querySelector('.conversation-timestamp');
+    /**
+     * FIXED: This function now correctly adds/removes the data attribute we need
+     * for the real-time updates.
+     */
+    function updateUserStatusOnPage(data) {
+        const statusChat = document.getElementById(`status-chat-${data.username}`);
+        if (!statusChat) return;
 
-    // Update the last message text, cutting it off if it's too long
-    if (lastMessageElement) {
-        let truncatedMessage = data.last_message_content;
-        if (truncatedMessage.length > 25) {
-            truncatedMessage = truncatedMessage.substring(0, 25) + '...';
+        if (data.is_online) {
+            statusChat.textContent = 'Online';
+            statusChat.className = 'text-success';
+            // User is online, so remove the timestamp attribute.
+            statusChat.removeAttribute('data-iso-timestamp');
+        } else {
+            const lastSeenText = `was active ${formatTimeSince(data.last_seen_iso)}`;
+            statusChat.textContent = lastSeenText;
+            statusChat.className = 'text-muted';
+            // User is offline, so set the timestamp attribute. Our new function will find this.
+            statusChat.setAttribute('data-iso-timestamp', data.last_seen_iso);
         }
-        lastMessageElement.textContent = truncatedMessage;
     }
 
-    // Update the timestamp to show a relative time like "just now"
-    if (timestampElement) {
-        timestampElement.textContent = formatTimeSince(data.last_message_timestamp);
-    }
+    /**
+     * NEW: This function updates the conversation list on the left in real-time.
+     */
+    function updateConversationLink(data) {
+        // Find the link for the specific conversation using its ID
+        const conversationLink = document.querySelector(`.list-group-item[data-conversation-id="${data.conversation_id}"]`);
+        if (!conversationLink) return; // Exit if the user is not on the messages page
 
-    // Mark the conversation as unread
-    conversationLink.classList.add('unread');
+        // Find the elements for the last message and timestamp inside the link
+        const lastMessageElement = conversationLink.querySelector('.conversation-last-message');
+        const timestampElement = conversationLink.querySelector('.conversation-timestamp');
 
-    // Move the updated conversation to the top of the list for visibility
-    const parentList = conversationLink.parentNode;
-    if (parentList) {
-        parentList.prepend(conversationLink);
-    }
-}
-
-
-// =================== NOTIFICATION WEBSOCKET ===================
-{% if user.is_authenticated %}
-function updateBadge(selector, count) {
-    const link = document.querySelector(selector);
-    if (!link) return;
-    let badge = link.querySelector('.badge');
-    if (!badge) {
-        badge = document.createElement('span');
-        badge.className = 'badge bg-danger ms-1';
-        link.appendChild(badge);
-    }
-    if (count > 0) {
-        badge.textContent = count;
-        badge.style.display = '';
-    } else {
-        if (badge) badge.remove();
-    }
-}
-
-function connectNotifications() {
-    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-    const notificationSocket = new WebSocket(protocol + window.location.host + '/ws/notifications/');
-
-    notificationSocket.onmessage = function(e) {
-        const content = JSON.parse(e.data);
-        const notificationType = content.type;
-        const data = content.data;
-
-        if (notificationType === 'new_message') {
-            updateConversationLink(data); // <-- THIS IS THE FIX
-            updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
-            playNotificationSound(); // Play sound on new message
-        } else if (notificationType === 'order_update') {
-            updateBadge('a[href="{% url 'seller_dashboard' %}"]', data.active_sales_count);
-            updateBadge('a[href="{% url 'my_purchases' %}"]', data.active_purchases_count);
-            playNotificationSound(); // Play sound on order update
-        } else if (notificationType === 'presence_update') {
-            updateUserStatusOnPage(data);
+        // Update the last message text, cutting it off if it's too long
+        if (lastMessageElement) {
+            let truncatedMessage = data.last_message_content;
+            if (truncatedMessage.length > 25) {
+                truncatedMessage = truncatedMessage.substring(0, 25) + '...';
+            }
+            lastMessageElement.textContent = truncatedMessage;
         }
-    };
 
-    notificationSocket.onclose = function(e) {
-        setTimeout(connectNotifications, 1000);
-    };
-}
+        // Update the timestamp to show a relative time like "just now"
+        if (timestampElement) {
+            timestampElement.textContent = formatTimeSince(data.last_message_timestamp);
+        }
 
-// Start the WebSocket connection
-connectNotifications();
+        // Mark the conversation as unread
+        conversationLink.classList.add('unread');
 
-// NEW: Start the interval to update timestamps every 30 seconds
-setInterval(updateRelativeTimestamps, 30000);
+        // Move the updated conversation to the top of the list for visibility
+        const parentList = conversationLink.parentNode;
+        if (parentList) {
+            parentList.prepend(conversationLink);
+        }
+    }
 
-{% endif %}
-</script>
-<script src="{% static 'js/main.js' %}"></script>
+
+    // =================== NOTIFICATION WEBSOCKET ===================
+    {% if user.is_authenticated %}
+    function updateBadge(selector, count) {
+        const link = document.querySelector(selector);
+        if (!link) return;
+        let badge = link.querySelector('.badge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'badge bg-danger ms-1';
+            link.appendChild(badge);
+        }
+        if (count > 0) {
+            badge.textContent = count;
+            badge.style.display = '';
+        } else {
+            if (badge) badge.remove();
+        }
+    }
+
+    function connectNotifications() {
+        const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent);
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const notificationSocket = new WebSocket(protocol + window.location.host + '/ws/notifications/');
+
+        notificationSocket.onmessage = function(e) {
+            const content = JSON.parse(e.data);
+            const notificationType = content.type;
+            const data = content.data;
+
+            if (notificationType === 'new_message') {
+                updateConversationLink(data);
+                updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
+                if (data.sender_username !== currentUserUsername) {
+                    playNotificationSound();
+                }
+            } else if (notificationType === 'order_update') {
+                updateBadge('a[href="{% url 'seller_dashboard' %}"]', data.active_sales_count);
+                updateBadge('a[href="{% url 'my_purchases' %}"]', data.active_purchases_count);
+                playNotificationSound();
+            } else if (notificationType === 'presence_update') {
+                updateUserStatusOnPage(data);
+            }
+        };
+
+        notificationSocket.onclose = function(e) {
+            setTimeout(connectNotifications, 1000);
+        };
+    }
+
+    // Start the WebSocket connection
+    connectNotifications();
+
+    // NEW: Start the interval to update timestamps every 30 seconds
+    setInterval(updateRelativeTimestamps, 30000);
+
+    {% endif %}
+    </script>
+    <script src="{% static 'js/main.js' %}"></script>
 </body>
 </html>
