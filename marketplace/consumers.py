@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.db.models import Q
 from django.utils import timezone
 from .models import Conversation, Message
-from channels.layers import get_channel_layer 
+from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
 @database_sync_to_async
@@ -22,10 +22,10 @@ def update_user_last_seen(user):
 def broadcast_presence(user, status_data):
     channel_layer = get_channel_layer()
     conversations = Conversation.objects.filter(Q(participant1=user) | Q(participant2=user))
-    
+
     for conv in conversations:
         other_user = conv.participant2 if conv.participant1 == user else conv.participant1
-        
+
         async_to_sync(channel_layer.group_send)(
             f"notifications_{other_user.username}",
             {
@@ -39,7 +39,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         other_user_username = self.scope['url_route']['kwargs']['username']
         self.user = self.scope['user']
-        self.room_group_name = None 
+        self.room_group_name = None
         if not self.user.is_authenticated:
             await self.close(); return
         self.other_user = await self.get_user(other_user_username)
@@ -61,15 +61,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
             text_data_json = json.loads(text_data)
             message_content = text_data_json['message']
             if not message_content.strip(): return
-            
+
             new_message = await self.create_message(self.conversation, self.user, message_content)
-            
-            # Send message to the chat room, now including the message_id
+
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     'type': 'chat_message',
-                    'message_id': new_message.id, # ADDED
+                    'message_id': new_message.id,
                     'message': new_message.content,
                     'sender': self.user.username,
                     'timestamp': str(new_message.timestamp.isoformat()),
@@ -77,34 +76,32 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             )
 
-            # --- START: THIS IS THE FIX ---
-            # Notify ONLY the other user that a new message has arrived.
-            recipient_user = self.other_user
-            unread_convo_count = await self.get_unread_conversation_count(recipient_user)
-            notification_group_name = f'notifications_{recipient_user.username}'
-            
-            await self.channel_layer.group_send(
-                notification_group_name,
-                {
-                    'type': 'send_notification',
-                    'notification_type': 'new_message',
-                    'data': {
-                        'unread_conversations_count': unread_convo_count,
-                        'conversation_id': self.conversation.id,
-                        'last_message_content': new_message.content,
-                        'last_message_timestamp': str(new_message.timestamp.isoformat()),
-                        'sender_username': self.user.username,
+            # --- THIS IS THE FIX ---
+            users_to_notify = [self.user, self.other_user]
+            for user_to_notify in users_to_notify:
+                unread_convo_count = await self.get_unread_conversation_count(user_to_notify)
+                notification_group_name = f'notifications_{user_to_notify.username}'
+
+                await self.channel_layer.group_send(
+                    notification_group_name,
+                    {
+                        'type': 'send_notification',
+                        'notification_type': 'new_message',
+                        'data': {
+                            'unread_conversations_count': unread_convo_count,
+                            'conversation_id': self.conversation.id,
+                            'last_message_content': new_message.content,
+                            'last_message_timestamp': str(new_message.timestamp.isoformat()),
+                            'sender_username': self.user.username,
+                        }
                     }
-                }
-            )
-            # --- END: THIS IS THE FIX ---
+                )
+            # --- END OF FIX ---
 
         except Exception as e:
             print(f"!!! CHATCONSUMER ERROR in receive method: {e} !!!")
 
     async def chat_message(self, event):
-        # If the user receiving this event is not the original sender,
-        # it means they have the chat open, so we mark the message as read.
         if self.user.username != event['sender']:
             await self.mark_message_as_read(event['message_id'])
 
@@ -114,8 +111,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'timestamp': event.get('timestamp', ''),
             'is_system_message': event.get('is_system_message', False)
         }))
-    
-    # --- NEW METHOD ---
+
     @database_sync_to_async
     def mark_message_as_read(self, message_id):
         try:
@@ -124,7 +120,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 message.is_read = True
                 message.save(update_fields=['is_read'])
         except Message.DoesNotExist:
-            pass # Or log an error
+            pass
 
     @database_sync_to_async
     def get_user(self, username):
@@ -143,7 +139,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def create_message(self, conversation, sender, content):
         message = Message.objects.create(conversation=conversation, sender=sender, content=content)
-        conversation.save() # This updates the `updated_at` field
+        conversation.save()
         return message
 
     @database_sync_to_async

@@ -6,24 +6,15 @@
     const messageInputDom = document.querySelector('#chat-message-input');
     let chatSocket = null;
 
-    /**
-     * This function takes a timestamp from the server (UTC) and formats it in UTC.
-     * This ensures the time shown for new messages matches the time shown after a page refresh.
-     */
     function formatSmartTimeJS(isoString) {
         if (!isoString) return '';
-
-        // Create a Date object from the UTC timestamp sent by the server
         const messageDate = new Date(isoString);
         const now = new Date();
-
-        // Compare the UTC date part of the message with the UTC date part of "now"
         const isToday = messageDate.getUTCFullYear() === now.getUTCFullYear() &&
                         messageDate.getUTCMonth() === now.getUTCMonth() &&
                         messageDate.getUTCDate() === now.getUTCDate();
 
         if (isToday) {
-            // If the message is from today (in UTC), format the time in UTC
             return messageDate.toLocaleTimeString('en-US', {
                 timeZone: 'UTC',
                 hour: '2-digit',
@@ -31,9 +22,8 @@
                 hour12: true
             }).toLowerCase();
         } else {
-            // Otherwise, format the date part in UTC as DD.MM.YYYY
             const day = String(messageDate.getUTCDate()).padStart(2, '0');
-            const month = String(messageDate.getUTCMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+            const month = String(messageDate.getUTCMonth() + 1).padStart(2, '0');
             const year = messageDate.getUTCFullYear();
             return `${day}.${month}.${year}`;
         }
@@ -43,8 +33,8 @@
         const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
         chatSocket = new WebSocket(protocol + window.location.host + '/ws/chat/' + otherUserUsername + '/');
 
-        chatSocket.onopen = function(e) { 
-            chatLog.scrollTop = chatLog.scrollHeight; 
+        chatSocket.onopen = function(e) {
+            chatLog.scrollTop = chatLog.scrollHeight;
         };
 
         chatSocket.onmessage = function(e) {
@@ -63,13 +53,13 @@
             chatLog.scrollTop = chatLog.scrollHeight;
         };
 
-        chatSocket.onclose = function(e) { 
-            setTimeout(() => connect(), 1000); 
+        chatSocket.onclose = function(e) {
+            setTimeout(() => connect(), 1000);
         };
     }
 
-    if (document.getElementById('other-user-username')) { 
-        connect(); 
+    if (document.getElementById('other-user-username')) {
+        connect();
     }
 
     if (document.querySelector('#chat-form')) {
@@ -78,6 +68,21 @@
             const message = messageInputDom.value;
             if (message.trim() === '') return;
             chatSocket.send(JSON.stringify({'message': message}));
+
+            // --- THIS IS THE FIX ---
+            const activeConvIdElement = document.getElementById('active-conversation-id');
+            if (activeConvIdElement && typeof updateConversationLink === 'function') {
+                const activeConvId = JSON.parse(activeConvIdElement.textContent);
+                const optimisticData = {
+                    conversation_id: activeConvId,
+                    last_message_content: message,
+                    last_message_timestamp: new Date().toISOString(),
+                    sender_username: currentUserUsername
+                };
+                updateConversationLink(optimisticData);
+            }
+            // --- END OF FIX ---
+
             messageInputDom.value = '';
             return false;
         };
