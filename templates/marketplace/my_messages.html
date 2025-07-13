@@ -83,6 +83,9 @@
 
 {# WebSocket script for real-time chat functionality #}
 {% if active_conversation %}
+    {# --- ADD THIS LINE --- #}
+    {{ active_conversation.id|json_script:"active-conversation-id" }}
+
     {% if active_conversation.participant1 == request.user %}
         {{ active_conversation.participant2.username|json_script:"other-user-username" }}
     {% else %}

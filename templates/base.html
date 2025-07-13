@@ -208,7 +208,7 @@
     }
 
     /**
-     * NEW: This function updates the conversation list on the left in real-time.
+     * MODIFIED: This function updates the conversation list and now checks if the chat is active.
      */
     function updateConversationLink(data) {
         // Find the link for the specific conversation using its ID
@@ -232,9 +232,21 @@
         if (timestampElement) {
             timestampElement.textContent = formatTimeSince(data.last_message_timestamp);
         }
+        
+        // --- THIS IS THE FIX ---
+        // Get the active conversation ID from the DOM, if it exists
+        const activeConvIdElement = document.getElementById('active-conversation-id');
+        let activeConvId = null;
+        if (activeConvIdElement) {
+            activeConvId = JSON.parse(activeConvIdElement.textContent);
+        }
 
-        // Mark the conversation as unread
-        conversationLink.classList.add('unread');
+        // Only mark the conversation as 'unread' if it's NOT the one currently being viewed.
+        if (activeConvId !== data.conversation_id) {
+             conversationLink.classList.add('unread');
+        }
+        // --- END OF FIX ---
+
 
         // Move the updated conversation to the top of the list for visibility
         const parentList = conversationLink.parentNode;
