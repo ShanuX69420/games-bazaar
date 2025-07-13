@@ -9,6 +9,7 @@ urlpatterns = [
     path('game/<int:pk>/', views.game_detail_view, name='game_detail'),
     path('game/<int:game_pk>/category/<int:category_pk>/', views.listing_page_view, name='listing_page'),
     path('listing/<int:pk>/', views.product_detail, name='product_detail'),
+    path('api/live-search/', views.live_search, name='live_search'),
 
     # Auth
     path('register/', views.RegisterView.as_view(), name='register'),

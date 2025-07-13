@@ -109,4 +109,49 @@
         };
     }
 </script>
+<script>
+    // This script handles the submission of the review form.
+    const reviewForm = document.querySelector('#review-form');
+
+    if (reviewForm) {
+        reviewForm.addEventListener('submit', function(e) {
+            // Prevent the default browser page-reload
+            e.preventDefault();
+
+            const formData = new FormData(reviewForm);
+            const actionUrl = reviewForm.getAttribute('action');
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            fetch(actionUrl, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // If the submission was successful, replace the form
+                    // with a thank you message.
+                    const actionContainer = document.querySelector('#action-container');
+                    if (actionContainer) {
+                        actionContainer.innerHTML = `
+                            <div class="alert alert-success">
+                                Thank you! Your review has been submitted.
+                            </div>
+                        `;
+                    }
+                } else {
+                    // If there was an error, alert the user.
+                    alert(data.message || 'An error occurred while submitting your review.');
+                }
+            })
+            .catch(error => {
+                console.error('Error submitting review:', error);
+                alert('An unexpected error occurred.');
+            });
+        });
+    }
+</script>
 {% endblock %}

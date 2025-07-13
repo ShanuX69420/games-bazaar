@@ -1,0 +1,39 @@
+<script>
+    {% if user.is_authenticated %}
+    function updateBadge(selector, count) {
+        const link = document.querySelector(selector);
+        if (!link) return;
+        let badge = link.querySelector('.badge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'badge bg-danger ms-1';
+            link.appendChild(badge);
+        }
+        if (count > 0) {
+            badge.textContent = count;
+            badge.style.display = '';
+        } else {
+            if (badge) {
+                badge.remove();
+            }
+        }
+    }
+    function connectNotifications() {
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const notificationSocket = new WebSocket(protocol + window.location.host + '/ws/notifications/');
+        notificationSocket.onmessage = function(e) {
+            const content = JSON.parse(e.data);
+            if (content.type === 'new_message') {
+                updateBadge('a[href="{% url 'my_messages' %}"]', content.data.unread_conversations_count);
+            } else if (content.type === 'order_update') {
+                updateBadge('a[href="{% url 'seller_dashboard' %}"]', content.data.active_sales_count);
+                updateBadge('a[href="{% url 'my_purchases' %}"]', content.data.active_purchases_count);
+            }
+        };
+        notificationSocket.onclose = function(e) {
+            setTimeout(connectNotifications, 1000);
+        };
+    }
+    connectNotifications();
+    {% endif %}
+</script>

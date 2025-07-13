@@ -16,6 +16,41 @@ from .models import (
 )
 from .forms import ProductForm, ReviewForm, WithdrawalRequestForm, SupportTicketForm
 
+
+def live_search(request):
+    query = request.GET.get('q', '').strip()
+    
+    if not query:
+        return JsonResponse([], safe=False)
+
+    # --- THIS IS THE ONLY LINE THAT CHANGED ---
+    # We now use 'istartswith' and 'order_by' for proper alphabetical results.
+    games = Game.objects.filter(title__istartswith=query).order_by('title').prefetch_related('categories')[:12]
+    
+    results = []
+    
+    for game in games:
+        try:
+            game_url = reverse_lazy('game_detail', kwargs={'pk': game.pk})
+        except Exception:
+            game_url = '#'
+
+        categories_data = []
+        for cat in game.categories.all():
+            try:
+                cat_url = reverse_lazy('listing_page', kwargs={'game_pk': game.pk, 'category_pk': cat.pk})
+                categories_data.append({'name': cat.name, 'url': cat_url})
+            except Exception:
+                continue
+
+        results.append({
+            'name': game.title,
+            'url': game_url,
+            'categories': categories_data
+        })
+
+    return JsonResponse(results, safe=False)
+
 class RegisterView(generic.CreateView):
     form_class = UserCreationForm
     success_url = reverse_lazy('login') 
@@ -170,23 +205,45 @@ def my_purchases(request):
 @login_required
 def messages_view(request, username=None):
     conversations = Conversation.objects.filter(Q(participant1=request.user) | Q(participant2=request.user)).order_by('-updated_at')
+    
+    # --- NEW LOGIC ---
+    # Get a list of IDs for conversations that have messages waiting for the current user.
+    unread_conversation_ids = set(
+        Message.objects.filter(
+            conversation__in=conversations, 
+            is_read=False
+        ).exclude(
+            sender=request.user
+        ).values_list('conversation_id', flat=True)
+    )
+    # --- END NEW LOGIC ---
+
     active_conversation = None
     messages = []
     other_user = None
+    other_user_profile = None
+
     if username:
         other_user = get_object_or_404(User, username=username)
-        active_conversation = conversations.filter((Q(participant1=request.user) & Q(participant2=other_user)) | (Q(participant1=other_user) & Q(participant2=request.user))).first()
-    elif conversations:
-        for conv in conversations:
-            if (conv.participant1 == request.user and conv.participant2 != request.user) or \
-               (conv.participant2 == request.user and conv.participant1 != request.user):
-                active_conversation = conv
-                break
-    if active_conversation:
-        messages = active_conversation.messages.all().order_by('timestamp')
-        if active_conversation.participant1 == request.user: other_user = active_conversation.participant2
-        else: other_user = active_conversation.participant1
-    context = {'conversations': conversations, 'active_conversation': active_conversation, 'other_user_profile': other_user, 'messages': messages}
+        other_user_profile = other_user
+        
+        active_conversation = conversations.filter(
+            (Q(participant1=request.user) & Q(participant2=other_user)) | 
+            (Q(participant1=other_user) & Q(participant2=request.user))
+        ).first()
+        
+        if active_conversation:
+            messages = active_conversation.messages.all().order_by('timestamp')
+            # When a conversation is opened, mark its messages as read.
+            active_conversation.messages.exclude(sender=request.user).update(is_read=True)
+
+    context = {
+        'conversations': conversations, 
+        'active_conversation': active_conversation, 
+        'other_user_profile': other_user_profile, 
+        'messages': messages,
+        'unread_conversation_ids': unread_conversation_ids, # Pass the new list to the template
+    }
     return render(request, 'marketplace/my_messages.html', context)
 
 @login_required
