@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -51,6 +52,7 @@
     </style>
 </head>
 <body>
+    <audio id="notification-sound" src="{% static 'sounds/notification.mp3' %}" preload="auto"></audio>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="{% url 'home' %}">Gamer's Market</a>
@@ -255,6 +257,6 @@ setInterval(updateRelativeTimestamps, 30000);
 
 {% endif %}
 </script>
- 
+<script src="{% static 'js/main.js' %}"></script>
 </body>
 </html>
