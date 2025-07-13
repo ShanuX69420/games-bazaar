@@ -185,6 +185,15 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             })
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
+    # --- THIS IS THE NEW METHOD TO HANDLE THE HEARTBEAT ---
+    async def receive(self, text_data):
+        """
+        Receives messages from the websocket. We use this for our heartbeat.
+        The act of receiving a message updates the user's 'last_seen' time.
+        """
+        await update_user_last_seen(self.user)
+    # --- END OF NEW METHOD ---
+
     async def send_notification(self, event):
         await self.send(text_data=json.dumps({
             'type': event['notification_type'],

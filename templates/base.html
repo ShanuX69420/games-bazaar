@@ -276,34 +276,48 @@
     }
 
     function connectNotifications() {
-        const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent);
-        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-        const notificationSocket = new WebSocket(protocol + window.location.host + '/ws/notifications/');
+    const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent);
+    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const notificationSocket = new WebSocket(protocol + window.location.host + '/ws/notifications/');
+    let heartbeatInterval = null; // Variable to hold the heartbeat interval
 
-        notificationSocket.onmessage = function(e) {
-            const content = JSON.parse(e.data);
-            const notificationType = content.type;
-            const data = content.data;
+    notificationSocket.onopen = function(e) {
+        console.log("Notification socket connected. Starting heartbeat.");
+        // Start sending a heartbeat signal every 25 seconds
+        heartbeatInterval = setInterval(() => {
+            // This message keeps the 'last_seen' timestamp updated on the server
+            notificationSocket.send(JSON.stringify({ 'type': 'heartbeat' }));
+        }, 25000); // 25 seconds is a good interval
+    };
 
-            if (notificationType === 'new_message') {
-                updateConversationLink(data);
-                updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
-                if (data.sender_username !== currentUserUsername) {
-                    playNotificationSound();
-                }
-            } else if (notificationType === 'order_update') {
-                updateBadge('a[href="{% url 'seller_dashboard' %}"]', data.active_sales_count);
-                updateBadge('a[href="{% url 'my_purchases' %}"]', data.active_purchases_count);
+    notificationSocket.onmessage = function(e) {
+        const content = JSON.parse(e.data);
+        const notificationType = content.type;
+        const data = content.data;
+
+        if (notificationType === 'new_message') {
+            updateConversationLink(data);
+            updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
+            if (data.sender_username !== currentUserUsername) {
                 playNotificationSound();
-            } else if (notificationType === 'presence_update') {
-                updateUserStatusOnPage(data);
             }
-        };
+        } else if (notificationType === 'order_update') {
+            updateBadge('a[href="{% url 'seller_dashboard' %}"]', data.active_sales_count);
+            updateBadge('a[href="{% url 'my_purchases' %}"]', data.active_purchases_count);
+            playNotificationSound();
+        } else if (notificationType === 'presence_update') {
+            updateUserStatusOnPage(data);
+        }
+    };
 
-        notificationSocket.onclose = function(e) {
-            setTimeout(connectNotifications, 1000);
-        };
-    }
+    notificationSocket.onclose = function(e) {
+        console.log("Notification socket closed. Clearing heartbeat.");
+        // Stop the heartbeat when the connection is lost
+        clearInterval(heartbeatInterval);
+        // Attempt to reconnect after a 1-second delay
+        setTimeout(connectNotifications, 1000);
+    };
+}
 
     // Start the WebSocket connection
     connectNotifications();
