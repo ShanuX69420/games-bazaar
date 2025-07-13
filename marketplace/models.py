@@ -35,8 +35,9 @@ class Profile(models.Model):
     @property
     def is_online(self):
         if self.last_seen:
-            # A user is "online" if their last seen time was within the last 5 minutes.
-            return timezone.now() < self.last_seen + datetime.timedelta(minutes=5)
+            # A user is "online" if their last seen time was within the last 30 seconds.
+            # This reduces the chance of showing "Online" for a user who has just disconnected.
+            return timezone.now() < self.last_seen + datetime.timedelta(seconds=30)
         return False
 
     def __str__(self): 

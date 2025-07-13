@@ -12,14 +12,8 @@
             </div>
             {% if conversation.messages.last %}
                 <p class="mb-1 text-muted small conversation-last-message">
-                    {# This span will now hold the user's status #}
-                    <span id="status-list-{{ other_user.username }}">
-                        {% if other_user.profile.is_online %}
-                            Online
-                        {% else %}
-                            {{ conversation.messages.last.content|truncatechars:25 }}
-                        {% endif %}
-                    </span>
+                    {# This now correctly shows the last message content #}
+                    {{ conversation.messages.last.content|truncatechars:25 }}
                 </p>
             {% endif %}
         </div>

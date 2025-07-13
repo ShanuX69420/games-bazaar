@@ -5,8 +5,13 @@
     <div>
         <h5 class="mb-0">{{ other_user.username }}</h5>
         
-        {# This small tag now has a unique ID for real-time updates #}
-        <small id="status-chat-{{ other_user.username }}" class="{% if other_user.profile.is_online %}text-success{% else %}text-muted{% endif %}">
+        <small id="status-chat-{{ other_user.username }}" 
+               class="{% if other_user.profile.is_online %}text-success{% else %}text-muted{% endif %}"
+               {% if not other_user.profile.is_online and other_user.profile.last_seen %}
+                   data-iso-timestamp="{{ other_user.profile.last_seen.isoformat }}"
+                   data-username="{{ other_user.username }}"
+               {% endif %}
+        >
             {% if other_user.profile.is_online %}
                 Online
             {% elif other_user.profile.last_seen %}
