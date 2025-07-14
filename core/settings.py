@@ -141,7 +141,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-LOGIN_REDIRECT_URL = 'seller_dashboard'
+LOGIN_REDIRECT_URL = 'home'
 LOGIN_URL = 'login'
 
 # core/settings.py

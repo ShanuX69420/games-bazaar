@@ -33,7 +33,6 @@
             playNotificationSound();
         }
     } else if (content.type === 'order_update') {
-        updateBadge('a[href="{% url 'seller_dashboard' %}"]', content.data.active_sales_count);
         updateBadge('a[href="{% url 'my_purchases' %}"]', content.data.active_purchases_count);
         // --- > AND HERE < ---
         playNotificationSound();

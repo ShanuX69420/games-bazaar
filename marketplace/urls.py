@@ -19,7 +19,6 @@ urlpatterns = [
     path('password-change/done/', auth_views.PasswordChangeDoneView.as_view(template_name='registration/password_change_done.html'), name='password_change_done'),
     
     # Seller Dashboard & Listing Creation
-    path('dashboard/', views.seller_dashboard, name='seller_dashboard'),
     path('sell/', views.select_game_for_listing, name='select_game_for_listing'),
     path('sell/<int:game_pk>/<int:category_pk>/', views.create_product, name='create_product'),
 

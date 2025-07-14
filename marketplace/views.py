@@ -99,22 +99,6 @@ def flat_page_view(request, slug):
     page = get_object_or_404(FlatPage, slug=slug)
     return render(request, 'marketplace/flat_page.html', {'page': page})
 
-@login_required
-def seller_dashboard(request):
-    all_orders = Order.objects.filter(seller=request.user).order_by('-created_at')
-    completed_orders = all_orders.filter(status='COMPLETED')
-    sales_data = completed_orders.aggregate(total_sales=Sum('total_price'), total_commission=Sum('commission_paid'))
-    total_sales = sales_data.get('total_sales') or 0
-    total_commission = sales_data.get('total_commission') or 0
-    net_earnings = total_sales - total_commission
-    context = {
-        'products': Product.objects.filter(seller=request.user),
-        'all_orders': all_orders,
-        'total_sales': total_sales,
-        'total_commission': total_commission,
-        'net_earnings': net_earnings,
-    }
-    return render(request, 'marketplace/seller_dashboard.html', context)
 
 @login_required
 def select_game_for_listing(request):
