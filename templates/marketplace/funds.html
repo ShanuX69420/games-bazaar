@@ -44,13 +44,8 @@
     .transaction-row:last-child {
         border-bottom: none;
     }
-    .transaction-total.positive {
-        color: #198754; /* Success Green */
-        font-weight: 600;
-    }
-    .transaction-total.negative {
+    .transaction-total {
         color: #343a40; /* Dark Grey */
-        font-weight: 400;
     }
 </style>
 
@@ -103,8 +98,12 @@
                             {{ tx.get_status_display }}
                         </span>
                     </div>
-                    <div class="text-end transaction-total {% if tx.amount > 0 %}positive{% else %}negative{% endif %}">
-                        {% if tx.amount > 0 %}+{% endif %}Rs{{ tx.amount|floatformat:2 }}
+                    <div class="text-end transaction-total fw-bold">
+                        {% if tx.amount > 0 %}
+                            +Rs{{ tx.amount|floatformat:2 }}
+                        {% else %}
+                            -Rs{{ tx.amount|floatformat:2|cut:"-" }}
+                        {% endif %}
                     </div>
                 </div>
                 {% empty %}
