@@ -1,0 +1,26 @@
+{% load time_filters %}
+
+<div class="transaction-row">
+    <div>
+        <div class="fw-bold">{{ tx.created_at|date:"d M, H:i" }}</div>
+        <small class="text-muted">{{ tx.created_at|timesince }} ago</small>
+    </div>
+    <div>{{ tx.description }}</div>
+    <div class="text-center">
+        <span class="badge rounded-pill
+            {% if tx.status == 'COMPLETED' %}text-bg-success
+            {% elif tx.status == 'PROCESSING' or tx.status == 'PENDING' %}text-bg-warning
+            {% elif tx.status == 'CANCELLED' or tx.status == 'REFUNDED' %}text-bg-danger
+            {% else %}text-bg-secondary
+            {% endif %}">
+            {{ tx.get_status_display }}
+        </span>
+    </div>
+    <div class="text-end transaction-total fw-bold">
+        {% if tx.amount > 0 %}
+            +Rs{{ tx.amount|floatformat:2 }}
+        {% else %}
+            -Rs{{ tx.amount|floatformat:2|cut:"-" }}
+        {% endif %}
+    </div>
+</div>

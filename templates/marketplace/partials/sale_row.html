@@ -1,0 +1,50 @@
+{% load time_filters %}
+
+<a href="{% url 'order_detail' order.pk %}" class="sale-row status-{{ order.status|lower }}">
+    {# Date #}
+    <div>
+        <div class="fw-bold">{{ order.created_at|date:"d M, H:i" }}</div>
+        <small class="text-muted">{{ order.created_at|timesince }} ago</small>
+    </div>
+    {# Order #}
+    <div>#{{ order.id }}</div>
+    {# Description #}
+    <div>
+        <strong>{{ order.product.listing_title }}</strong>
+        <div class="text-muted small">{{ order.product.game.title }}, {{ order.product.category.name }}</div>
+    </div>
+    {# Buyer #}
+    <div class="buyer-info">
+        <img src="https://i.imgur.com/v8Ld3iI.png" alt="{{ order.buyer.username }}">
+        <div>
+            <div class="fw-bold">{{ order.buyer.username }}</div>
+            <div class="user-status {% if order.buyer.profile.is_online %}online{% else %}offline{% endif %}"
+                 data-username="{{ order.buyer.username }}"
+                 {% if not order.buyer.profile.is_online and order.buyer.profile.last_seen %}
+                     data-iso-timestamp="{{ order.buyer.profile.last_seen.isoformat }}"
+                 {% endif %}>
+                {% if order.buyer.profile.is_online %}
+                    Online
+                {% elif order.buyer.profile.last_seen %}
+                    was active {{ order.buyer.profile.last_seen|timesince }} ago
+                {% else %}
+                    Offline
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {# Status #}
+    <div>
+        <span class="badge rounded-pill status-badge
+            {% if order.status == 'COMPLETED' %}text-bg-success
+            {% elif order.status == 'PROCESSING' %}text-bg-info
+            {% elif order.status == 'REFUNDED' %}text-bg-warning
+            {% elif order.status == 'CANCELLED' or order.status == 'DISPUTED' %}text-bg-danger
+            {% else %}text-bg-secondary
+            {% endif %}">
+            {{ order.get_status_display }}
+        </span>
+    </div>
+    {# Total #}
+    <div class="fw-bold text-end">Rs{{ order.total_price|floatformat:2 }}</div>
+</a>

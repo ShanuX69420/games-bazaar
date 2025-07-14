@@ -93,7 +93,7 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // =================== LIVE SEARCH ===================
+        // Live search functionality remains the same
         const searchInput = document.getElementById('live-search-input');
         const resultsDropdown = document.getElementById('search-results-dropdown');
         let searchTimeout;
@@ -113,23 +113,16 @@
                         .then(response => response.json())
                         .then(data => {
                             resultsDropdown.innerHTML = ''; // Clear old results
-
                             if (data.length > 0) {
                                 const contentDiv = document.createElement('div');
                                 contentDiv.id = 'search-results-content';
-
                                 data.forEach(game => {
                                     const columnDiv = document.createElement('div');
                                     columnDiv.className = 'search-result-column';
-
-                                    let categoriesHtml = game.categories.map(cat => 
-                                        `<a href="${cat.url}">${cat.name}</a>`
-                                    ).join('');
-
+                                    let categoriesHtml = game.categories.map(cat => `<a href="${cat.url}">${cat.name}</a>`).join('');
                                     columnDiv.innerHTML = `<h6>${game.name}</h6>${categoriesHtml}`;
                                     contentDiv.appendChild(columnDiv);
                                 });
-
                                 resultsDropdown.appendChild(contentDiv);
                                 resultsDropdown.style.display = 'block';
                             } else {
@@ -152,8 +145,8 @@
         }
     });
 
+    // =================== UTILITY & REAL-TIME FUNCTIONS ===================
 
-    // =================== UTILITY FUNCTIONS ===================
     function formatTimeSince(isoString) {
         if (!isoString) return '';
         const date = new Date(isoString);
@@ -161,7 +154,6 @@
         const seconds = Math.floor((now - date) / 1000);
 
         if (seconds < 60) return "just now";
-
         let interval = seconds / 31536000;
         if (interval > 1) return Math.floor(interval) + " years ago";
         interval = seconds / 2592000;
@@ -175,64 +167,41 @@
         return "just now";
     }
 
-    /**
-     * NEW: This function runs on an interval to keep all "was active" times updated.
-     */
     function updateRelativeTimestamps() {
-        // Find all elements showing an offline user's status
         const elements = document.querySelectorAll('[data-iso-timestamp]');
         elements.forEach(element => {
             const isoTimestamp = element.dataset.isoTimestamp;
             if (isoTimestamp) {
-                // Update its text with the newly calculated relative time
                 element.textContent = `was active ${formatTimeSince(isoTimestamp)}`;
             }
         });
     }
 
-    /**
-     * --- THIS FUNCTION IS REPLACED ---
-     * UPDATED: This function now updates all status indicators for a given user
-     * on a page, using data attributes instead of brittle IDs. It also applies
-     * specific classes for styling.
-     */
     function updateUserStatusOnPage(data) {
-        // Find ALL elements for this user, not just one.
         const statusElements = document.querySelectorAll(`.user-status[data-username="${data.username}"]`);
-        
-        if (statusElements.length === 0) {
-            return;
-        }
+        if (statusElements.length === 0) return;
 
         statusElements.forEach(statusEl => {
             if (data.is_online) {
                 statusEl.textContent = 'Online';
-                // Set classes for styling and remove timestamp data
                 statusEl.className = 'user-status online'; 
                 statusEl.removeAttribute('data-iso-timestamp');
             } else {
                 const lastSeenText = `was active ${formatTimeSince(data.last_seen_iso)}`;
                 statusEl.textContent = lastSeenText;
-                // Set classes for styling and add timestamp data for the interval updater
                 statusEl.className = 'user-status offline'; 
                 statusEl.setAttribute('data-iso-timestamp', data.last_seen_iso);
             }
         });
     }
 
-    /**
-     * MODIFIED: This function updates the conversation list and now checks if the chat is active.
-     */
     function updateConversationLink(data) {
-        // Find the link for the specific conversation using its ID
         const conversationLink = document.querySelector(`.list-group-item[data-conversation-id="${data.conversation_id}"]`);
-        if (!conversationLink) return; // Exit if the user is not on the messages page
+        if (!conversationLink) return;
 
-        // Find the elements for the last message and timestamp inside the link
         const lastMessageElement = conversationLink.querySelector('.conversation-last-message');
         const timestampElement = conversationLink.querySelector('.conversation-timestamp');
 
-        // Update the last message text, cutting it off if it's too long
         if (lastMessageElement) {
             let truncatedMessage = data.last_message_content;
             if (truncatedMessage.length > 25) {
@@ -241,35 +210,27 @@
             lastMessageElement.textContent = truncatedMessage;
         }
 
-        // Update the timestamp to show a relative time like "just now"
         if (timestampElement) {
             timestampElement.textContent = formatTimeSince(data.last_message_timestamp);
         }
 
-        // --- THIS IS THE FIX ---
-        // Get the active conversation ID from the DOM, if it exists
         const activeConvIdElement = document.getElementById('active-conversation-id');
         let activeConvId = null;
         if (activeConvIdElement) {
             activeConvId = JSON.parse(activeConvIdElement.textContent);
         }
 
-        // Only mark the conversation as 'unread' if it's NOT the one currently being viewed.
         if (activeConvId !== data.conversation_id) {
              conversationLink.classList.add('unread');
         }
-        // --- END OF FIX ---
-
-
-        // Move the updated conversation to the top of the list for visibility
+        
         const parentList = conversationLink.parentNode;
         if (parentList) {
             parentList.prepend(conversationLink);
         }
     }
 
-
-    // =================== NOTIFICATION WEBSOCKET ===================
+    // =================== NOTIFICATION WEBSOCKET (UPGRADED) ===================
     {% if user.is_authenticated %}
     function updateBadge(selector, count) {
         const link = document.querySelector(selector);
@@ -287,55 +248,79 @@
             if (badge) badge.remove();
         }
     }
+    
+    // Helper to prepend HTML and remove placeholders
+    function prependToPage(containerId, placeholderId, html) {
+        const container = document.getElementById(containerId);
+        if (container) {
+            // Remove the 'nothing found' message if it exists
+            const placeholder = document.getElementById(placeholderId);
+            if (placeholder) {
+                placeholder.remove();
+            }
+            // Prepend the new row
+            container.insertAdjacentHTML('afterbegin', html);
+        }
+    }
 
     function connectNotifications() {
-    const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent);
-    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-    const notificationSocket = new WebSocket(protocol + window.location.host + '/ws/notifications/');
-    let heartbeatInterval = null; // Variable to hold the heartbeat interval
+        const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent);
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const notificationSocket = new WebSocket(protocol + window.location.host + '/ws/notifications/');
+        let heartbeatInterval = null;
 
-    notificationSocket.onopen = function(e) {
-        console.log("Notification socket connected. Starting heartbeat.");
-        // Start sending a heartbeat signal every 25 seconds
-        heartbeatInterval = setInterval(() => {
-            // This message keeps the 'last_seen' timestamp updated on the server
-            notificationSocket.send(JSON.stringify({ 'type': 'heartbeat' }));
-        }, 25000); // 25 seconds is a good interval
-    };
+        notificationSocket.onopen = function(e) {
+            console.log("Notification socket connected.");
+            heartbeatInterval = setInterval(() => {
+                notificationSocket.send(JSON.stringify({ 'type': 'heartbeat' }));
+            }, 25000);
+        };
 
-    notificationSocket.onmessage = function(e) {
-        const content = JSON.parse(e.data);
-        const notificationType = content.type;
-        const data = content.data;
+        notificationSocket.onmessage = function(e) {
+            const content = JSON.parse(e.data);
+            const notificationType = content.type;
+            const data = content.data;
 
-        if (notificationType === 'new_message') {
-            updateConversationLink(data);
-            updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
-            if (data.sender_username !== currentUserUsername) {
+            if (notificationType === 'new_message') {
+                updateConversationLink(data);
+                updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
+                if (data.sender_username !== currentUserUsername) {
+                    playNotificationSound();
+                }
+
+            } else if (notificationType === 'new_sale_update') {
+                updateBadge('a[href="{% url 'my_sales' %}"]', data.counts.active_sales_count);
+                
+                prependToPage('sales-list', 'no-sales-placeholder', data.sale_row_html);
+                prependToPage('recent-orders-list', 'no-sales-placeholder', data.dashboard_row_html);
+                
+                // THIS IS THE FIXED LINE
+                prependToPage('transaction-rows-container', 'no-transactions-placeholder', data.transaction_row_html);
+
                 playNotificationSound();
+
+            } else if (notificationType === 'new_purchase_update') {
+                updateBadge('a[href="{% url 'my_purchases' %}"]', data.counts.active_purchases_count);
+                playNotificationSound();
+
+            } else if (notificationType === 'order_completed_update') {
+                updateBadge('a[href="{% url 'my_sales' %}"]', data.counts.active_sales_count);
+                updateBadge('a[href="{% url 'my_purchases' %}"]', data.counts.active_purchases_count);
+
+            } else if (notificationType === 'presence_update') {
+                updateUserStatusOnPage(data);
             }
-        } else if (notificationType === 'order_update') {
-            updateBadge('a[href="{% url 'seller_dashboard' %}"]', data.active_sales_count);
-            updateBadge('a[href="{% url 'my_purchases' %}"]', data.active_purchases_count);
-            playNotificationSound();
-        } else if (notificationType === 'presence_update') {
-            updateUserStatusOnPage(data);
-        }
-    };
+        };
 
-    notificationSocket.onclose = function(e) {
-        console.log("Notification socket closed. Clearing heartbeat.");
-        // Stop the heartbeat when the connection is lost
-        clearInterval(heartbeatInterval);
-        // Attempt to reconnect after a 1-second delay
-        setTimeout(connectNotifications, 1000);
-    };
-}
+        notificationSocket.onclose = function(e) {
+            console.log("Notification socket closed. Reconnecting...");
+            clearInterval(heartbeatInterval);
+            setTimeout(connectNotifications, 1000);
+        };
+    }
 
-    // Start the WebSocket connection
+    // Start the WebSocket connection and timestamp updater
     connectNotifications();
-
-    // NEW: Start the interval to update timestamps every 30 seconds
     setInterval(updateRelativeTimestamps, 30000);
 
     {% endif %}

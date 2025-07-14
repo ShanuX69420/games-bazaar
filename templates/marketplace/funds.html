@@ -55,8 +55,7 @@
         <p class="text-muted">Available Balance</p>
     </div>
     <div class="col-md-4 text-md-end">
-        {# This button doesn't do anything yet, as requested #}
-        <button class="btn btn-primary btn-lg" disabled>Withdraw</button>
+        <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#withdrawModal">Withdraw</button>
     </div>
 </div>
 
@@ -81,39 +80,38 @@
                     <div class="text-end">Total</div>
                 </div>
 
-                {% for tx in transactions %}
-                <div class="transaction-row">
-                    <div>
-                        <div class="fw-bold">{{ tx.created_at|date:"d M, H:i" }}</div>
-                        <small class="text-muted">{{ tx.created_at|timesince }} ago</small>
+                <div id="transaction-rows-container">
+                    {% for tx in transactions %}
+                        {% include 'marketplace/partials/transaction_row.html' with tx=tx %}
+                    {% empty %}
+                    <div class="p-4 text-center text-muted" id="no-transactions-placeholder">
+                        <p>No transactions found.</p>
                     </div>
-                    <div>{{ tx.description }}</div>
-                    <div class="text-center">
-                        <span class="badge rounded-pill
-                            {% if tx.status == 'COMPLETED' %}text-bg-success
-                            {% elif tx.status == 'PROCESSING' or tx.status == 'PENDING' %}text-bg-warning
-                            {% elif tx.status == 'CANCELLED' or tx.status == 'REFUNDED' %}text-bg-danger
-                            {% else %}text-bg-secondary
-                            {% endif %}">
-                            {{ tx.get_status_display }}
-                        </span>
-                    </div>
-                    <div class="text-end transaction-total fw-bold">
-                        {% if tx.amount > 0 %}
-                            +Rs{{ tx.amount|floatformat:2 }}
-                        {% else %}
-                            -Rs{{ tx.amount|floatformat:2|cut:"-" }}
-                        {% endif %}
-                    </div>
+                    {% endfor %}
                 </div>
-                {% empty %}
-                <div class="p-4 text-center text-muted">
-                    <p>No transactions found.</p>
-                </div>
-                {% endfor %}
+
             </div>
         </div>
     </div>
 </div>
 
+<div class="modal fade" id="withdrawModal" tabindex="-1" aria-labelledby="withdrawModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="withdrawModalLabel">Request a Withdrawal</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Your available balance is <strong>Rs{{ balance|floatformat:2 }}</strong>.</p>
+        <form method="post" action="{% url 'funds' %}">
+            {% csrf_token %}
+            {# Assuming you have a withdrawal_form passed in the context #}
+            {{ withdrawal_form.as_p }}
+            <button type="submit" class="btn btn-primary">Submit Request</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
