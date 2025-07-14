@@ -10,7 +10,7 @@
         <hr>
         <p><strong>Seller:</strong> {{ order.seller.username }}</p>
         <p><strong>Buyer:</strong> {{ order.buyer.username }}</p>
-        <p><strong>Total Price:</strong> ${{ order.total_price }}</p>
+        <p><strong>Total Price:</strong> Rs{{ order.total_price }}</p>
         <p><strong>Order Status:</strong> {{ order.get_status_display }}</p>
         <p><strong>Order Placed:</strong> {{ order.created_at }}</p>
         <hr>

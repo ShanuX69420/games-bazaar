@@ -121,7 +121,9 @@ class WithdrawalRequest(models.Model):
     requested_at = models.DateTimeField(auto_now_add=True)
     processed_at = models.DateTimeField(null=True, blank=True)
     admin_notes = models.TextField(blank=True, null=True)
-    def __str__(self): return f"Withdrawal request for {self.user.username} of ${self.amount}"
+    
+    def __str__(self):
+        return f"Withdrawal request for {self.user.username} of Rs{self.amount}"
 
 class SupportTicket(models.Model):
     STATUS_CHOICES = [('OPEN', 'Open'), ('IN_PROGRESS', 'In Progress'), ('CLOSED', 'Closed')]

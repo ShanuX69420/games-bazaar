@@ -45,7 +45,7 @@ class WithdrawalRequestForm(forms.ModelForm):
             self.balance = 0
 
         if amount > self.balance:
-            raise forms.ValidationError(f"Cannot withdraw more than your available balance of ${self.balance:.2f}.")
+            raise forms.ValidationError(f"Cannot withdraw more than your available balance of Rs{self.balance:.2f}.")
 
         if amount <= 0:
             raise forms.ValidationError("Withdrawal amount must be positive.")

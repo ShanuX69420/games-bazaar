@@ -13,7 +13,7 @@
         {% endif %}
 
         <p><strong>Seller:</strong> <a href="{% url 'public_profile' product.seller.username %}">{{ product.seller.username }}</a></p>
-        <p><strong>Price:</strong> ${{ product.price }}</p>
+        <p><strong>Price:</strong> Rs{{ product.price }}</p>
         <p><strong>Category:</strong> {{ product.category.name }}</p>
 
         <h5 class="mt-4">Description:</h5>
