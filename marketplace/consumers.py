@@ -76,7 +76,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             )
 
-            # --- THIS IS THE FIX ---
             users_to_notify = [self.user, self.other_user]
             for user_to_notify in users_to_notify:
                 unread_convo_count = await self.get_unread_conversation_count(user_to_notify)
@@ -96,15 +95,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         }
                     }
                 )
-            # --- END OF FIX ---
 
         except Exception as e:
             print(f"!!! CHATCONSUMER ERROR in receive method: {e} !!!")
 
     async def chat_message(self, event):
-        if self.user.username != event['sender']:
-            await self.mark_message_as_read(event['message_id'])
+        # Only try to mark messages as read if they are from another user
+        # and are not system-generated notifications. This prevents the crash.
+        if not event.get('is_system_message') and self.user.username != event['sender']:
+            if 'message_id' in event:
+                await self.mark_message_as_read(event['message_id'])
 
+        # This part sends the message to your browser's chat window.
         await self.send(text_data=json.dumps({
             'message': event['message'],
             'sender': event['sender'],
