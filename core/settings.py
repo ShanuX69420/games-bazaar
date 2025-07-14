@@ -144,10 +144,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_REDIRECT_URL = 'home'
 LOGIN_URL = 'login'
 
-# core/settings.py
-# ... (at the very bottom of the file)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
 
 ASGI_APPLICATION = 'core.asgi.application'
 
@@ -193,3 +189,9 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
 }
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+
+# core/settings.py
+# ... (at the very bottom of the file)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
