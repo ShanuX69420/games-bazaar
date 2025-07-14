@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="mb-4">{{ game.title }}</h1>
+
+    <ul class="nav nav-pills mb-4">
+        {% for category in all_categories %}
+            <li class="nav-item">
+                <a class="nav-link {% if category.id == current_category.id %}active{% endif %}" href="{% url 'listing_page' game_pk=game.pk category_pk=category.pk %}">
+                    {{ category.name }} <span class="badge bg-secondary">{{ category.listing_count }}</span>
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="mb-0">{{ current_category.name }}</h3>
+        <div>
+            <a href="{% url 'create_product' game_pk=game.pk category_pk=current_category.pk %}" class="btn btn-primary">Sell {{ current_category.name }}</a>
+        </div>
+    </div>
+    <hr>
+
+    <div class="list-group">
+        {% for listing in listings %}
+            <a href="{% url 'product_detail' listing.pk %}" class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ listing.listing_title }}</h5>
+                    <span class="text-success fw-bold">Rs{{ listing.price|floatformat:2 }}</span>
+                </div>
+                <p class="mb-1">Sold by: {{ listing.seller.username }}</p>
+            </a>
+        {% empty %}
+            <div class="list-group-item">
+                <p class="mb-0">There are no listings in this category yet. Be the first to sell!</p>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}

@@ -1,0 +1,91 @@
+<script>
+{% if request.user.is_authenticated %}
+    const otherUserUsername = JSON.parse(document.getElementById('other-user-username').textContent);
+    const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent);
+    const chatLog = document.querySelector('#chat-log');
+    const messageInputDom = document.querySelector('#chat-message-input');
+    let chatSocket = null;
+
+    function formatSmartTimeJS(isoString) {
+        if (!isoString) return '';
+        const messageDate = new Date(isoString);
+        const now = new Date();
+        const isToday = messageDate.getUTCFullYear() === now.getUTCFullYear() &&
+                        messageDate.getUTCMonth() === now.getUTCMonth() &&
+                        messageDate.getUTCDate() === now.getUTCDate();
+
+        if (isToday) {
+            return messageDate.toLocaleTimeString('en-US', {
+                timeZone: 'UTC',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            }).toLowerCase();
+        } else {
+            const day = String(messageDate.getUTCDate()).padStart(2, '0');
+            const month = String(messageDate.getUTCMonth() + 1).padStart(2, '0');
+            const year = messageDate.getUTCFullYear();
+            return `${day}.${month}.${year}`;
+        }
+    }
+
+    function connect() {
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        chatSocket = new WebSocket(protocol + window.location.host + '/ws/chat/' + otherUserUsername + '/');
+
+        chatSocket.onopen = function(e) {
+            chatLog.scrollTop = chatLog.scrollHeight;
+        };
+
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const messageWrapper = document.createElement('div');
+            let messageHtml = '';
+            const formattedTime = formatSmartTimeJS(data.timestamp);
+
+            if (data.is_system_message) {
+                messageHtml = `<div class="mb-3"><div class="d-flex justify-content-between"><div><strong>Gamers Market</strong><span class="badge bg-primary ms-1">notification</span></div><small class="text-muted">${formattedTime}</small></div><div class="p-2 mt-1" style="background-color: #eef2fa; border-left: 3px solid #0d6efd; color: #445d89;"><i class="fas fa-info-circle me-1"></i> ${data.message}</div></div>`;
+            } else {
+                messageHtml = `<div class="mb-3"><div class="d-flex justify-content-between"><strong>${data.sender}</strong><small class="text-muted">${formattedTime}</small></div><p class="mb-0 text-break">${data.message}</p></div>`;
+            }
+            messageWrapper.innerHTML = messageHtml;
+            chatLog.appendChild(messageWrapper);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        };
+
+        chatSocket.onclose = function(e) {
+            setTimeout(() => connect(), 1000);
+        };
+    }
+
+    if (document.getElementById('other-user-username')) {
+        connect();
+    }
+
+    if (document.querySelector('#chat-form')) {
+        document.querySelector('#chat-form').onsubmit = function(e) {
+            e.preventDefault();
+            const message = messageInputDom.value;
+            if (message.trim() === '') return;
+            chatSocket.send(JSON.stringify({'message': message}));
+
+            // --- THIS IS THE FIX ---
+            const activeConvIdElement = document.getElementById('active-conversation-id');
+            if (activeConvIdElement && typeof updateConversationLink === 'function') {
+                const activeConvId = JSON.parse(activeConvIdElement.textContent);
+                const optimisticData = {
+                    conversation_id: activeConvId,
+                    last_message_content: message,
+                    last_message_timestamp: new Date().toISOString(),
+                    sender_username: currentUserUsername
+                };
+                updateConversationLink(optimisticData);
+            }
+            // --- END OF FIX ---
+
+            messageInputDom.value = '';
+            return false;
+        };
+    }
+{% endif %}
+</script>

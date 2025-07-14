@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% load time_filters %}
+
+{% block content %}
+<style>
+    .sales-container {
+        border: 1px solid #e0e0e0;
+        border-radius: .25rem;
+        background-color: #fff;
+    }
+    .filter-form {
+        padding: 1rem 1.5rem;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .sales-header, .sale-row {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr 3fr 2fr 1.5fr 1fr;
+        gap: 1rem;
+        padding: .75rem 1.5rem;
+        align-items: center;
+    }
+    .sales-header {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #6c757d;
+        border-bottom: 1px solid #e0e0e0;
+        text-transform: uppercase;
+    }
+    .sale-row {
+        border-bottom: 1px solid #e0e0e0;
+        text-decoration: none;
+        color: inherit;
+        display: grid;
+        transition: background-color 0.2s ease-in-out;
+    }
+    .sale-row:last-child {
+        border-bottom: none;
+    }
+    a.sale-row:hover {
+        background-color: #f1f3f5;
+    }
+
+    /* Status-based background colors */
+    .sale-row.status-processing { background-color: rgba(23, 162, 184, 0.1); } /* Light Info Blue for Paid/Processing */
+    .sale-row.status-refunded { background-color: rgba(255, 193, 7, 0.1); }  /* Light Warning Yellow for Refunded */
+    .sale-row.status-cancelled { background-color: rgba(220, 53, 69, 0.05); } /* Light Danger Red for Cancelled */
+
+    .buyer-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .buyer-info img {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+    }
+    .status-badge {
+        font-size: 0.8rem;
+    }
+</style>
+
+<h1 class="mb-4">My Sales</h1>
+
+<div class="sales-container">
+    {# Filter Form #}
+    <form method="get" class="filter-form">
+        <div class="row g-2 align-items-end">
+            <div class="col-lg-2 col-md-4">
+                <label for="order_number" class="form-label small">Order #</label>
+                <input type="text" name="order_number" id="order_number" class="form-control form-control-sm" value="{{ filter_values.order_number }}">
+            </div>
+            <div class="col-lg-2 col-md-4">
+                <label for="buyer_name" class="form-label small">Buyer</label>
+                <input type="text" name="buyer_name" id="buyer_name" class="form-control form-control-sm" value="{{ filter_values.buyer_name }}">
+            </div>
+            <div class="col-lg-3 col-md-4">
+                <label for="status" class="form-label small">Status</label>
+                <select name="status" id="status" class="form-select form-select-sm">
+                    <option value="">All Statuses</option>
+                    {% for value, display in statuses_for_filter %}
+                        <option value="{{ value }}" {% if filter_values.status == value %}selected{% endif %}>{{ display }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-10">
+                <label for="game" class="form-label small">Game</label>
+                <select name="game" id="game" class="form-select form-select-sm">
+                    <option value="">All Games</option>
+                    {% for game in games_for_filter %}
+                         <option value="{{ game.id }}" {% if filter_values.game == game.id|stringformat:"s" %}selected{% endif %}>{{ game.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100">Show</button>
+            </div>
+        </div>
+    </form>
+
+    {# Sales Header #}
+    <div class="sales-header d-none d-md-grid">
+        <div>Date</div>
+        <div>Order</div>
+        <div>Description</div>
+        <div>Buyer</div>
+        <div>Status</div>
+        <div class="text-end">Total</div>
+    </div>
+
+    {# Sales List #}
+    {% for order in orders %}
+        <a href="{% url 'order_detail' order.pk %}" class="sale-row status-{{ order.status|lower }}">
+            {# Date #}
+            <div>
+                <div class="fw-bold">{{ order.created_at|date:"d M, H:i" }}</div>
+                <small class="text-muted">{{ order.created_at|timesince }} ago</small>
+            </div>
+            {# Order #}
+            <div>#{{ order.id }}</div>
+            {# Description #}
+            <div>
+                <strong>{{ order.product.listing_title }}</strong>
+                <div class="text-muted small">{{ order.product.game.title }}, {{ order.product.category.name }}</div>
+            </div>
+            {# Buyer #}
+            <div class="buyer-info">
+                <img src="https://i.imgur.com/v8Ld3iI.png" alt="{{ order.buyer.username }}">
+                <div>
+                    <div class="fw-bold">{{ order.buyer.username }}</div>
+                    <div class="user-status {% if order.buyer.profile.is_online %}online{% else %}offline{% endif %}"
+                         data-username="{{ order.buyer.username }}"
+                         {% if not order.buyer.profile.is_online and order.buyer.profile.last_seen %}
+                             data-iso-timestamp="{{ order.buyer.profile.last_seen.isoformat }}"
+                         {% endif %}>
+                        {% if order.buyer.profile.is_online %}
+                            Online
+                        {% elif order.buyer.profile.last_seen %}
+                            was active {{ order.buyer.profile.last_seen|timesince }} ago
+                        {% else %}
+                            Offline
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {# Status #}
+            <div>
+                <span class="badge rounded-pill status-badge
+                    {% if order.status == 'COMPLETED' %}text-bg-success
+                    {% elif order.status == 'PROCESSING' %}text-bg-info
+                    {% elif order.status == 'REFUNDED' %}text-bg-warning
+                    {% elif order.status == 'CANCELLED' or order.status == 'DISPUTED' %}text-bg-danger
+                    {% else %}text-bg-secondary
+                    {% endif %}">
+                    {{ order.get_status_display }}
+                </span>
+            </div>
+            {# Total #}
+            <div class="fw-bold text-end">Rs{{ order.total_price|floatformat:2 }}</div>
+        </a>
+    {% empty %}
+        <div class="p-4 text-center">
+            <p>You have not made any sales yet, or no items match your filter.</p>
+        </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

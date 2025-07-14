@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h2 class="mb-4">My Dashboard</h2>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            Earnings Summary
+        </div>
+        <div class="card-body">
+            <p class="card-text"><strong>Total Sales:</strong> Rs{{ total_sales|floatformat:2 }}</p>
+            <p class="card-text"><strong>Commissions Paid:</strong> -Rs{{ total_commission|floatformat:2 }}</p>
+            <hr>
+            <p class="card-text"><strong>Net Earnings:</strong> Rs{{ net_earnings|floatformat:2 }}</p>
+        </div>
+    </div>
+
+    <h3>Recent Orders</h3>
+    <div class="list-group">
+        {% for order in all_orders|slice:":5" %}
+            <a href="{% url 'order_detail' order.pk %}" class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">Order #{{ order.id }} - {{ order.product.game.title }}: {{ order.product.listing_title }}</h5>
+                    <small>{{ order.created_at|date:"M. d, Y" }}</small>
+                </div>
+                <p class="mb-1">Buyer: {{ order.buyer.username }}</p>
+                <small>Status:
+                    <span class="badge rounded-pill
+                        {% if order.status == 'COMPLETED' %}bg-success
+                        {% elif order.status == 'PROCESSING' %}bg-warning text-dark
+                        {% elif order.status == 'REFUNDED' or order.status == 'CANCELLED' %}bg-danger
+                        {% else %}bg-secondary
+                        {% endif %}">
+                        {{ order.get_status_display }}
+                    </span>
+                </small>
+            </a>
+        {% empty %}
+            <p>You have no sales yet.</p>
+        {% endfor %}
+    </div>
+    <div class="text-center mt-3">
+        <a href="{% url 'my_sales' %}" class="btn btn-primary">View All Sales</a>
+    </div>
+{% endblock %}

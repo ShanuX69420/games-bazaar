@@ -1,0 +1,44 @@
+<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+</button>
+<div class="collapse navbar-collapse" id="navbarNav">
+    <ul class="navbar-nav me-auto">
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="supportDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                Support
+            </a>
+            <ul class="dropdown-menu" aria-labelledby="supportDropdown">
+                <li><a class="dropdown-item" href="{% url 'support_center' %}">Submit a Request</a></li>
+            </ul>
+        </li>
+    </ul>
+    <ul class="navbar-nav ms-auto align-items-center">
+        {% if user.is_authenticated %}
+            <li class="nav-item"><a class="nav-link" href="{% url 'my_purchases' %}">Purchases {% if active_purchases_count > 0 %}<span class="badge bg-danger ms-1">{{ active_purchases_count }}</span>{% endif %}</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'my_sales' %}">Sales {% if active_sales_count > 0 %}<span class="badge bg-danger ms-1">{{ active_sales_count }}</span>{% endif %}</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'my_messages' %}">Messages {% if unread_conversations_count > 0 %}<span class="badge bg-danger ms-1">{{ unread_conversations_count }}</span>{% endif %}</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'funds' %}">Funds</a></li>
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <img src="https://i.imgur.com/v8Ld3iI.png" alt="p" width="32" height="32" class="rounded-circle">
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                    <li><h6 class="dropdown-header">{{ user.username }}</h6></li>
+                    <li><a class="dropdown-item" href="{% url 'seller_dashboard' %}">Dashboard</a></li>
+                    <li><a class="dropdown-item" href="{% url 'public_profile' user.username %}">Profile</a></li>
+                    <li><a class="dropdown-item" href="{% url 'settings' %}">Settings</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form action="{% url 'logout' %}" method="post" class="d-flex">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item">Logout</button>
+                        </form>
+                    </li>
+                </ul>
+            </li>
+        {% else %}
+            <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Login</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'register' %}">Register</a></li>
+        {% endif %}
+    </ul>
+</div>

@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load time_filters %}
+
+{% block content %}
+<style>
+    /* Styling for the new funds page layout */
+    .balance-display {
+        font-size: 2.5rem;
+        font-weight: 300;
+    }
+    .balance-display .currency {
+        font-weight: 600;
+        color: #495057;
+    }
+    .filter-sidebar .list-group-item {
+        border: none;
+        padding: .75rem 1rem;
+        font-weight: 500;
+    }
+    .filter-sidebar .list-group-item.active {
+        background-color: #e9ecef;
+        color: #000;
+        font-weight: 600;
+    }
+    .transaction-header, .transaction-row {
+        display: grid;
+        grid-template-columns: 2fr 4fr 1.5fr 1.5fr;
+        gap: 1rem;
+        padding: .75rem 1rem;
+        align-items: center;
+    }
+    .transaction-header {
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: #6c757d;
+        border-bottom: 2px solid #e9ecef;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+    }
+    .transaction-row {
+        border-bottom: 1px solid #f1f3f5;
+        font-size: 0.9rem;
+    }
+    .transaction-row:last-child {
+        border-bottom: none;
+    }
+    .transaction-total {
+        color: #343a40; /* Dark Grey */
+    }
+</style>
+
+<div class="row">
+    <div class="col-md-8">
+        <h1 class="balance-display mb-1"><span class="currency">Rs</span> {{ balance|floatformat:2 }}</h1>
+        <p class="text-muted">Available Balance</p>
+    </div>
+    <div class="col-md-4 text-md-end">
+        {# This button doesn't do anything yet, as requested #}
+        <button class="btn btn-primary btn-lg" disabled>Withdraw</button>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="list-group filter-sidebar">
+            <a href="{% url 'funds' %}" class="list-group-item list-group-item-action {% if not current_filter %}active{% endif %}">All transactions</a>
+            <a href="?filter=deposits" class="list-group-item list-group-item-action {% if current_filter == 'deposits' %}active{% endif %}">Deposits</a>
+            <a href="?filter=withdrawals" class="list-group-item list-group-item-action {% if current_filter == 'withdrawals' %}active{% endif %}">Withdrawals</a>
+            <a href="?filter=orders" class="list-group-item list-group-item-action {% if current_filter == 'orders' %}active{% endif %}">Orders</a>
+            <a href="?filter=miscellaneous" class="list-group-item list-group-item-action {% if current_filter == 'miscellaneous' %}active{% endif %}">Miscellaneous</a>
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="transaction-header">
+                    <div>Date</div>
+                    <div>Description</div>
+                    <div class="text-center">Status</div>
+                    <div class="text-end">Total</div>
+                </div>
+
+                {% for tx in transactions %}
+                <div class="transaction-row">
+                    <div>
+                        <div class="fw-bold">{{ tx.created_at|date:"d M, H:i" }}</div>
+                        <small class="text-muted">{{ tx.created_at|timesince }} ago</small>
+                    </div>
+                    <div>{{ tx.description }}</div>
+                    <div class="text-center">
+                        <span class="badge rounded-pill
+                            {% if tx.status == 'COMPLETED' %}text-bg-success
+                            {% elif tx.status == 'PROCESSING' or tx.status == 'PENDING' %}text-bg-warning
+                            {% elif tx.status == 'CANCELLED' or tx.status == 'REFUNDED' %}text-bg-danger
+                            {% else %}text-bg-secondary
+                            {% endif %}">
+                            {{ tx.get_status_display }}
+                        </span>
+                    </div>
+                    <div class="text-end transaction-total fw-bold">
+                        {% if tx.amount > 0 %}
+                            +Rs{{ tx.amount|floatformat:2 }}
+                        {% else %}
+                            -Rs{{ tx.amount|floatformat:2|cut:"-" }}
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-4 text-center text-muted">
+                    <p>No transactions found.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
