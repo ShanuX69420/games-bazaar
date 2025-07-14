@@ -39,62 +39,45 @@
     {# Include the "Buy Now" button script #}
     <script>
     const buyNowBtn = document.querySelector('#buy-now-btn');
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
+    
     if (buyNowBtn) {
         buyNowBtn.addEventListener('click', function() {
             const url = this.dataset.url;
-            buyNowBtn.textContent = 'Processing...';
-            buyNowBtn.disabled = true;
-
+            const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+    
+            // Disable the button and show a processing state with a spinner
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+    
             fetch(url, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': csrfToken,
                     'X-Requested-With': 'XMLHttpRequest'
                 }
-            }).then(response => response.json())
+            })
+            .then(response => response.json())
             .then(data => {
                 if (data.status === 'success' && data.order_url) {
+                    // On success, redirect to the new order page
                     window.location.href = data.order_url;
                 } else {
-                    alert(data.message || 'An error occurred.');
-                    buyNowBtn.textContent = 'Buy Now';
-                    buyNowBtn.disabled = false;
+                    // On failure, show an alert and restore the button to its original state
+                    alert(data.message || 'An error occurred. Please try again.');
+                    this.disabled = false;
+                    this.innerHTML = 'Buy Now';
                 }
+            })
+            .catch(error => {
+                console.error('Error creating order:', error);
+                // On a network or unexpected error, restore the button
+                alert('An unexpected error occurred. Please check your connection and try again.');
+                this.disabled = false;
+                this.innerHTML = 'Buy Now';
             });
         });
     }
     </script>
-    <script>
-document.getElementById('buy-now-btn').addEventListener('click', function() {
-    // Disable the button to prevent multiple clicks
-    this.disabled = true;
-    // Add a spinner icon and change the text
-    this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
-
-    // Your existing AJAX call would go here.
-    // For example:
-    fetch("{% url 'create_order' product.pk %}", {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}', // Important for security!
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            window.location.href = data.order_url; // Redirect to the order page
-        } else {
-            // Re-enable the button if something went wrong
-            this.disabled = false;
-            this.innerHTML = 'Buy Now';
-            // You could also show an error message here
-        }
-    });
-});
-</script>
 
     {# Include the unified chat WebSocket script #}
     {% include 'marketplace/partials/unified_chat_script.html' %}
