@@ -5,17 +5,18 @@
     <div>
         <h5 class="mb-0">{{ other_user.username }}</h5>
         
-        <small id="status-chat-{{ other_user.username }}" 
-               class="{% if other_user.profile.is_online %}text-success{% else %}text-muted{% endif %}"
+        <small class="user-status {% if other_user.profile.is_online %}online{% else %}offline{% endif %}"
+               data-username="{{ other_user.username }}"
                {% if not other_user.profile.is_online and other_user.profile.last_seen %}
                    data-iso-timestamp="{{ other_user.profile.last_seen.isoformat }}"
-                   data-username="{{ other_user.username }}"
                {% endif %}
         >
             {% if other_user.profile.is_online %}
                 Online
             {% elif other_user.profile.last_seen %}
                 was active {{ other_user.profile.last_seen|timesince }} ago
+            {% else %}
+                Offline
             {% endif %}
         </small>
     </div>

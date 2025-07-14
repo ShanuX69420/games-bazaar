@@ -49,6 +49,11 @@
             color: #fff;
             text-decoration: underline;
         }
+        
+        /* --- NEW ---: Global styles for user presence indicators */
+        .user-status.online { color: #28a745; font-weight: bold; }
+        .user-status.offline { color: #6c757d; font-size: 0.9em; }
+
     </style>
 </head>
 <body>
@@ -186,25 +191,33 @@
     }
 
     /**
-     * FIXED: This function now correctly adds/removes the data attribute we need
-     * for the real-time updates.
+     * --- THIS FUNCTION IS REPLACED ---
+     * UPDATED: This function now updates all status indicators for a given user
+     * on a page, using data attributes instead of brittle IDs. It also applies
+     * specific classes for styling.
      */
     function updateUserStatusOnPage(data) {
-        const statusChat = document.getElementById(`status-chat-${data.username}`);
-        if (!statusChat) return;
-
-        if (data.is_online) {
-            statusChat.textContent = 'Online';
-            statusChat.className = 'text-success';
-            // User is online, so remove the timestamp attribute.
-            statusChat.removeAttribute('data-iso-timestamp');
-        } else {
-            const lastSeenText = `was active ${formatTimeSince(data.last_seen_iso)}`;
-            statusChat.textContent = lastSeenText;
-            statusChat.className = 'text-muted';
-            // User is offline, so set the timestamp attribute. Our new function will find this.
-            statusChat.setAttribute('data-iso-timestamp', data.last_seen_iso);
+        // Find ALL elements for this user, not just one.
+        const statusElements = document.querySelectorAll(`.user-status[data-username="${data.username}"]`);
+        
+        if (statusElements.length === 0) {
+            return;
         }
+
+        statusElements.forEach(statusEl => {
+            if (data.is_online) {
+                statusEl.textContent = 'Online';
+                // Set classes for styling and remove timestamp data
+                statusEl.className = 'user-status online'; 
+                statusEl.removeAttribute('data-iso-timestamp');
+            } else {
+                const lastSeenText = `was active ${formatTimeSince(data.last_seen_iso)}`;
+                statusEl.textContent = lastSeenText;
+                // Set classes for styling and add timestamp data for the interval updater
+                statusEl.className = 'user-status offline'; 
+                statusEl.setAttribute('data-iso-timestamp', data.last_seen_iso);
+            }
+        });
     }
 
     /**
