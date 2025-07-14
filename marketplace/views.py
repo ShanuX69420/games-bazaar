@@ -4,7 +4,7 @@ from django.urls import reverse_lazy
 from django.views import generic
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseForbidden
-from django.db.models import Sum, Q, Count
+from django.db.models import Sum, Q, Count, Avg
 from django.db.models.functions import Lower
 from django.contrib.auth.models import User
 import string
@@ -91,8 +91,44 @@ def listing_page_view(request, game_pk, category_pk):
 
 def public_profile_view(request, username):
     profile_user = get_object_or_404(User, username=username)
-    products = Product.objects.filter(seller=profile_user, is_active=True)
-    context = {'profile_user': profile_user, 'products': products}
+    
+    # Group products by Game, then by Category
+    products = Product.objects.filter(seller=profile_user, is_active=True).select_related('game', 'category').order_by('game__title', 'category__name')
+    
+    grouped_listings = defaultdict(lambda: defaultdict(list))
+    for product in products:
+        if product.game and product.category:
+            grouped_listings[product.game][product.category].append(product)
+        
+    # Get reviews and calculate statistics in the view
+    reviews = Review.objects.filter(seller=profile_user).select_related('buyer', 'order__product', 'order__product__game').order_by('-created_at')
+    
+    review_stats = reviews.aggregate(
+        average_rating=Avg('rating'),
+        review_count=Count('id')
+    )
+    
+    # Chat functionality setup
+    other_user = profile_user
+    messages = []
+    if request.user.is_authenticated and request.user != other_user:
+        if request.user.id < other_user.id:
+            p1, p2 = request.user, other_user
+        else:
+            p1, p2 = other_user, request.user
+        conversation, created = Conversation.objects.get_or_create(participant1=p1, participant2=p2)
+        messages = conversation.messages.all().order_by('timestamp')
+
+    context = {
+        'profile_user': profile_user,
+        'grouped_listings': dict(grouped_listings),
+        'reviews': reviews,
+        'average_rating': review_stats['average_rating'],
+        'review_count': review_stats['review_count'],
+        'other_user': other_user,
+        'messages': messages,
+        'product': products.first()
+    }
     return render(request, 'marketplace/public_profile.html', context)
 
 def flat_page_view(request, slug):

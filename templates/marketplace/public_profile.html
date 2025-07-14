@@ -1,26 +1,212 @@
 {% extends "base.html" %}
+{% load math_filters %}
+
 {% block content %}
-    <h1 class="mb-4">{{ profile_user.username }}'s Profile</h1>
-    <hr>
-    <h3 class="mt-4">Active Listings</h3>
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
-        {% for product in products %}
-            <div class="col">
-                <div class="card h-100">
-                    {% if product.image %}
-                        <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.title }}" style="aspect-ratio: 16/9; object-fit: cover;">
-                    {% endif %}
-                    <div class="card-body">
-                        <h5 class="card-title">{{ product.title }}</h5>
-                        <p class="card-text">Price: Rs{{ product.price }}</p>
-                        <a href="{% url 'product_detail' product.pk %}" class="btn btn-dark">View Details</a>
-                    </div>
+<style>
+    .profile-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .profile-picture-container {
+        position: relative;
+        flex-shrink: 0;
+    }
+    .profile-picture {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        border: 3px solid #fff;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .edit-profile-pic {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        width: 30px;
+        height: 30px;
+        background-color: #0d6efd;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: background-color 0.2s;
+    }
+    .edit-profile-pic:hover {
+        background-color: #0a58ca;
+    }
+    .profile-info {
+        padding-top: 1rem;
+    }
+    .profile-info h1 {
+        margin-bottom: 0.25rem;
+    }
+    .profile-meta {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    .profile-rating {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .rating-stars {
+        color: #ffc107;
+    }
+    .offer-group {
+        margin-bottom: 2rem;
+    }
+    .offer-group-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #dee2e6;
+        margin-bottom: 1rem;
+    }
+    .offer-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+    }
+    .review-item {
+        border: 1px solid #e9ecef;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .review-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+    }
+</style>
+
+<div class="row">
+    <div class="col-lg-8">
+        {# --- PROFILE HEADER --- #}
+        <div class="profile-header">
+            <div class="profile-picture-container">
+                <img src="https://i.imgur.com/v8Ld3iI.png" alt="{{ profile_user.username }}" class="profile-picture">
+                {% if user == profile_user %}
+                <a href="#" class="edit-profile-pic" title="Change profile picture">
+                    <i class="fas fa-camera"></i>
+                </a>
+                {% endif %}
+            </div>
+            <div class="profile-info">
+                <h1>
+                    {{ profile_user.username }}
+                    <small class="user-status {% if profile_user.profile.is_online %}online{% else %}offline{% endif %}">
+                        {% if profile_user.profile.is_online %}Online{% else %}Offline{% endif %}
+                    </small>
+                </h1>
+                <div class="profile-meta">
+                    <span>Registered: {{ profile_user.date_joined|date:"d M Y" }}</span>
+                    <div class="profile-rating">
+    <span class="rating-stars">
+        <i class="fas fa-star"></i>
+        <strong>{{ average_rating|default:0|floatformat:1 }}</strong>
+    </span>
+    <a href="#reviews-section" class="text-muted text-decoration-none">
+        {{ review_count }} review{{ review_count|pluralize }}
+    </a>
+</div>
                 </div>
             </div>
-        {% empty %}
-            <div class="col">
-                <p>This user has no active listings.</p>
+        </div>
+
+        {# --- OFFERS SECTION --- #}
+        <h3 id="offers-section">Offers</h3>
+        <hr>
+        {% for game, categories in grouped_listings.items %}
+            {% for category, products in categories.items %}
+            <div class="offer-group">
+                <div class="offer-group-header">
+                    <a href="{% url 'listing_page' game_pk=game.pk category_pk=category.pk %}" class="h5 mb-0 text-decoration-none text-dark">{{ game.title }} - {{ category.name }}</a>
+                    {% if user == profile_user %}
+                    <a href="#" class="btn btn-sm btn-outline-secondary" title="Edit offers">
+                        <i class="fas fa-pencil-alt"></i>
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="offer-list">
+                    {% for product in products %}
+                    <div class="offer-item">
+                        <span>{{ product.listing_title }}</span>
+                        <span class="fw-bold">Rs{{ product.price|floatformat:2 }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
+            {% endfor %}
+        {% empty %}
+            <p>This user has no active listings.</p>
         {% endfor %}
+
+        {# --- REVIEWS SECTION --- #}
+        <h3 id="reviews-section" class="mt-5">Reviews</h3>
+        <hr>
+        <div id="reviews-container">
+            {% for review in reviews|slice:":15" %}
+                {% if user == profile_user %}
+                    {% include 'marketplace/partials/_profile_review_item.html' with review=review %}
+                {% else %}
+                    {# Public/Anonymous version of review display #}
+                     <div class="review-item">
+                        <div class="review-header">
+                            <div class="d-flex align-items-center">
+                                <img src="https://i.imgur.com/v8Ld3iI.png" alt="Anonymous" class="rounded-circle me-2" width="40" height="40">
+                                <strong>Anonymous</strong>
+                            </div>
+                            <div class="text-end">
+                                 <div class="rating-stars">
+                                    {% for i in "12345" %}
+                                        <i class="fa-star {% if i|add:0 <= review.rating %}fas text-warning{% else %}far text-muted{% endif %}"></i>
+                                    {% endfor %}
+                                </div>
+                                <small class="text-muted">{{ review.created_at|date:"d M Y" }}</small>
+                            </div>
+                        </div>
+                        <p class="mb-0">{{ review.comment }}</p>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% if reviews.count > 15 %}
+            <div class="text-center mt-3">
+                <button class="btn btn-outline-primary" id="show-more-reviews">Show More Reviews</button>
+            </div>
+        {% endif %}
     </div>
+
+    {# --- CHATBOX --- #}
+    {% if user.is_authenticated and user != profile_user %}
+    <div class="col-lg-4">
+        <h4>Chat with {{ profile_user.username }}</h4>
+        {% include 'marketplace/partials/unified_chat_panel.html' %}
+    </div>
+    {% elif not user.is_authenticated %}
+     <div class="col-lg-4">
+        <h4>Chat with {{ profile_user.username }}</h4>
+        <div class="border p-3 rounded text-center">
+            <p>Please <a href="{% url 'login' %}?next={{ request.path }}">log in</a> or <a href="{% url 'register' %}?next={{ request.path }}">register</a> to send a message.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if user.is_authenticated and user != profile_user %}
+    {{ profile_user.username|json_script:"other-user-username" }}
+    {{ request.user.username|json_script:"current-user-username" }}
+    {% include 'marketplace/partials/unified_chat_script.html' %}
+{% endif %}
 {% endblock %}
