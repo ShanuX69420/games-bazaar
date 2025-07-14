@@ -12,7 +12,7 @@ from collections import defaultdict
 
 from .models import (
     Game, Category, Product, Order, Review, FlatPage, 
-    Conversation, Message, WithdrawalRequest, SupportTicket, SiteConfiguration, Profile
+    Conversation, Message, WithdrawalRequest, SupportTicket, SiteConfiguration, Profile, Transaction
 )
 from .forms import ProductForm, ReviewForm, WithdrawalRequestForm, SupportTicketForm
 
@@ -336,25 +336,45 @@ def messages_view(request, username=None):
 
 @login_required
 def funds_view(request):
-    completed_orders = Order.objects.filter(seller=request.user, status='COMPLETED')
-    sales_data = completed_orders.aggregate(total_sales=Sum('total_price'), total_commission=Sum('commission_paid'))
-    total_sales = sales_data.get('total_sales') or 0
-    total_commission = sales_data.get('total_commission') or 0
-    net_earnings = total_sales - total_commission
-    approved_withdrawals = WithdrawalRequest.objects.filter(user=request.user, status='APPROVED').aggregate(total_withdrawn=Sum('amount'))
-    total_withdrawn = approved_withdrawals.get('total_withdrawn') or 0
-    balance = net_earnings - total_withdrawn
+    # Calculate balance by summing all COMPLETED transactions
+    balance_data = Transaction.objects.filter(
+        user=request.user, 
+        status='COMPLETED'
+    ).aggregate(balance=Sum('amount'))
+    balance = balance_data.get('balance') or 0
+
+    # Get all transactions for the history view
+    transactions = Transaction.objects.filter(user=request.user)
+
+    # Handle filtering from the sidebar
+    filter_by = request.GET.get('filter')
+    if filter_by == 'deposits':
+        transactions = transactions.filter(transaction_type='DEPOSIT')
+    elif filter_by == 'withdrawals':
+        transactions = transactions.filter(transaction_type='WITHDRAWAL')
+    elif filter_by == 'orders':
+        transactions = transactions.filter(transaction_type__in=['ORDER_PURCHASE', 'ORDER_SALE'])
+    elif filter_by == 'miscellaneous':
+        transactions = transactions.filter(transaction_type='MISCELLANEOUS')
+
+    # Handle the withdrawal form submission
     if request.method == 'POST':
         form = WithdrawalRequestForm(request.POST, user=request.user, balance=balance)
         if form.is_valid():
             withdrawal_request = form.save(commit=False)
             withdrawal_request.user = request.user
             withdrawal_request.save()
-            return redirect('funds')
+            return redirect('funds') # Redirect to clear the form
     else:
+        # We don't need the form for this new page design, but we keep the logic
+        # in case you want to add a popup for withdrawals later.
         form = WithdrawalRequestForm(user=request.user, balance=balance)
-    withdrawal_history = WithdrawalRequest.objects.filter(user=request.user).order_by('-requested_at')
-    context = {'balance': balance, 'form': form, 'withdrawal_history': withdrawal_history}
+        
+    context = {
+        'balance': balance,
+        'transactions': transactions,
+        'current_filter': filter_by, # To highlight the active filter
+    }
     return render(request, 'marketplace/funds.html', context)
 
 @login_required

@@ -135,3 +135,37 @@ class SupportTicket(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     admin_response = models.TextField(blank=True, null=True)
     def __str__(self): return f"Ticket #{self.id} by {self.user.username} - {self.subject}"
+
+
+class Transaction(models.Model):
+    TRANSACTION_TYPE_CHOICES = [
+        ('DEPOSIT', 'Deposit'),
+        ('WITHDRAWAL', 'Withdrawal'),
+        ('ORDER_PURCHASE', 'Order Purchase'),
+        ('ORDER_SALE', 'Order Sale'),
+        ('MISCELLANEOUS', 'Miscellaneous'),
+    ]
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('PROCESSING', 'Processing'),
+        ('COMPLETED', 'Completed'),
+        ('CANCELLED', 'Cancelled'),
+        ('REFUNDED', 'Refunded'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transactions')
+    amount = models.DecimalField(max_digits=10, decimal_places=2, help_text="Positive for income, negative for expense.")
+    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPE_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    description = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # These fields will link to the original source of the transaction, if any.
+    order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True)
+    withdrawal = models.ForeignKey(WithdrawalRequest, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.get_transaction_type_display()} of {self.amount} for {self.user.username}"
+
+    class Meta:
+        ordering = ['-created_at']

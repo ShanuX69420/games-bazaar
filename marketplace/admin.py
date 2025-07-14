@@ -9,7 +9,7 @@ from django.db.models import Q
 # Add SupportTicket to this import list
 from .models import (
     SiteConfiguration, FlatPage, Game, Profile, Category, 
-    Product, Order, Review, Conversation, Message, WithdrawalRequest, SupportTicket
+    Product, Order, Review, Conversation, Message, WithdrawalRequest, SupportTicket, Transaction
 )
 
 # --- Site Wide Settings ---
@@ -111,3 +111,4 @@ class CategoryAdmin(admin.ModelAdmin):
 admin.site.register(Review)
 admin.site.register(Conversation)
 admin.site.register(Message)
+admin.site.register(Transaction)
