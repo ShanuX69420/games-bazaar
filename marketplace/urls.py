@@ -29,6 +29,7 @@ urlpatterns = [
     path('order/<int:pk>/complete/', views.complete_order, name='complete_order'),
 
     # User-specific pages
+    path('my-sales/', views.my_sales, name='my_sales'),
     path('my-purchases/', views.my_purchases, name='my_purchases'),
     path('my-messages/', views.messages_view, name='my_messages'),
     path('my-messages/<str:username>/', views.messages_view, name='conversation_detail'),

@@ -247,6 +247,45 @@ def my_purchases(request):
     }
     return render(request, 'marketplace/my_purchases.html', context)
 
+
+@login_required
+def my_sales(request):
+    # Start with the base queryset for the logged-in user
+    orders = Order.objects.filter(seller=request.user).select_related(
+        'product__game', 'product__category', 'buyer__profile'
+    ).order_by('-created_at')
+
+    # Get filter values from the GET request
+    order_number_query = request.GET.get('order_number', '').strip()
+    buyer_name_query = request.GET.get('buyer_name', '').strip()
+    status_query = request.GET.get('status', '').strip()
+    game_id_query = request.GET.get('game', '').strip()
+
+    # Apply filters if they exist
+    if order_number_query:
+        # Filter by order ID (must be a number)
+        if order_number_query.isdigit():
+            orders = orders.filter(id=order_number_query)
+    if buyer_name_query:
+        orders = orders.filter(buyer__username__icontains=buyer_name_query)
+    if status_query:
+        orders = orders.filter(status=status_query)
+    if game_id_query:
+        orders = orders.filter(product__game__id=game_id_query)
+
+    # Get a distinct list of games the user has sold items from, for the filter dropdown
+    games_for_filter = Game.objects.filter(
+        listings__order__seller=request.user
+    ).distinct().order_by('title')
+
+    context = {
+        'orders': orders,
+        'games_for_filter': games_for_filter,
+        'statuses_for_filter': Order.STATUS_CHOICES,
+        'filter_values': request.GET, # Pass the GET params back to pre-fill the form
+    }
+    return render(request, 'marketplace/my_sales.html', context)
+
 @login_required
 def messages_view(request, username=None):
     # Get all conversations for the logged-in user for the list on the left
