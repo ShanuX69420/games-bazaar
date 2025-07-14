@@ -4,10 +4,10 @@ from django.dispatch import receiver
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.db.models import Q
-from .models import Order, Review, Conversation, Message, User, Transaction, WithdrawalRequest # Add Transaction and WithdrawalRequest
+from .models import Order, Review, Conversation, Message, User, Transaction, WithdrawalRequest
 from channels.db import database_sync_to_async
 
-# --- Helper functions from before (mostly unchanged) ---
+# --- Helper functions (No changes here) ---
 
 @database_sync_to_async
 def get_unread_conversation_count(user):
@@ -79,7 +79,7 @@ def send_system_message(conversation, content, sender_user):
     )
     return system_message
 
-# --- SIGNAL HANDLERS ---
+# --- SIGNAL HANDLERS (These have been updated) ---
 
 @receiver(post_save, sender=Order)
 def order_signal_handler(sender, instance, created, **kwargs):
@@ -92,41 +92,56 @@ def order_signal_handler(sender, instance, created, **kwargs):
     message_content = None
     notification_recipient = None
 
-    # Original logic for system messages
+    # When an order is first created and is being processed
     if created and instance.status == 'PROCESSING':
         message_content = f"The buyer, {buyer.username}, has paid for order #{instance.id} ({instance.product.listing_title})."
         notification_recipient = seller
-    elif not created and instance.tracker.has_changed('status') and instance.status == 'COMPLETED':
-        message_content = f"The buyer has confirmed fulfillment for order #{instance.id}."
-        notification_recipient = seller
 
-        # --- NEW: Create Transaction records on completion ---
-        net_earning = instance.total_price - (instance.commission_paid or 0)
-        
-        # For the Seller (Income)
-        Transaction.objects.create(
-            user=seller,
-            amount=net_earning,
-            transaction_type='ORDER_SALE',
-            status='COMPLETED',
-            description=f"Sale of '{instance.product.listing_title}'",
-            order=instance
-        )
-        
-        # For the Buyer (Expense)
+        # Create a "PROCESSING" transaction for the buyer.
         Transaction.objects.create(
             user=buyer,
             amount=-instance.total_price,
             transaction_type='ORDER_PURCHASE',
-            status='COMPLETED',
+            status='PROCESSING',
             description=f"Purchase of '{instance.product.listing_title}'",
             order=instance
         )
+        # Create a "PROCESSING" transaction for the seller.
+        Transaction.objects.create(
+            user=seller,
+            amount=instance.total_price, # Store the gross amount temporarily
+            transaction_type='ORDER_SALE',
+            status='PROCESSING',
+            description=f"Sale of '{instance.product.listing_title}'",
+            order=instance
+        )
+
+    # When an existing order's status is updated
+    elif not created and instance.tracker.has_changed('status'):
+        # If the order is marked as COMPLETED
+        if instance.status == 'COMPLETED':
+            message_content = f"The buyer has confirmed fulfillment for order #{instance.id}."
+            notification_recipient = seller
+
+            # Update the corresponding buyer transaction to COMPLETED
+            Transaction.objects.filter(order=instance, user=buyer).update(status='COMPLETED')
+
+            # Update the seller's transaction to COMPLETED and set the final net amount
+            net_earning = instance.total_price - (instance.commission_paid or 0)
+            Transaction.objects.filter(order=instance, user=seller).update(
+                status='COMPLETED',
+                amount=net_earning
+            )
+        # If the order is CANCELLED or REFUNDED
+        elif instance.status in ['CANCELLED', 'REFUNDED']:
+             # Update both transactions to the new status. The amounts won't contribute to the balance.
+            Transaction.objects.filter(order=instance, user=buyer).update(status=instance.status)
+            Transaction.objects.filter(order=instance, user=seller).update(status=instance.status, amount=0) # Zero out seller amount on cancellation
 
     if conversation and message_content and notification_recipient:
         system_msg = send_system_message(conversation, message_content, buyer)
         async_to_sync(send_message_notification)(notification_recipient, system_msg)
-    
+
     async_to_sync(send_order_update_notification)(buyer)
     async_to_sync(send_order_update_notification)(seller)
 
@@ -147,18 +162,24 @@ def review_creation_message(sender, instance, created, **kwargs):
             async_to_sync(send_message_notification)(seller, system_msg)
 
 
-# --- NEW: Signal for Withdrawals ---
 @receiver(post_save, sender=WithdrawalRequest)
 def create_withdrawal_transaction(sender, instance, created, **kwargs):
     if created:
+        # Create a new transaction when a withdrawal request is made.
         Transaction.objects.create(
             user=instance.user,
-            amount=-instance.amount, # Negative because it's an expense
+            amount=-instance.amount,  # Negative because it's an expense
             transaction_type='WITHDRAWAL',
-            status=instance.status,
+            status=instance.status,  # This will be 'PENDING' by default
             description='Withdrawal Request',
             withdrawal=instance
         )
     else:
-        # If the status of an existing request changes, update our transaction too
-        Transaction.objects.filter(withdrawal=instance).update(status=instance.status)
+        # If the status of an existing request changes, update the transaction status accordingly.
+        transaction_status = instance.status  # Default to the same status
+        if instance.status == 'APPROVED':
+            transaction_status = 'COMPLETED'
+        elif instance.status == 'REJECTED':
+            transaction_status = 'CANCELLED'
+
+        Transaction.objects.filter(withdrawal=instance).update(status=transaction_status)
