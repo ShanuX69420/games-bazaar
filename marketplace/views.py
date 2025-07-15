@@ -8,6 +8,7 @@ from django.db.models import Sum, Q, Count, Avg
 from django.db.models.functions import Lower
 from django.contrib.auth.models import User
 import string
+from django.contrib import messages
 from collections import defaultdict
 
 from .models import (
@@ -16,7 +17,7 @@ from .models import (
 )
 from .forms import (
     ProductForm, ReviewForm, WithdrawalRequestForm, SupportTicketForm,
-    ProfilePictureForm
+    ProfilePictureForm, ProfileUpdateForm
 )
 
 
@@ -93,25 +94,43 @@ def listing_page_view(request, game_pk, category_pk):
     return render(request, 'marketplace/listing_page.html', context)
 
 def public_profile_view(request, username):
+    print("\n--- VIEW START ---")
     profile_user = get_object_or_404(User, username=username)
     
+    print(f"[DEBUG] Profile for '{username}' found. Current image path in DB: {profile_user.profile.image}")
+
     if request.method == 'POST' and request.user == profile_user:
+        print("\n--- POST request detected ---")
+        print(f"[DEBUG] request.FILES data: {request.FILES}")
+
         p_form = ProfilePictureForm(request.POST, request.FILES, instance=request.user.profile)
+        
         if p_form.is_valid():
+            print("[DEBUG] Form is VALID.")
             p_form.save()
+            print("[DEBUG] Form has been SAVED.")
+            
+            # Re-fetch the profile from the database to see the new value
+            updated_profile = Profile.objects.get(user=request.user)
+            print(f"[DEBUG] Image path in DB immediately after save: {updated_profile.image}")
+            
             return redirect('public_profile', username=username)
-    else:
+        else:
+            print("[DEBUG] Form is INVALID.")
+            print(f"[DEBUG] Form errors: {p_form.errors}")
+
+    else: # This is a GET request
+        print("\n--- GET request detected ---")
         p_form = ProfilePictureForm(instance=request.user.profile)
 
-    # Group products by Game, then by Category
+    # --- The rest of your view is the same ---
     products = Product.objects.filter(seller=profile_user, is_active=True).select_related('game', 'category').order_by('game__title', 'category__name')
     
     grouped_listings = defaultdict(lambda: defaultdict(list))
     for product in products:
         if product.game and product.category:
             grouped_listings[product.game][product.category].append(product)
-        
-    # Get reviews and calculate statistics in the view
+            
     reviews = Review.objects.filter(seller=profile_user).select_related('buyer', 'order__product', 'order__product__game').order_by('-created_at')
     
     review_stats = reviews.aggregate(
@@ -119,7 +138,6 @@ def public_profile_view(request, username):
         review_count=Count('id')
     )
     
-    # Chat functionality setup
     other_user = profile_user
     messages = []
     if request.user.is_authenticated and request.user != other_user:
@@ -141,6 +159,7 @@ def public_profile_view(request, username):
         'product': products.first(),
         'p_form': p_form
     }
+    print("--- Rendering template and ending request ---")
     return render(request, 'marketplace/public_profile.html', context)
 
 def flat_page_view(request, slug):

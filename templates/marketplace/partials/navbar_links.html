@@ -20,7 +20,7 @@
             <li class="nav-item"><a class="nav-link" href="{% url 'funds' %}">Funds</a></li>
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <img src="https://i.imgur.com/v8Ld3iI.png" alt="p" width="32" height="32" class="rounded-circle">
+                    <img src="{{ user.profile.image_url }}" alt="p" width="32" height="32" class="rounded-circle">
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                     {# This is the new, combined Profile link #}

@@ -1,22 +1,24 @@
 # marketplace/consumers.py
+
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.utils import timezone
-from .models import Conversation, Message
+from .models import Conversation, Message, Profile # Ensure Profile is imported here
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
 @database_sync_to_async
 def update_user_last_seen(user):
+    """
+    Safely updates only the last_seen field for a user's profile.
+    This prevents race conditions that could overwrite other data.
+    """
     if user.is_authenticated:
-        try:
-            user.profile.last_seen = timezone.now()
-            user.profile.save()
-        except user.profile.DoesNotExist:
-            pass
+        # This line now works because Profile has been imported.
+        Profile.objects.filter(user=user).update(last_seen=timezone.now())
 
 @database_sync_to_async
 def broadcast_presence(user, status_data):
@@ -100,13 +102,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             print(f"!!! CHATCONSUMER ERROR in receive method: {e} !!!")
 
     async def chat_message(self, event):
-        # Only try to mark messages as read if they are from another user
-        # and are not system-generated notifications. This prevents the crash.
         if not event.get('is_system_message') and self.user.username != event['sender']:
             if 'message_id' in event:
                 await self.mark_message_as_read(event['message_id'])
 
-        # This part sends the message to your browser's chat window.
         await self.send(text_data=json.dumps({
             'message': event['message'],
             'sender': event['sender'],
@@ -179,22 +178,23 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         if self.user.is_authenticated:
+            # You may need to fetch the profile again to get the absolute latest last_seen time
+            try:
+                profile = await database_sync_to_async(Profile.objects.get)(user=self.user)
+                last_seen_iso = profile.last_seen.isoformat()
+            except Profile.DoesNotExist:
+                last_seen_iso = timezone.now().isoformat()
+            
             await update_user_last_seen(self.user)
             await broadcast_presence(self.user, {
                 'username': self.user.username,
                 'is_online': False,
-                'last_seen_iso': self.user.profile.last_seen.isoformat()
+                'last_seen_iso': last_seen_iso
             })
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
-    # --- THIS IS THE NEW METHOD TO HANDLE THE HEARTBEAT ---
     async def receive(self, text_data):
-        """
-        Receives messages from the websocket. We use this for our heartbeat.
-        The act of receiving a message updates the user's 'last_seen' time.
-        """
         await update_user_last_seen(self.user)
-    # --- END OF NEW METHOD ---
 
     async def send_notification(self, event):
         await self.send(text_data=json.dumps({

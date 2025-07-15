@@ -61,3 +61,8 @@ class ProfilePictureForm(forms.ModelForm):
     class Meta:
         model = Profile
         fields = ['image']
+
+class ProfileUpdateForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ['image']

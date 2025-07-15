@@ -31,7 +31,14 @@ class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     commission_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Custom commission for this seller in % (e.g., 7.00).")
     last_seen = models.DateTimeField(null=True, blank=True)
-    image = models.ImageField(upload_to='profile_pics', default='profile_pics/default.jpg')
+    image = models.ImageField(upload_to='profile_pics', null=True, blank=True)
+
+    @property
+    def image_url(self):
+        if self.image and hasattr(self.image, 'url'):
+            return self.image.url
+        else:
+            return '/static/images/default.jpg'
 
     @property
     def is_online(self):
@@ -41,7 +48,7 @@ class Profile(models.Model):
             return timezone.now() < self.last_seen + datetime.timedelta(seconds=30)
         return False
 
-    def __str__(self): 
+    def __str__(self):
         return f'{self.user.username} Profile'
 
 @receiver(post_save, sender=User)
@@ -49,10 +56,9 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
     if created:
         Profile.objects.create(user=instance)
     else:
-        try:
-            instance.profile.save()
-        except Profile.DoesNotExist:
-            Profile.objects.create(user=instance)
+        # This safely creates a profile only if one is missing
+        # and no longer reverts your picture on refresh.
+        Profile.objects.get_or_create(user=instance)
 
 class Product(models.Model):
     seller = models.ForeignKey(User, on_delete=models.CASCADE)

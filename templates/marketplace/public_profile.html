@@ -96,7 +96,7 @@
         {# --- PROFILE HEADER --- #}
         <div class="profile-header">
             <div class="profile-picture-container">
-                <img src="{{ profile_user.profile.image.url }}" alt="{{ profile_user.username }}" class="profile-picture">
+                <img src="{{ profile_user.profile.image_url }}" alt="{{ profile_user.username }}" class="profile-picture">
                 {% if user == profile_user %}
                 <a href="#" class="edit-profile-pic" title="Change profile picture" data-bs-toggle="modal" data-bs-target="#profilePictureModal">
                     <i class="fas fa-camera"></i>
@@ -219,11 +219,13 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <form method="POST" enctype="multipart/form-data">
-            {% csrf_token %}
-            {{ p_form.as_p }}
-            <button type="submit" class="btn btn-primary">Save Changes</button>
-        </form>
+      <form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    
+    {{ p_form.as_p }}
+    
+    <button type="submit" class="btn btn-primary">Save Changes</button>
+</form>
       </div>
     </div>
   </div>
