@@ -126,6 +126,7 @@
             </div>
             {# Seller #}
             <div class="seller-info">
+                <img src="https://i.imgur.com/v8Ld3iI.png" alt="{{ order.seller.username }}">
                 <div>
                     <div class="fw-bold">{{ order.seller.username }}</div>
                     <div class="user-status {% if order.seller.profile.is_online %}online{% else %}offline{% endif %}"
