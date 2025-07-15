@@ -31,12 +31,7 @@ class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     commission_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Custom commission for this seller in % (e.g., 7.00).")
     last_seen = models.DateTimeField(null=True, blank=True)
-    # Use a default image that actually exists in MEDIA_ROOT. The current
-    # default.jpg lives directly under MEDIA_ROOT, so reference it here
-    # without the `profile_pics/` prefix to avoid broken links when a user
-    # hasn't uploaded a custom picture.
-    image = models.ImageField(upload_to='profile_pics', default='default.jpg')
-    updated_at = models.DateTimeField(auto_now=True)
+    image = models.ImageField(upload_to='profile_pics', default='profile_pics/default.jpg')
 
     @property
     def is_online(self):

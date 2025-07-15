@@ -5,7 +5,7 @@ from channels.db import database_sync_to_async
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.utils import timezone
-from .models import Conversation, Message, Profile
+from .models import Conversation, Message
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
@@ -15,8 +15,7 @@ def update_user_last_seen(user):
         try:
             user.profile.last_seen = timezone.now()
             user.profile.save()
-        except Profile.DoesNotExist:
-            # If the user somehow has no profile, silently skip the update
+        except user.profile.DoesNotExist:
             pass
 
 @database_sync_to_async
