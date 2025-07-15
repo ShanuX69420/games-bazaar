@@ -11,9 +11,8 @@ urlpatterns = [
     path('', include('marketplace.urls')),
 ]
 
-# This handles user-uploaded media files
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve user-uploaded media files in both development and simple production setups
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # This new line will handle the admin static files
 urlpatterns += staticfiles_urlpatterns()
