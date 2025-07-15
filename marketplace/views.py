@@ -15,8 +15,7 @@ from .models import (
     Conversation, Message, WithdrawalRequest, SupportTicket, SiteConfiguration, Profile, Transaction
 )
 from .forms import (
-    ProductForm, ReviewForm, WithdrawalRequestForm, SupportTicketForm,
-    ProfilePictureForm
+    ProductForm, ReviewForm, WithdrawalRequestForm, SupportTicketForm
 )
 
 
@@ -95,14 +94,6 @@ def listing_page_view(request, game_pk, category_pk):
 def public_profile_view(request, username):
     profile_user = get_object_or_404(User, username=username)
     
-    if request.method == 'POST' and request.user == profile_user:
-        p_form = ProfilePictureForm(request.POST, request.FILES, instance=request.user.profile)
-        if p_form.is_valid():
-            p_form.save()
-            return redirect('public_profile', username=username)
-    else:
-        p_form = ProfilePictureForm(instance=request.user.profile)
-
     # Group products by Game, then by Category
     products = Product.objects.filter(seller=profile_user, is_active=True).select_related('game', 'category').order_by('game__title', 'category__name')
     
@@ -139,7 +130,6 @@ def public_profile_view(request, username):
         'other_user': other_user,
         'messages': messages,
         'product': products.first(),
-        'p_form': p_form
     }
     return render(request, 'marketplace/public_profile.html', context)
 

@@ -1,7 +1,7 @@
 # marketplace/forms.py
 from django.db.models import Sum
 from django import forms
-from .models import Product, Review, WithdrawalRequest, Order, SupportTicket, Profile
+from .models import Product, Review, WithdrawalRequest, Order, SupportTicket
 
 
 class ProductForm(forms.ModelForm):
@@ -56,8 +56,3 @@ class SupportTicketForm(forms.ModelForm):
     class Meta:
         model = SupportTicket
         fields = ['subject', 'message']
-
-class ProfilePictureForm(forms.ModelForm):
-    class Meta:
-        model = Profile
-        fields = ['image']
