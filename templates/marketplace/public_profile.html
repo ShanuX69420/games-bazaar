@@ -1,32 +1,33 @@
 {% extends "base.html" %}
 {% load math_filters %}
+{% load time_filters %}
 
 {% block content %}
 <style>
     .profile-header {
         display: flex;
         align-items: flex-start;
-        gap: 1.5rem;
-        margin-bottom: 2rem;
+        gap: 2rem;
+        margin-bottom: 2.5rem;
     }
     .profile-picture-container {
         position: relative;
         flex-shrink: 0;
     }
     .profile-picture {
-        width: 120px;
-        height: 120px;
+        width: 150px;
+        height: 150px;
         border-radius: 50%;
-        border: 3px solid #fff;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        border: 4px solid #fff;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         object-fit: cover;
     }
     .edit-profile-pic {
         position: absolute;
         bottom: 5px;
         right: 5px;
-        width: 30px;
-        height: 30px;
+        width: 32px;
+        height: 32px;
         background-color: #0d6efd;
         color: white;
         border-radius: 50%;
@@ -44,38 +45,80 @@
         padding-top: 1rem;
     }
     .profile-info h1 {
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.5rem;
+        font-size: 2.2rem;
+    }
+    .profile-info h1 .user-status {
+        font-size: 1rem;
+        font-weight: 500;
+        vertical-align: middle;
+        margin-left: 0.75rem;
+        color: #28a745;
+    }
+    .profile-info h1 .user-status.offline {
+        color: #6c757d;
     }
     .profile-meta {
         display: flex;
-        align-items: center;
-        gap: 1.5rem;
+        align-items: flex-start;
+        gap: 2.5rem;
         color: #6c757d;
-        font-size: 0.9rem;
+        margin-top: 1.5rem;
     }
-    .profile-rating {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
+    .profile-meta-item .meta-label {
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        color: #888;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.25rem;
+    }
+    .rating-display {
+        gap: 0.75rem;
+    }
+    .rating-display .rating-number {
+        font-size: 2.5rem;
+        font-weight: 600;
+        line-height: 1;
+        color: #212529;
     }
     .rating-stars {
         color: #ffc107;
     }
-    .offer-group {
-        margin-bottom: 2rem;
+    .rating-total-reviews {
+        font-size: 0.9rem;
+        text-decoration: none;
+        color: #6c757d;
     }
-    .offer-group-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding-bottom: 0.5rem;
-        border-bottom: 1px solid #dee2e6;
-        margin-bottom: 1rem;
+    .rating-total-reviews:hover {
+        text-decoration: underline;
     }
-    .offer-item {
-        display: flex;
-        justify-content: space-between;
-        padding: 0.5rem 0;
+    .listing-group {
+        margin-bottom: 2.5rem;
+    }
+    .listing-header {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    .listing-item {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 1rem;
+        padding: 0.75rem;
+        border-bottom: 1px solid #f1f3f5;
+        transition: background-color 0.2s ease;
+        border-radius: 4px;
+    }
+    .listing-item:last-child {
+        border-bottom: none;
+    }
+    a.listing-item:hover {
+        background-color: #f8f9fa;
+    }
+    .listing-item-price {
+        font-weight: 600;
+        font-size: 1.1rem;
     }
     .review-item {
         border: 1px solid #e9ecef;
@@ -93,7 +136,6 @@
 
 <div class="row">
     <div class="col-lg-8">
-        {# --- PROFILE HEADER --- #}
         <div class="profile-header">
             <div class="profile-picture-container">
                 <img src="{{ profile_user.profile.image_url }}" alt="{{ profile_user.username }}" class="profile-picture">
@@ -106,80 +148,64 @@
             <div class="profile-info">
                 <h1>
                     {{ profile_user.username }}
-                    <small class="user-status {% if profile_user.profile.is_online %}online{% else %}offline{% endif %}">
+                    <span class="user-status {% if profile_user.profile.is_online %}online{% else %}offline{% endif %}">
                         {% if profile_user.profile.is_online %}Online{% else %}Offline{% endif %}
-                    </small>
+                    </span>
                 </h1>
                 <div class="profile-meta">
-                    <span>Registered: {{ profile_user.date_joined|date:"d M Y" }}</span>
-                    <div class="profile-rating">
-    <span class="rating-stars">
-        <i class="fas fa-star"></i>
-        <strong>{{ average_rating|default:0|floatformat:1 }}</strong>
-    </span>
-    <a href="#reviews-section" class="text-muted text-decoration-none">
-        {{ review_count }} review{{ review_count|pluralize }}
-    </a>
-</div>
+                    <div class="profile-meta-item">
+                        <div class="meta-label">Registration Date</div>
+                        <div>{{ profile_user.date_joined|date:"d F Y, P" }}</div>
+                        <small class="text-muted">{{ profile_user.date_joined|timesince }} ago</small>
+                    </div>
+
+                    <div class="profile-meta-item">
+                        <div class="meta-label">Seller's Rating</div>
+                        <div class="d-flex align-items-center rating-display">
+                            <div class="rating-number">{{ average_rating|default:0|floatformat:1 }}</div>
+                            <div>
+                                <div class="rating-stars">
+                                    {% for i in "12345" %}
+                                        <i class="{% if i|add:0 <= average_rating|default:0 %}fas text-warning{% else %}far text-muted{% endif %} fa-star"></i>
+                                    {% endfor %}
+                                </div>
+                                <div class="text-muted">out of 5</div>
+                            </div>
+                        </div>
+                        <a href="#reviews-section" class="rating-total-reviews">{{ review_count }} review{{ review_count|pluralize }} total</a>
+                    </div>
                 </div>
             </div>
         </div>
 
-        {# --- OFFERS SECTION --- #}
-        <h3 id="offers-section">Offers</h3>
-        <hr>
+        <h3 id="listings-section" class="mb-3">Listings</h3>
+        <hr class="mb-4">
         {% for game, categories in grouped_listings.items %}
             {% for category, products in categories.items %}
-            <div class="offer-group">
-                <div class="offer-group-header">
-                    <a href="{% url 'listing_page' game_pk=game.pk category_pk=category.pk %}" class="h5 mb-0 text-decoration-none text-dark">{{ game.title }} - {{ category.name }}</a>
-                    {% if user == profile_user %}
-                    <a href="#" class="btn btn-sm btn-outline-secondary" title="Edit offers">
-                        <i class="fas fa-pencil-alt"></i>
+            <div class="listing-group">
+                <h4 class="listing-header">
+                    <a href="{% url 'listing_page' game_pk=game.pk category_pk=category.pk %}" class="text-decoration-none text-dark">
+                        {{ game.title }} - {{ category.name }}
                     </a>
-                    {% endif %}
-                </div>
-                <div class="offer-list">
-                    {% for product in products %}
-                    <div class="offer-item">
-                        <span>{{ product.listing_title }}</span>
-                        <span class="fw-bold">Rs{{ product.price|floatformat:2 }}</span>
-                    </div>
-                    {% endfor %}
-                </div>
+                </h4>
+
+                {% for product in products %}
+                <a href="{% url 'product_detail' product.pk %}" class="listing-item text-decoration-none text-body">
+                    <div>{{ product.listing_title }}</div>
+                    <div class="listing-item-price">Rs{{ product.price|floatformat:2 }}</div>
+                </a>
+                {% endfor %}
             </div>
             {% endfor %}
         {% empty %}
             <p>This user has no active listings.</p>
         {% endfor %}
 
-        {# --- REVIEWS SECTION --- #}
         <h3 id="reviews-section" class="mt-5">Reviews</h3>
         <hr>
         <div id="reviews-container">
             {% for review in reviews|slice:":15" %}
-                {% if user == profile_user %}
-                    {% include 'marketplace/partials/_profile_review_item.html' with review=review %}
-                {% else %}
-                    {# Public/Anonymous version of review display #}
-                     <div class="review-item">
-                        <div class="review-header">
-                            <div class="d-flex align-items-center">
-                                <img src="{{ review.buyer.profile.image.url }}" alt="Anonymous" class="rounded-circle me-2" width="40" height="40">
-                                <strong>Anonymous</strong>
-                            </div>
-                            <div class="text-end">
-                                 <div class="rating-stars">
-                                    {% for i in "12345" %}
-                                        <i class="fa-star {% if i|add:0 <= review.rating %}fas text-warning{% else %}far text-muted{% endif %}"></i>
-                                    {% endfor %}
-                                </div>
-                                <small class="text-muted">{{ review.created_at|date:"d M Y" }}</small>
-                            </div>
-                        </div>
-                        <p class="mb-0">{{ review.comment }}</p>
-                    </div>
-                {% endif %}
+                {% include 'marketplace/partials/_profile_review_item.html' with review=review %}
             {% endfor %}
         </div>
         {% if reviews.count > 15 %}
@@ -189,14 +215,13 @@
         {% endif %}
     </div>
 
-    {# --- CHATBOX --- #}
     {% if user.is_authenticated and user != profile_user %}
     <div class="col-lg-4">
         <h4>Chat with {{ profile_user.username }}</h4>
         {% include 'marketplace/partials/unified_chat_panel.html' %}
     </div>
     {% elif not user.is_authenticated %}
-     <div class="col-lg-4">
+    <div class="col-lg-4">
         <h4>Chat with {{ profile_user.username }}</h4>
         <div class="border p-3 rounded text-center">
             <p>Please <a href="{% url 'login' %}?next={{ request.path }}">log in</a> or <a href="{% url 'register' %}?next={{ request.path }}">register</a> to send a message.</p>
@@ -212,22 +237,20 @@
 {% endif %}
 
 <div class="modal fade" id="profilePictureModal" tabindex="-1" aria-labelledby="profilePictureModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="profilePictureModalLabel">Change Profile Picture</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-      <form method="POST" enctype="multipart/form-data">
-    {% csrf_token %}
-    
-    {{ p_form.as_p }}
-    
-    <button type="submit" class="btn btn-primary">Save Changes</button>
-</form>
-      </div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="profilePictureModalLabel">Change Profile Picture</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {{ p_form.as_p }}
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </form>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 {% endblock %}

@@ -95,55 +95,55 @@ def listing_page_view(request, game_pk, category_pk):
 
 def public_profile_view(request, username):
     profile_user = get_object_or_404(User, username=username)
+    p_form = None
 
-    if request.method == 'POST' and request.user == profile_user:
-        p_form = ProfilePictureForm(request.POST, request.FILES, instance=request.user.profile)
-        if p_form.is_valid():
-            p_form.save()
-            # You can add a success message if you want
-            # messages.success(request, 'Your profile picture has been updated!')
-            return redirect('public_profile', username=username)
-    else:
-        # This is for a normal GET request
-        p_form = ProfilePictureForm(instance=request.user.profile)
+    if request.user == profile_user:
+        if request.method == 'POST':
+            p_form = ProfilePictureForm(request.POST, request.FILES, instance=request.user.profile)
+            if p_form.is_valid():
+                p_form.save()
+                messages.success(request, 'Your profile picture has been updated!')
+                return redirect('public_profile', username=username)
+        else:
+            p_form = ProfilePictureForm(instance=request.user.profile)
 
-    # The rest of your view's logic to get products, reviews, etc.
+    # Filter products and create the grouped listings
     products = Product.objects.filter(seller=profile_user, is_active=True).select_related('game', 'category').order_by('game__title', 'category__name')
-    
+
     grouped_listings = defaultdict(lambda: defaultdict(list))
     for product in products:
         if product.game and product.category:
             grouped_listings[product.game][product.category].append(product)
-            
+
+    # Get reviews and statistics
     reviews = Review.objects.filter(seller=profile_user).select_related('buyer', 'order__product', 'order__product__game').order_by('-created_at')
-    
     review_stats = reviews.aggregate(
         average_rating=Avg('rating'),
         review_count=Count('id')
     )
-    
+
+    # Logic for the chat panel
     other_user = profile_user
-    messages = []
+    chat_messages = []
     if request.user.is_authenticated and request.user != other_user:
         if request.user.id < other_user.id:
             p1, p2 = request.user, other_user
         else:
             p1, p2 = other_user, request.user
         conversation, created = Conversation.objects.get_or_create(participant1=p1, participant2=p2)
-        messages = conversation.messages.all().order_by('timestamp')
+        chat_messages = conversation.messages.all().order_by('timestamp')
 
     context = {
         'profile_user': profile_user,
-        'grouped_listings': dict(grouped_listings),
         'reviews': reviews,
         'average_rating': review_stats['average_rating'],
         'review_count': review_stats['review_count'],
         'other_user': other_user,
-        'messages': messages,
-        'product': products.first(),
-        'p_form': p_form
+        'messages': chat_messages,
+        'p_form': p_form,
+        'grouped_listings': dict(grouped_listings),
     }
-    
+
     return render(request, 'marketplace/public_profile.html', context)
 
 def flat_page_view(request, slug):
