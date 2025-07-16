@@ -168,7 +168,7 @@ def create_product(request, game_pk, category_pk):
             product.game = game
             product.category = category
             product.save()
-            return redirect('seller_dashboard')
+            return redirect('my_sales')
     else:
         form = ProductForm()
     context = {'form': form, 'game': game, 'category': category}
