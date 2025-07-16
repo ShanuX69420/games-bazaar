@@ -151,7 +151,7 @@
         margin-bottom: 1rem;
     }
 
-     .review-item {
+    .review-item {
         border: 1px solid #e9ecef;
         border-radius: 0.375rem;
         padding: 1rem;
@@ -162,6 +162,7 @@
     .review-summary-box {
         display: flex;
         align-items: center;
+        justify-content: space-between; /* This line makes the summary and filter sit on opposite ends */
         gap: 1.5rem;
         padding: 1.5rem;
         background-color: #f8f9fa;
@@ -304,34 +305,75 @@
                 This user has no active listings.
             </div>
         {% endfor %}
+
         <h3 id="reviews-section" class="mt-5 mb-4">Seller's Reviews</h3>
 
         <div class="review-summary-box">
-            <div>
-                <div class="avg-rating">{{ average_rating|default:0|floatformat:1 }}</div>
-                <div class="text-muted">out of 5</div>
+            <div class="d-flex align-items-center" style="gap: 1.5rem;">
+                <div>
+                    <div class="avg-rating">{{ average_rating|default:0|floatformat:1 }}</div>
+                    <div class="text-muted">out of 5</div>
+                </div>
+                <div>
+                    <div class="rating-stars">
+                        {% for i in "12345" %}
+                            <i class="fa-star {% if i|add:0 <= average_rating|default:0 %}fas text-warning{% else %}far text-muted{% endif %}"></i>
+                        {% endfor %}
+                    </div>
+                    <div class="review-count">
+                        Based on {{ review_count }} review{{ review_count|pluralize }}
+                    </div>
+                </div>
             </div>
-            <div>
-                <div class="rating-stars">
-                    {% for i in "12345" %}
-                        <i class="fa-star {% if i|add:0 <= average_rating|default:0 %}fas text-warning{% else %}far text-muted{% endif %}"></i>
+
+            <div class="dropdown">
+                <button class="btn btn-light border dropdown-toggle" type="button" id="reviewFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    {% if current_rating_filter %}
+                        {% with rating_int=current_rating_filter|add:0 %}
+                        <span class="text-warning">
+                            {% for j in "12345" %}
+                                <i class="fa-star {% if j|add:0 <= rating_int %}fas{% else %}far{% endif %}"></i>
+                            {% endfor %}
+                        </span>
+                        {% endwith %}
+                    {% else %}
+                        All reviews
+                    {% endif %}
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="reviewFilterDropdown">
+                    <li><a class="dropdown-item {% if not current_rating_filter %}active{% endif %}" href="{% url 'public_profile' username=profile_user.username %}#reviews-section">All reviews</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    {% for i in "54321" %}
+                    <li>
+                        <a class="dropdown-item {% if current_rating_filter == i %}active{% endif %}" href="?rating={{ i }}#reviews-section">
+                            <span class="text-warning">
+                                {% with rating_int=i|add:0 %}
+                                    {% for j in "12345" %}
+                                        <i class="fa-star {% if j|add:0 <= rating_int %}fas{% else %}far{% endif %}"></i>
+                                    {% endfor %}
+                                {% endwith %}
+                            </span>
+                        </a>
+                    </li>
                     {% endfor %}
-                </div>
-                <div class="review-count">
-                    Based on {{ review_count }} review{{ review_count|pluralize }}
-                </div>
+                </ul>
             </div>
         </div>
-
 
         <div id="reviews-container">
             {% for review in reviews %}
                 {% include 'marketplace/partials/_profile_review_item.html' with review=review %}
             {% empty %}
-            <div class="alert alert-light">This user has no reviews yet.</div>
+            <div class="alert alert-light">
+                {% if current_rating_filter %}
+                    No {{ current_rating_filter }}-star reviews found for this seller.
+                {% else %}
+                    This user has no reviews yet.
+                {% endif %}
+            </div>
             {% endfor %}
         </div>
-        </div>
+    </div>
 
     {% if user.is_authenticated and user != profile_user %}
     <div class="col-lg-4">

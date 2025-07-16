@@ -126,9 +126,15 @@ def public_profile_view(request, username):
                 'products': list(cat_products_iterator)
             })
 
-    # --- Original Simple Review Logic ---
-    reviews = Review.objects.filter(seller=profile_user).order_by('-created_at')
-    review_stats = reviews.aggregate(
+    # --- Review Logic with Filtering ---
+    all_reviews = Review.objects.filter(seller=profile_user).select_related('buyer__profile', 'order__product')
+    rating_filter = request.GET.get('rating')
+    reviews_to_display = all_reviews.order_by('-created_at')
+
+    if rating_filter and rating_filter.isdigit() and 1 <= int(rating_filter) <= 5:
+        reviews_to_display = reviews_to_display.filter(rating=int(rating_filter))
+
+    review_stats = all_reviews.aggregate(
         average_rating=Avg('rating'),
         review_count=Count('id')
     )
@@ -145,13 +151,14 @@ def public_profile_view(request, username):
 
     context = {
         'profile_user': profile_user,
-        'reviews': reviews,
+        'reviews': reviews_to_display,
         'average_rating': review_stats['average_rating'],
         'review_count': review_stats['review_count'],
         'other_user': other_user,
         'messages': chat_messages,
         'p_form': p_form,
         'grouped_listings': grouped_listings,
+        'current_rating_filter': rating_filter,
     }
 
     return render(request, 'marketplace/public_profile.html', context)
