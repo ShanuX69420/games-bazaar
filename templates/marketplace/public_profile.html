@@ -112,6 +112,13 @@
         font-weight: 600;
         margin-bottom: 0;
     }
+    .offer-card-header h5 a {
+        color: inherit;
+        text-decoration: none;
+    }
+    .offer-card-header h5 a:hover {
+        text-decoration: underline;
+    }
     .offer-list-grid {
         display: grid;
         grid-template-columns: 3fr 1fr;
@@ -277,7 +284,7 @@
         {% for group in grouped_listings %}
             <div class="offer-card">
                 <div class="offer-card-header">
-                    <h5>{{ group.game.title }} - {{ group.category.name }}</h5>
+                    <h5><a href="{% url 'listing_page' game_pk=group.game.pk category_pk=group.category.pk %}">{{ group.game.title }} - {{ group.category.name }}</a></h5>
                 </div>
                 <div class="offer-list-container">
                     <div class="offer-list-grid offer-list-header">
