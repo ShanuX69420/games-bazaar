@@ -4,6 +4,7 @@
 
 {% block content %}
 <style>
+    /* --- Profile Header Styles --- */
     .profile-header {
         display: flex;
         align-items: flex-start;
@@ -93,44 +94,54 @@
     .rating-total-reviews:hover {
         text-decoration: underline;
     }
-    .listing-group {
-        margin-bottom: 2.5rem;
+
+    /* --- Offer Listing Styles --- */
+    .offer-card {
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        background-color: #fff;
+        margin-bottom: 1.5rem;
     }
-    .listing-header {
-        font-size: 1.5rem;
+    .offer-card-header {
+        padding: 0.75rem 1.25rem;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .offer-card-header h5 {
+        color: #0d6efd;
         font-weight: 600;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0;
     }
-    .listing-item {
+    .offer-list-grid {
         display: grid;
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 3fr 1fr;
         gap: 1rem;
-        padding: 0.75rem;
-        border-bottom: 1px solid #f1f3f5;
+        align-items: center;
+        padding: 0.75rem 1.25rem;
+    }
+    .offer-list-header {
+        font-weight: 500;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    .offer-list-row {
+        color: inherit;
+        border-top: 1px solid #f1f3f5;
         transition: background-color 0.2s ease;
-        border-radius: 4px;
     }
-    .listing-item:last-child {
-        border-bottom: none;
-    }
-    a.listing-item:hover {
+    .offer-list-row:hover {
         background-color: #f8f9fa;
     }
-    .listing-item-price {
+    .offer-price {
         font-weight: 600;
-        font-size: 1.1rem;
     }
+
+    /* --- Original Review Styles --- */
     .review-item {
         border: 1px solid #e9ecef;
         border-radius: 0.375rem;
         padding: 1rem;
         margin-bottom: 1rem;
-    }
-    .review-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.75rem;
     }
 </style>
 
@@ -158,7 +169,6 @@
                         <div>{{ profile_user.date_joined|date:"d F Y, P" }}</div>
                         <small class="text-muted">{{ profile_user.date_joined|timesince }} ago</small>
                     </div>
-
                     <div class="profile-meta-item">
                         <div class="meta-label">Seller's Rating</div>
                         <div class="d-flex align-items-center rating-display">
@@ -178,45 +188,42 @@
             </div>
         </div>
 
-        <h3 id="listings-section" class="mb-3">Listings</h3>
-<hr class="mb-4">
+        <h3 id="listings-section" class="mb-3">Offers</h3>
+        <hr class="mb-4">
 
-{% for group in grouped_listings %}
-    <div class="listing-group">
-        <h4 class="listing-header">
-            <a href="{% url 'listing_page' game_pk=group.game.pk category_pk=group.category.pk %}" class="text-decoration-none text-dark">
-                {{ group.game.title }} - {{ group.category.name }}
-            </a>
-        </h4>
-
-        {% for product in group.products %}
-        <a href="{% url 'product_detail' product.pk %}" class="listing-item text-decoration-none text-body">
-            <div>{{ product.listing_title }}</div>
-            <div class="listing-item-price">Rs{{ product.price|floatformat:2 }}</div>
-        </a>
+        {% for group in grouped_listings %}
+            <div class="offer-card">
+                <div class="offer-card-header">
+                    <h5>{{ group.game.title }} - {{ group.category.name }}</h5>
+                </div>
+                <div class="offer-list-container">
+                    <div class="offer-list-grid offer-list-header">
+                        <div>Description</div>
+                        <div class="text-end">Price</div>
+                    </div>
+                    {% for product in group.products %}
+                        <a href="{% url 'product_detail' product.pk %}" class="offer-list-grid offer-list-row text-decoration-none">
+                            <div>{{ product.listing_title }}</div>
+                            <div class="text-end offer-price">Rs{{ product.price|floatformat:2 }}</div>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        {% empty %}
+            <div class="alert alert-secondary">
+                This user has no active listings.
+            </div>
         {% endfor %}
-    </div>
-{% empty %}
-    <div class="alert alert-secondary">
-        This user has no active listings.
-    </div>
-{% endfor %}
-</div>
-
-
         <h3 id="reviews-section" class="mt-5">Reviews</h3>
         <hr>
         <div id="reviews-container">
-            {% for review in reviews|slice:":15" %}
+            {% for review in reviews %}
                 {% include 'marketplace/partials/_profile_review_item.html' with review=review %}
+            {% empty %}
+            <div class="alert alert-light">This user has no reviews yet.</div>
             {% endfor %}
         </div>
-        {% if reviews.count > 15 %}
-            <div class="text-center mt-3">
-                <button class="btn btn-outline-primary" id="show-more-reviews">Show More Reviews</button>
-            </div>
-        {% endif %}
-    </div>
+        </div>
 
     {% if user.is_authenticated and user != profile_user %}
     <div class="col-lg-4">

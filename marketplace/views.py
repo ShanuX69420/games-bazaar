@@ -109,9 +109,7 @@ def public_profile_view(request, username):
         else:
             p_form = ProfilePictureForm(instance=request.user.profile)
 
-    # --- START: Modified Grouping Logic ---
-
-    # Get all valid, active products for the user
+    # --- Grouping Logic for Listings ---
     products_qs = Product.objects.filter(
         seller=profile_user,
         is_active=True,
@@ -119,7 +117,6 @@ def public_profile_view(request, username):
         category__isnull=False
     ).select_related('game', 'category').order_by('game__title', 'category__name')
 
-    # Process the products into a simple list of groups
     grouped_listings = []
     for game, game_products_iterator in groupby(products_qs, key=attrgetter('game')):
         for category, cat_products_iterator in groupby(list(game_products_iterator), key=attrgetter('category')):
@@ -129,9 +126,8 @@ def public_profile_view(request, username):
                 'products': list(cat_products_iterator)
             })
 
-    # --- END: Modified Grouping Logic ---
-
-    reviews = Review.objects.filter(seller=profile_user).select_related('buyer', 'order__product', 'order__product__game').order_by('-created_at')
+    # --- Original Simple Review Logic ---
+    reviews = Review.objects.filter(seller=profile_user).order_by('-created_at')
     review_stats = reviews.aggregate(
         average_rating=Avg('rating'),
         review_count=Count('id')
