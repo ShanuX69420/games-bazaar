@@ -179,27 +179,30 @@
         </div>
 
         <h3 id="listings-section" class="mb-3">Listings</h3>
-        <hr class="mb-4">
-        {% for game, categories in grouped_listings.items %}
-            {% for category, products in categories.items %}
-            <div class="listing-group">
-                <h4 class="listing-header">
-                    <a href="{% url 'listing_page' game_pk=game.pk category_pk=category.pk %}" class="text-decoration-none text-dark">
-                        {{ game.title }} - {{ category.name }}
-                    </a>
-                </h4>
+<hr class="mb-4">
 
-                {% for product in products %}
-                <a href="{% url 'product_detail' product.pk %}" class="listing-item text-decoration-none text-body">
-                    <div>{{ product.listing_title }}</div>
-                    <div class="listing-item-price">Rs{{ product.price|floatformat:2 }}</div>
-                </a>
-                {% endfor %}
-            </div>
-            {% endfor %}
-        {% empty %}
-            <p>This user has no active listings.</p>
+{% for group in grouped_listings %}
+    <div class="listing-group">
+        <h4 class="listing-header">
+            <a href="{% url 'listing_page' game_pk=group.game.pk category_pk=group.category.pk %}" class="text-decoration-none text-dark">
+                {{ group.game.title }} - {{ group.category.name }}
+            </a>
+        </h4>
+
+        {% for product in group.products %}
+        <a href="{% url 'product_detail' product.pk %}" class="listing-item text-decoration-none text-body">
+            <div>{{ product.listing_title }}</div>
+            <div class="listing-item-price">Rs{{ product.price|floatformat:2 }}</div>
+        </a>
         {% endfor %}
+    </div>
+{% empty %}
+    <div class="alert alert-secondary">
+        This user has no active listings.
+    </div>
+{% endfor %}
+</div>
+
 
         <h3 id="reviews-section" class="mt-5">Reviews</h3>
         <hr>

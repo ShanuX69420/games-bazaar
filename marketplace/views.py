@@ -10,6 +10,8 @@ from django.contrib.auth.models import User
 import string
 from django.contrib import messages
 from collections import defaultdict
+from itertools import groupby
+from operator import attrgetter
 
 from .models import (
     Game, Category, Product, Order, Review, FlatPage, 
@@ -107,22 +109,34 @@ def public_profile_view(request, username):
         else:
             p_form = ProfilePictureForm(instance=request.user.profile)
 
-    # Filter products and create the grouped listings
-    products = Product.objects.filter(seller=profile_user, is_active=True).select_related('game', 'category').order_by('game__title', 'category__name')
+    # --- START: Modified Grouping Logic ---
 
-    grouped_listings = defaultdict(lambda: defaultdict(list))
-    for product in products:
-        if product.game and product.category:
-            grouped_listings[product.game][product.category].append(product)
+    # Get all valid, active products for the user
+    products_qs = Product.objects.filter(
+        seller=profile_user,
+        is_active=True,
+        game__isnull=False,
+        category__isnull=False
+    ).select_related('game', 'category').order_by('game__title', 'category__name')
 
-    # Get reviews and statistics
+    # Process the products into a simple list of groups
+    grouped_listings = []
+    for game, game_products_iterator in groupby(products_qs, key=attrgetter('game')):
+        for category, cat_products_iterator in groupby(list(game_products_iterator), key=attrgetter('category')):
+            grouped_listings.append({
+                'game': game,
+                'category': category,
+                'products': list(cat_products_iterator)
+            })
+
+    # --- END: Modified Grouping Logic ---
+
     reviews = Review.objects.filter(seller=profile_user).select_related('buyer', 'order__product', 'order__product__game').order_by('-created_at')
     review_stats = reviews.aggregate(
         average_rating=Avg('rating'),
         review_count=Count('id')
     )
 
-    # Logic for the chat panel
     other_user = profile_user
     chat_messages = []
     if request.user.is_authenticated and request.user != other_user:
@@ -141,7 +155,7 @@ def public_profile_view(request, username):
         'other_user': other_user,
         'messages': chat_messages,
         'p_form': p_form,
-        'grouped_listings': dict(grouped_listings),
+        'grouped_listings': grouped_listings,
     }
 
     return render(request, 'marketplace/public_profile.html', context)
