@@ -143,6 +143,89 @@
         padding: 1rem;
         margin-bottom: 1rem;
     }
+
+     .review-item {
+        border: 1px solid #e9ecef;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* --- Styles for New Review Section --- */
+    .review-summary-box {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 1.5rem;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: .375rem;
+        margin-bottom: 2rem;
+    }
+    .review-summary-box .avg-rating {
+        font-size: 3rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .review-summary-box .rating-stars {
+        color: #ffc107; /* Bootstrap's warning color for yellow stars */
+        font-size: 1.25rem;
+        margin-bottom: 0.25rem;
+    }
+    .review-summary-box .review-count {
+        color: #6c757d;
+    }
+
+    /* --- Styles for Individual Review Items (in partial) --- */
+    .review-item-new {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .review-item-new:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    .review-avatar img {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+    }
+    .review-body {
+        flex-grow: 1;
+    }
+    .review-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.25rem;
+    }
+    .review-header .username {
+        font-weight: 600;
+    }
+    .review-header .timestamp {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    .review-stars {
+        color: #ffc107;
+        margin-bottom: 0.5rem;
+    }
+    .review-product-link {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #0d6efd;
+        text-decoration: none;
+    }
+    .review-product-link:hover {
+        text-decoration: underline;
+    }
+    .review-comment {
+        margin-top: 0.5rem;
+    }
 </style>
 
 <div class="row">
@@ -214,8 +297,26 @@
                 This user has no active listings.
             </div>
         {% endfor %}
-        <h3 id="reviews-section" class="mt-5">Reviews</h3>
-        <hr>
+        <h3 id="reviews-section" class="mt-5 mb-4">Seller's Reviews</h3>
+
+        <div class="review-summary-box">
+            <div>
+                <div class="avg-rating">{{ average_rating|default:0|floatformat:1 }}</div>
+                <div class="text-muted">out of 5</div>
+            </div>
+            <div>
+                <div class="rating-stars">
+                    {% for i in "12345" %}
+                        <i class="fa-star {% if i|add:0 <= average_rating|default:0 %}fas text-warning{% else %}far text-muted{% endif %}"></i>
+                    {% endfor %}
+                </div>
+                <div class="review-count">
+                    Based on {{ review_count }} review{{ review_count|pluralize }}
+                </div>
+            </div>
+        </div>
+
+
         <div id="reviews-container">
             {% for review in reviews %}
                 {% include 'marketplace/partials/_profile_review_item.html' with review=review %}

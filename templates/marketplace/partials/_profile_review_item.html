@@ -1,6 +1,21 @@
-<div class="review-item">
-    <p>
-        <strong>{{ review.order.product.game.title }}</strong> - Rs{{ review.order.total_price|floatformat:2 }}
-    </p>
-    <p class="mb-0">{{ review.comment }}</p>
+{% load time_filters %}
+<div class="review-item-new">
+    <div class="review-avatar">
+        <img src="{{ review.buyer.profile.image_url }}" alt="{{ review.buyer.username }}">
+    </div>
+    <div class="review-body">
+        <div class="review-header">
+            <span class="username">{{ review.buyer.username }}</span>
+            <span class="timestamp">{{ review.created_at|smart_time }}</span>
+        </div>
+        <div class="review-stars">
+            {% for i in "12345" %}
+                <i class="fa-star {% if i|add:0 <= review.rating %}fas{% else %}far{% endif %}"></i>
+            {% endfor %}
+        </div>
+        <a href="{% url 'order_detail' review.order.pk %}" class="review-product-link">
+            Order #{{ review.order.pk }}: {{ review.order.product.listing_title }}
+        </a>
+        <p class="review-comment mb-0">{{ review.comment }}</p>
+    </div>
 </div>
