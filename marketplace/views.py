@@ -94,36 +94,20 @@ def listing_page_view(request, game_pk, category_pk):
     return render(request, 'marketplace/listing_page.html', context)
 
 def public_profile_view(request, username):
-    print("\n--- VIEW START ---")
     profile_user = get_object_or_404(User, username=username)
-    
-    print(f"[DEBUG] Profile for '{username}' found. Current image path in DB: {profile_user.profile.image}")
 
     if request.method == 'POST' and request.user == profile_user:
-        print("\n--- POST request detected ---")
-        print(f"[DEBUG] request.FILES data: {request.FILES}")
-
         p_form = ProfilePictureForm(request.POST, request.FILES, instance=request.user.profile)
-        
         if p_form.is_valid():
-            print("[DEBUG] Form is VALID.")
             p_form.save()
-            print("[DEBUG] Form has been SAVED.")
-            
-            # Re-fetch the profile from the database to see the new value
-            updated_profile = Profile.objects.get(user=request.user)
-            print(f"[DEBUG] Image path in DB immediately after save: {updated_profile.image}")
-            
+            # You can add a success message if you want
+            # messages.success(request, 'Your profile picture has been updated!')
             return redirect('public_profile', username=username)
-        else:
-            print("[DEBUG] Form is INVALID.")
-            print(f"[DEBUG] Form errors: {p_form.errors}")
-
-    else: # This is a GET request
-        print("\n--- GET request detected ---")
+    else:
+        # This is for a normal GET request
         p_form = ProfilePictureForm(instance=request.user.profile)
 
-    # --- The rest of your view is the same ---
+    # The rest of your view's logic to get products, reviews, etc.
     products = Product.objects.filter(seller=profile_user, is_active=True).select_related('game', 'category').order_by('game__title', 'category__name')
     
     grouped_listings = defaultdict(lambda: defaultdict(list))
@@ -159,7 +143,7 @@ def public_profile_view(request, username):
         'product': products.first(),
         'p_form': p_form
     }
-    print("--- Rendering template and ending request ---")
+    
     return render(request, 'marketplace/public_profile.html', context)
 
 def flat_page_view(request, slug):
