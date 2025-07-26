@@ -1,15 +1,84 @@
 {% extends "base.html" %}
 {% load math_filters %}
 {% load time_filters %}
+{% load grouping_filters %}
 
-{% block content %}
+{% block body_class %}bg-light-gray{% endblock %}
+
+{% block main_content_wrapper %}
 <style>
-    /* --- Profile Header Styles --- */
+    /* --- Styles for individual listing groups within the card --- */
+    .offer-card { 
+        background-color: #fff;
+        border-radius: .375rem;
+        margin-bottom: 1.5rem; 
+        padding: 1.5rem;
+    }
+    .offer-card:last-of-type {
+        margin-bottom: 0;
+    }
+
+    .offer-card-header { 
+        padding: 0.25rem 0 0.75rem 0;
+        border-bottom: 1px solid #e9ecef; 
+        margin-bottom: 0.5rem; 
+    }
+    .offer-card-header h5 { color: #2ABF64; font-weight: 700; margin-bottom: 0; }
+    .offer-card-header h5 a { color: inherit; text-decoration: none; }
+    .offer-card-header h5 a:hover { text-decoration: underline; }
+
+    /* --- GRID STYLES --- */
+    .profile-listing-header, .profile-listing-row {
+        display: grid;
+        gap: 1rem;
+        align-items: center;
+        padding: 0.75rem 0;
+    }
+    .profile-listing-header {
+        font-weight: 500;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    .profile-listing-row {
+        color: inherit;
+        border-top: 1px solid #f1f3f5;
+        transition: background-color 0.2s ease;
+        text-decoration: none;
+        min-height: 50px;
+    }
+    .profile-listing-row:hover {
+        background-color: #f8f9fa;
+    }
+    .profile-listing-row .listing-primary-filter {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #6c757d;
+        word-break: break-word;
+    }
+    .profile-listing-row .listing-description {
+        font-size: 0.9rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    .profile-listing-row .listing-price {
+        font-weight: 600;
+        text-align: right;
+    }
+
+    /* --- Profile Header Styles (Full-Width) --- */
+    .profile-header-container {
+        background-color: #fff;
+        padding-bottom: 2rem;
+    }
     .profile-header {
         display: flex;
+        flex-direction: column;
         align-items: flex-start;
-        gap: 2rem;
-        margin-bottom: 2.5rem;
+        gap: 1.5rem;
+        padding-top: 2rem;
     }
     .profile-picture-container {
         position: relative;
@@ -19,7 +88,7 @@
         width: 150px;
         height: 150px;
         border-radius: 50%;
-        border: 4px solid #fff;
+        border: none;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         object-fit: cover;
     }
@@ -29,7 +98,7 @@
         right: 5px;
         width: 32px;
         height: 32px;
-        background-color: #0d6efd;
+        background-color: #2ABF64;
         color: white;
         border-radius: 50%;
         display: flex;
@@ -40,13 +109,12 @@
         transition: background-color 0.2s;
     }
     .edit-profile-pic:hover {
-        background-color: #0a58ca;
+        background-color: #229a50;
     }
     .profile-info {
-        padding-top: 1rem;
     }
     .profile-info h1 {
-        margin-bottom: 0.5rem;
+        margin-bottom: 1rem;
         font-size: 2.2rem;
     }
     .profile-info h1 .user-status {
@@ -59,185 +127,201 @@
     .profile-info h1 .user-status.offline {
         color: #6c757d;
     }
-    .profile-meta {
+    
+    .profile-stats-container {
         display: flex;
+        gap: 3rem;
         align-items: flex-start;
-        gap: 2.5rem;
-        color: #6c757d;
-        margin-top: 1.5rem;
     }
-    .profile-meta-item .meta-label {
+    .stat-block .stat-label {
         font-size: 0.8rem;
         font-weight: 500;
         text-transform: uppercase;
-        color: #888;
+        color: #6c757d;
         letter-spacing: 0.5px;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.5rem;
     }
-    .rating-display {
-        gap: 0.75rem;
+    .rating-summary {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
     }
-    .rating-display .rating-number {
-        font-size: 2.5rem;
-        font-weight: 600;
+    .rating-summary .rating-number {
+        font-size: 4rem;
+        font-weight: 700;
         line-height: 1;
         color: #212529;
     }
-    .rating-stars {
+    .rating-summary .rating-number-subtext {
+        font-size: 1rem;
+        color: #6c757d;
+    }
+    .rating-breakdown {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .rating-breakdown-bars {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .rating-breakdown-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
         color: #ffc107;
     }
-    .rating-total-reviews {
-        font-size: 0.9rem;
-        text-decoration: none;
-        color: #6c757d;
+    .rating-breakdown-row .fa-star.far {
+        color: #adb5bd;
     }
-    .rating-total-reviews:hover {
-        text-decoration: underline;
+    .rating-bar-container {
+        width: 120px;
+        height: 6px;
+        background-color: #e9ecef;
+        border-radius: 3px;
+        overflow: hidden;
     }
-
-    /* --- Offer Listing Styles --- */
-    .offer-card {
-        border: 1px solid #dee2e6;
-        border-radius: 0.375rem;
-        background-color: #fff;
-        margin-bottom: 1.5rem;
+    .rating-bar {
+        height: 100%;
+        background-color: #ffc107;
+        border-radius: 3px;
     }
-    .offer-card-header {
-        padding: 0.75rem 1.25rem;
-        background-color: #f8f9fa;
-        border-bottom: 1px solid #dee2e6;
-    }
-    .offer-card-header h5 {
-        color: #0d6efd;
-        font-weight: 600;
-        margin-bottom: 0;
-    }
-    .offer-card-header h5 a {
-        color: inherit;
-        text-decoration: none;
-    }
-    .offer-card-header h5 a:hover {
-        text-decoration: underline;
-    }
-    .offer-list-grid {
-        display: grid;
-        grid-template-columns: 3fr 1fr;
-        gap: 1rem;
-        align-items: center;
-        padding: 0.75rem 1.25rem;
-    }
-    .offer-list-header {
+    .rating-breakdown-total {
+        font-size: 1rem;
         font-weight: 500;
+        color:#2ABF64;
+        white-space: nowrap;
+        text-decoration: none;
+    }
+    .rating-breakdown-total:hover {
+        text-decoration: underline;
+    }
+    .rating-breakdown-total span {
+        display: block;
         color: #6c757d;
-        font-size: 0.9rem;
-    }
-    .offer-list-row {
-        color: inherit;
-        border-top: 1px solid #f1f3f5;
-        transition: background-color 0.2s ease;
-    }
-    .offer-list-row:hover {
-        background-color: #f8f9fa;
-    }
-    .offer-price {
-        font-weight: 600;
-    }
-
-    /* --- Original Review Styles --- */
-    .review-item {
-        border: 1px solid #e9ecef;
-        border-radius: 0.375rem;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-
-    .review-item {
-        border: 1px solid #e9ecef;
-        border-radius: 0.375rem;
-        padding: 1rem;
-        margin-bottom: 1rem;
+        font-size: 0.8rem;
+        font-weight: 400;
     }
     
-    /* --- Styles for New Review Section --- */
-    .review-summary-box {
-        display: flex;
-        align-items: center;
-        justify-content: space-between; /* This line makes the summary and filter sit on opposite ends */
-        gap: 1.5rem;
-        padding: 1.5rem;
-        background-color: #f8f9fa;
-        border: 1px solid #dee2e6;
+    .reviews-section-card {
+        background-color: #fff;
         border-radius: .375rem;
-        margin-bottom: 2rem;
+        margin-bottom: 2.5rem;
     }
-    .review-summary-box .avg-rating {
-        font-size: 3rem;
-        font-weight: 700;
-        line-height: 1;
-    }
-    .review-summary-box .rating-stars {
-        color: #ffc107; /* Bootstrap's warning color for yellow stars */
-        font-size: 1.25rem;
-        margin-bottom: 0.25rem;
-    }
-    .review-summary-box .review-count {
-        color: #6c757d;
+    .review-summary-box { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1.5rem; border-bottom: 1px solid #dee2e6; }
+    #reviews-container { padding: 1.5rem; }
+    .load-more-reviews-container { padding: 0 1.5rem 1.5rem; text-align: center; }
+    .review-summary-box .avg-rating { font-size: 3rem; font-weight: 700; line-height: 1; }
+    .review-summary-box .rating-stars { color: #ffc107; font-size: 1.25rem; margin-bottom: 0.25rem; }
+    .review-summary-box .review-count { color: #6c757d; }
+    .review-card { display: flex; gap: 1rem; padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid #e9ecef; }
+    .review-card:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .review-card .review-avatar img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+    .review-card .review-content { flex-grow: 1; }
+    .review-card .review-main-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.25rem; }
+    .review-card .review-user-and-meta { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+    .review-card .review-user-and-meta .username { font-weight: 600; font-size: 1rem; color: #212529; }
+    .review-card .review-meta-info { font-size: 0.85rem; color: #6c757d; }
+    .review-card .review-meta-info a { color: #2ABF64; text-decoration: none; font-weight: 500; }
+    .review-card .review-meta-info a:hover { text-decoration: underline; }
+    .review-card .review-rating .review-stars { color: #ffc107; white-space: nowrap; }
+    .review-card .review-product-info { font-size: 0.9rem; color: #6c757d; margin: 0.25rem 0 0.75rem 0; }
+    .review-card .review-comment { color: #212529; }
+
+    /* --- MOBILE RESPONSIVE STYLES --- */
+    @media (max-width: 767.98px) {
+        .profile-header-container {
+            padding-bottom: 1rem;
+        }
+        .profile-header {
+            flex-direction: column; /* Revert to vertical stacking */
+            align-items: center;    /* Center everything */
+            text-align: center;
+            gap: 1rem;
+            padding-top: 1rem;
+        }
+        .profile-picture {
+            width: 100px;
+            height: 100px;
+        }
+        .edit-profile-pic {
+            width: 28px;
+            height: 28px;
+            font-size: 0.9rem;
+        }
+        .profile-info {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .profile-info h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.25rem;
+        }
+        .profile-info h1 .user-status {
+            display: block; /* Make status appear on a new line */
+            margin-left: 0;
+            margin-top: 0.25rem;
+            font-size: 0.9rem;
+        }
+        .profile-stats-container {
+            flex-direction: column;
+            gap: 1.5rem;
+            align-items: center; /* Center stat blocks */
+            margin-top: 1rem;
+        }
+        .rating-summary {
+            flex-direction: column; /* Stack rating elements */
+            gap: 0.5rem;
+        }
+        .rating-summary .rating-number-subtext {
+            display: none; /* Hide 'out of 5' from desktop view */
+        }
+        .rating-breakdown {
+            display: none;
+        }
+        /* Mobile-specific rating summary */
+        .mobile-rating-summary {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .mobile-rating-summary .rating-number-large {
+            font-size: 3rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .mobile-rating-summary .rating-details {
+            text-align: left;
+        }
+        .mobile-rating-summary .rating-stars-row {
+            color: #ffc107;
+            font-size: 1rem;
+        }
+        .mobile-rating-summary .rating-total-text {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        /* Make content cards smaller */
+        .offer-card, .reviews-section-card {
+            padding: 1rem;
+        }
+        .review-summary-box, #reviews-container {
+            padding: 1rem;
+        }
+        .load-more-reviews-container {
+            padding: 0 1rem 1rem;
+        }
     }
 
-    /* --- Styles for Individual Review Items (in partial) --- */
-    .review-item-new {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-        padding-bottom: 1.5rem;
-        border-bottom: 1px solid #e9ecef;
-    }
-    .review-item-new:last-child {
-        border-bottom: none;
-        margin-bottom: 0;
-        padding-bottom: 0;
-    }
-    .review-avatar img {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-    }
-    .review-body {
-        flex-grow: 1;
-    }
-    .review-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.25rem;
-    }
-    .review-header .username {
-        font-weight: 600;
-    }
-    .review-header .timestamp {
-        font-size: 0.85rem;
-        color: #6c757d;
-    }
-    .review-stars {
-        color: #ffc107;
-        margin-bottom: 0.5rem;
-    }
-    .review-product-link {
-        font-size: 0.9rem;
-        font-weight: 500;
-        color: #0d6efd;
-        text-decoration: none;
-    }
-    .review-product-link:hover {
-        text-decoration: underline;
-    }
-    .review-comment {
-        margin-top: 0.5rem;
-    }
 </style>
 
-<div class="row">
-    <div class="col-lg-8">
+<div class="profile-header-container">
+    <div class="container">
         <div class="profile-header">
             <div class="profile-picture-container">
                 <img src="{{ profile_user.profile.image_url }}" alt="{{ profile_user.username }}" class="profile-picture">
@@ -247,6 +331,7 @@
                 </a>
                 {% endif %}
             </div>
+            
             <div class="profile-info">
                 <h1>
                     {{ profile_user.username }}
@@ -254,142 +339,217 @@
                         {% if profile_user.profile.is_online %}Online{% else %}Offline{% endif %}
                     </span>
                 </h1>
-                <div class="profile-meta">
-                    <div class="profile-meta-item">
-                        <div class="meta-label">Registration Date</div>
+        
+                <div class="profile-stats-container">
+                    <div class="stat-block">
+                        <div class="stat-label">Registration Date</div>
                         <div>{{ profile_user.date_joined|date:"d F Y, P" }}</div>
                         <small class="text-muted">{{ profile_user.date_joined|timesince }} ago</small>
                     </div>
-                    <div class="profile-meta-item">
-                        <div class="meta-label">Seller's Rating</div>
-                        <div class="d-flex align-items-center rating-display">
-                            <div class="rating-number">{{ average_rating|default:0|floatformat:1 }}</div>
-                            <div>
-                                <div class="rating-stars">
-                                    {% for i in "12345" %}
-                                        <i class="{% if i|add:0 <= average_rating|default:0 %}fas text-warning{% else %}far text-muted{% endif %} fa-star"></i>
-                                    {% endfor %}
+                    <div class="stat-block">
+                        <div class="stat-label">Seller's Rating</div>
+                        
+                        {# Desktop Rating View #}
+                        <div class="rating-summary d-none d-md-flex">
+                            <div class="text-center">
+                                <div class="rating-number">{{ average_rating|default:0|floatformat:0 }}</div>
+                                <div class="rating-number-subtext">out of 5</div>
+                            </div>
+                            <div class="rating-breakdown">
+                                <div class="rating-breakdown-bars">
+                                    <div class="rating-breakdown-row">
+                                        <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+                                        <div class="rating-bar-container"><div class="rating-bar" style="width: 85%;"></div></div>
+                                    </div>
+                                    <div class="rating-breakdown-row">
+                                        <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i>
+                                        <div class="rating-bar-container"><div class="rating-bar" style="width: 10%;"></div></div>
+                                    </div>
+                                    <div class="rating-breakdown-row">
+                                        <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i><i class="far fa-star"></i>
+                                        <div class="rating-bar-container"><div class="rating-bar" style="width: 2%;"></div></div>
+                                    </div>
+                                    <div class="rating-breakdown-row">
+                                        <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i><i class="far fa-star"></i><i class="far fa-star"></i>
+                                        <div class="rating-bar-container"><div class="rating-bar" style="width: 1%;"></div></div>
+                                    </div>
+                                    <div class="rating-breakdown-row">
+                                        <i class="fas fa-star"></i><i class="far fa-star"></i><i class="far fa-star"></i><i class="far fa-star"></i><i class="far fa-star"></i>
+                                        <div class="rating-bar-container"><div class="rating-bar" style="width: 2%;"></div></div>
+                                    </div>
                                 </div>
-                                <div class="text-muted">out of 5</div>
+                                <a href="#reviews-section" class="rating-breakdown-total">
+                                    {{ review_count }} reviews
+                                    <span>total</span>
+                                </a>
                             </div>
                         </div>
-                        <a href="#reviews-section" class="rating-total-reviews">{{ review_count }} review{{ review_count|pluralize }} total</a>
+
+                        {# Mobile Rating View #}
+                        <div class="mobile-rating-summary d-md-none">
+                            <div class="rating-number-large">{{ average_rating|default:0|floatformat:0 }}</div>
+                            <div class="rating-details">
+                                <div class="rating-stars-row">
+                                    {% for i in "12345" %}
+                                        <i class="fa-star {% if i|add:0 <= average_rating|default:0 %}fas{% else %}far{% endif %}"></i>
+                                    {% endfor %}
+                                </div>
+                                <div class="rating-total-text">{{ review_count }} reviews total</div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
         </div>
+    </div>
+</div>
 
-        <h3 id="listings-section" class="mb-3">Offers</h3>
-        <hr class="mb-4">
-
-        {% for group in grouped_listings %}
-            <div class="offer-card">
-                <div class="offer-card-header">
-                    <h5><a href="{% url 'listing_page' game_pk=group.game.pk category_pk=group.category.pk %}">{{ group.game.title }} - {{ group.category.name }}</a></h5>
-                </div>
-                <div class="offer-list-container">
-                    <div class="offer-list-grid offer-list-header">
-                        <div>Description</div>
-                        <div class="text-end">Price</div>
-                    </div>
-                    {% for product in group.products %}
-                        <a href="{% url 'product_detail' product.pk %}" class="offer-list-grid offer-list-row text-decoration-none">
-                            <div>{{ product.listing_title }}</div>
-                            <div class="text-end offer-price">Rs{{ product.price|floatformat:2 }}</div>
+<main class="container mt-4 mb-4">
+    <div class="row">
+        <div class="col-lg-7">
+            
+            {% for group in grouped_listings %}
+                <div class="offer-card">
+                    <div class="offer-card-header d-flex justify-content-between align-items-center">
+                        <h5>
+                            <a href="{% url 'listing_page' game_pk=group.game.pk category_pk=group.category.pk %}">
+                                {{ group.game.title }} - {{ group.category.name }}
+                            </a>
+                        </h5>
+                        {% if user == profile_user %}
+                        <a href="{% url 'my_listings_in_category' game_pk=group.game.pk category_pk=group.category.pk %}" class="btn btn-light btn-sm border-secondary-subtle">
+                            <i class="fas fa-pencil-alt"></i>
                         </a>
-                    {% endfor %}
-                </div>
-            </div>
-        {% empty %}
-            <div class="alert alert-secondary">
-                This user has no active listings.
-            </div>
-        {% endfor %}
-
-        <h3 id="reviews-section" class="mt-5 mb-4">Seller's Reviews</h3>
-
-        <div class="review-summary-box">
-            <div class="d-flex align-items-center" style="gap: 1.5rem;">
-                <div>
-                    <div class="avg-rating">{{ average_rating|default:0|floatformat:1 }}</div>
-                    <div class="text-muted">out of 5</div>
-                </div>
-                <div>
-                    <div class="rating-stars">
-                        {% for i in "12345" %}
-                            <i class="fa-star {% if i|add:0 <= average_rating|default:0 %}fas text-warning{% else %}far text-muted{% endif %}"></i>
+                        {% endif %}
+                    </div>
+                    <div class="offer-list-container">
+                        <div class="profile-listing-header" 
+                             style="grid-template-columns: {% if group.game_category_link.primary_filter %}1.5fr 5fr 1fr{% else %}6.5fr 1fr{% endif %};">
+                            {% if group.game_category_link.primary_filter %}
+                            <div>{{ group.game_category_link.primary_filter.name }}</div>
+                            {% endif %}
+                            <div>Description</div>
+                            <div class="text-end">Price</div>
+                        </div>
+                        {% for product in group.products %}
+                            <a href="{% url 'product_detail' product.pk %}" class="profile-listing-row"
+                               style="grid-template-columns: {% if group.game_category_link.primary_filter %}1.5fr 5fr 1fr{% else %}6.5fr 1fr{% endif %};">
+                                
+                                {% if group.game_category_link.primary_filter %}
+                                <div class="listing-primary-filter">
+                                    {% with primary_option=product|get_option_for_filter:group.game_category_link.primary_filter %}
+                                        {{ primary_option.value|default:"" }}
+                                    {% endwith %}
+                                </div>
+                                {% endif %}
+                                <div class="listing-description">{{ product.listing_title }}</div>
+                                <div class="listing-price">Rs{{ product.price|floatformat:2 }}</div>
+                            </a>
                         {% endfor %}
                     </div>
-                    <div class="review-count">
-                        Based on {{ review_count }} review{{ review_count|pluralize }}
-                    </div>
                 </div>
-            </div>
-
-            <div class="dropdown">
-                <button class="btn btn-light border dropdown-toggle" type="button" id="reviewFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    {% if current_rating_filter %}
-                        {% with rating_int=current_rating_filter|add:0 %}
-                        <span class="text-warning">
-                            {% for j in "12345" %}
-                                <i class="fa-star {% if j|add:0 <= rating_int %}fas{% else %}far{% endif %}"></i>
-                            {% endfor %}
-                        </span>
-                        {% endwith %}
-                    {% else %}
-                        All reviews
-                    {% endif %}
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="reviewFilterDropdown">
-                    <li><a class="dropdown-item {% if not current_rating_filter %}active{% endif %}" href="{% url 'public_profile' username=profile_user.username %}#reviews-section">All reviews</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    {% for i in "54321" %}
-                    <li>
-                        <a class="dropdown-item {% if current_rating_filter == i %}active{% endif %}" href="?rating={{ i }}#reviews-section">
-                            <span class="text-warning">
-                                {% with rating_int=i|add:0 %}
+            {% empty %}
+                <div class="alert alert-secondary">
+                    This user has no active listings.
+                </div>
+            {% endfor %}
+    
+            <h3 id="reviews-section" class="mt-5 mb-4">Seller's Reviews</h3>
+    
+            <div class="reviews-section-card">
+                <div class="review-summary-box">
+                    <div class="d-flex align-items-center" style="gap: 1.5rem;">
+                        <div>
+                            <div class="avg-rating">{{ average_rating|default:0|floatformat:1 }}</div>
+                            <div class="text-muted">out of 5</div>
+                        </div>
+                        <div>
+                            <div class="rating-stars">
+                                {% for i in "12345" %}
+                                    <i class="fa-star {% if i|add:0 <= average_rating|default:0 %}fas text-warning{% else %}far text-muted{% endif %}"></i>
+                                {% endfor %}
+                            </div>
+                            <div class="review-count">
+                                Based on {{ review_count }} review{{ review_count|pluralize }}
+                            </div>
+                        </div>
+                    </div>
+    
+                    <div class="dropdown">
+                        <button class="btn btn-light border dropdown-toggle" type="button" id="reviewFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            {% if current_rating_filter %}
+                                {% with rating_int=current_rating_filter|add:0 %}
+                                <span class="text-warning">
                                     {% for j in "12345" %}
                                         <i class="fa-star {% if j|add:0 <= rating_int %}fas{% else %}far{% endif %}"></i>
                                     {% endfor %}
+                                </span>
                                 {% endwith %}
-                            </span>
-                        </a>
-                    </li>
+                            {% else %}
+                                All reviews
+                            {% endif %}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="reviewFilterDropdown">
+                            <li><a class="dropdown-item {% if not current_rating_filter %}active{% endif %}" href="{% url 'public_profile' username=profile_user.username %}#reviews-section">All reviews</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% for i in "54321" %}
+                            <li>
+                                <a class="dropdown-item {% if current_rating_filter == i %}active{% endif %}" href="?rating={{ i }}#reviews-section">
+                                    <span class="text-warning">
+                                        {% with rating_int=i|add:0 %}{% for j in "12345" %}<i class="fa-star {% if j|add:0 <= rating_int %}fas{% else %}far{% endif %}"></i>{% endfor %}{% endwith %}
+                                    </span>
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+    
+                <div id="reviews-container">
+                    {% for review in reviews %}
+                        {% if user == profile_user %}
+                            {% include 'marketplace/partials/_profile_review_item.html' with review=review %}
+                        {% else %}
+                            {% include 'marketplace/partials/_public_review_item.html' with review=review %}
+                        {% endif %}
+                    {% empty %}
+                        <div class="alert alert-light m-0">
+                            {% if current_rating_filter %}
+                                No {{ current_rating_filter }}-star reviews found for this seller.
+                            {% else %}
+                                This user has no reviews yet.
+                            {% endif %}
+                        </div>
                     {% endfor %}
-                </ul>
-            </div>
-        </div>
-
-        <div id="reviews-container">
-            {% for review in reviews %}
-                {% include 'marketplace/partials/_profile_review_item.html' with review=review %}
-            {% empty %}
-            <div class="alert alert-light">
-                {% if current_rating_filter %}
-                    No {{ current_rating_filter }}-star reviews found for this seller.
-                {% else %}
-                    This user has no reviews yet.
+                </div>
+                {% if reviews.has_next %}
+                    <div class="load-more-reviews-container">
+                        <button id="load-more-reviews" class="btn btn-outline-primary" data-page="{{ reviews.next_page_number }}">Show More Reviews</button>
+                    </div>
                 {% endif %}
             </div>
-            {% endfor %}
+        </div>
+    
+        <div class="col-lg-5 sticky-chat-panel">
+            
+            {% if user.is_authenticated and user != profile_user %}
+                {% include 'marketplace/partials/unified_chat_panel.html' %}
+            {% elif not user.is_authenticated %}
+                <div class="border p-3 rounded text-center mt-4">
+                    <p>Please <a href="{% url 'login' %}?next={{ request.path }}">log in</a> or <a href="{% url 'register' %}?next={{ request.path }}">register</a> to send a message.</p>
+                </div>
+            {% endif %}
         </div>
     </div>
+</main>
+{% endblock main_content_wrapper %}
 
-    {% if user.is_authenticated and user != profile_user %}
-    <div class="col-lg-4">
-        <h4>Chat with {{ profile_user.username }}</h4>
-        {% include 'marketplace/partials/unified_chat_panel.html' %}
-    </div>
-    {% elif not user.is_authenticated %}
-    <div class="col-lg-4">
-        <h4>Chat with {{ profile_user.username }}</h4>
-        <div class="border p-3 rounded text-center">
-            <p>Please <a href="{% url 'login' %}?next={{ request.path }}">log in</a> or <a href="{% url 'register' %}?next={{ request.path }}">register</a> to send a message.</p>
-        </div>
-    </div>
-    {% endif %}
-</div>
+{% block content %}
+{# This block is now empty because its content has been moved into the main_content_wrapper block above #}
+{% endblock %}
 
+{% block extra_js %}
 {% if user.is_authenticated and user != profile_user %}
     {{ profile_user.username|json_script:"other-user-username" }}
     {{ request.user.username|json_script:"current-user-username" }}
@@ -397,20 +557,128 @@
 {% endif %}
 
 <div class="modal fade" id="profilePictureModal" tabindex="-1" aria-labelledby="profilePictureModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="profilePictureModalLabel">Change Profile Picture</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <form method="POST" enctype="multipart/form-data">
+            <div class="modal-body text-center">
+                <form id="avatar-upload-form" enctype="multipart/form-data">
                     {% csrf_token %}
-                    {{ p_form.as_p }}
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <input type="file" name="image" id="avatar-file-input" accept="image/*" style="display: none;">
+                    <label for="avatar-file-input" class="btn btn-secondary">Choose a picture</label>
+                    <div id="image-preview-container"></div>
                 </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="upload-avatar-btn" class="btn btn-primary" disabled>Upload</button>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- Load More Reviews Logic ---
+    const loadMoreButton = document.getElementById('load-more-reviews');
+    if (loadMoreButton) {
+        loadMoreButton.addEventListener('click', function() {
+            let page = this.dataset.page;
+            const ratingFilter = "{{ current_rating_filter|default:'' }}";
+            let url = `/ajax/load-more-reviews/{{ profile_user.username }}/?page=${page}`;
+
+            if (ratingFilter) {
+                url += `&rating=${ratingFilter}`;
+            }
+
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const reviewsContainer = document.getElementById('reviews-container');
+                    reviewsContainer.insertAdjacentHTML('beforeend', data.html);
+
+                    if (data.has_next) {
+                        this.dataset.page = parseInt(page) + 1;
+                        this.disabled = false;
+                        this.innerHTML = 'Show More Reviews';
+                    } else {
+                        this.parentElement.remove();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading more reviews:', error);
+                    this.disabled = false;
+                    this.innerHTML = 'Show More Reviews';
+                });
+        });
+    }
+
+    // --- Avatar Upload Logic ---
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const avatarForm = document.getElementById('avatar-upload-form');
+    const fileInput = document.getElementById('avatar-file-input');
+    const previewContainer = document.getElementById('image-preview-container');
+    const uploadBtn = document.getElementById('upload-avatar-btn');
+    const avatarModalEl = document.getElementById('profilePictureModal');
+    const avatarModal = new bootstrap.Modal(avatarModalEl);
+    const choosePicLabel = document.querySelector('label[for="avatar-file-input"]');
+
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewContainer.innerHTML = `<img src="${e.target.result}" id="image-preview" style="max-width: 100%; max-height: 300px; margin-top: 1rem; border-radius: .25rem;">`;
+                if (choosePicLabel) choosePicLabel.style.display = 'none';
+                uploadBtn.disabled = false;
+            }
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+
+    uploadBtn.addEventListener('click', function() {
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Uploading...';
+        
+        const formData = new FormData(avatarForm);
+
+        fetch("{% url 'ajax_update_profile_picture' %}", {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': csrfToken }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const newImageUrl = data.image_url + '?t=' + new Date().getTime();
+                document.querySelector('.profile-picture').src = newImageUrl;
+                const navbarAvatar = document.querySelector('.navbar-nav .dropdown-toggle img');
+                if (navbarAvatar) navbarAvatar.src = newImageUrl;
+                avatarModal.hide();
+            } else {
+                alert('Error uploading image: ' + JSON.stringify(data.errors));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An unexpected error occurred. Please try again.');
+        })
+        .finally(() => {
+            this.disabled = false;
+            this.innerHTML = 'Upload';
+        });
+    });
+    
+    avatarModalEl.addEventListener('hidden.bs.modal', function () {
+        avatarForm.reset();
+        previewContainer.innerHTML = '';
+        if (choosePicLabel) choosePicLabel.style.display = 'inline-block';
+        uploadBtn.disabled = true;
+    });
+});
+</script>
 {% endblock %}

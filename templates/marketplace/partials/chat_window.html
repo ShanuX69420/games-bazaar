@@ -1,16 +1,18 @@
 {% load time_filters %}
 
-<div class="d-flex align-items-center mb-3">
-    <img src="{{ other_user.profile.image_url }}" alt="{{ other_user.username }}" width="40" height="40" class="rounded-circle me-3">
-    <div>
-        <h5 class="mb-0">{{ other_user.username }}</h5>
-        
+<div class="d-flex align-items-center">
+    <a href="{% url 'public_profile' other_user.username %}" class="text-decoration-none text-dark flex-shrink-0">
+        <img src="{{ other_user.profile.image_url }}" alt="{{ other_user.username }}" width="40" height="40" class="rounded-circle me-3">
+    </a>
+    <div class="flex-grow-1" style="min-width: 0;">
+        <a href="{% url 'public_profile' other_user.username %}" class="text-decoration-none text-dark">
+            <h5 class="mb-0 text-truncate">{{ other_user.username }}</h5>
+        </a>
         <small class="user-status {% if other_user.profile.is_online %}online{% else %}offline{% endif %}"
                data-username="{{ other_user.username }}"
                {% if not other_user.profile.is_online and other_user.profile.last_seen %}
                    data-iso-timestamp="{{ other_user.profile.last_seen.isoformat }}"
-               {% endif %}
-        >
+               {% endif %}>
             {% if other_user.profile.is_online %}
                 Online
             {% elif other_user.profile.last_seen %}

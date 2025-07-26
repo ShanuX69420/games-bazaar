@@ -1,10 +1,56 @@
 {% extends "base.html" %}
+{% load socialaccount %} {% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-tabs">
+            <a href="{% url 'login' %}" class="active">Log In</a>
+            <a href="{% url 'register' %}">Sign Up</a>
+        </div>
+        <div class="auth-body">
+            <div class="social-login-header">Via services:</div>
+            <div class="social-buttons">
+                <a href="{% provider_login_url 'google' %}" class="social-btn">
+                    <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style="width: 20px; height: 20px;">
+                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                        <path fill="none" d="M0 0h48v48H0z"></path>
+                    </svg>
+                    <span>Continue with Google</span>
+                </a>
+                <a href="{% provider_login_url 'facebook' %}" class="social-btn">
+                    <svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet"><path fill="#1877F2" d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-1.5c-1 0-1 .5-1 1v2h3l-.5 3h-2.5v6.8c4.56-.93 8-4.96 8-9.8z"></path></svg>
+                    <span>Continue with Facebook</span>
+                </a>
+            </div>
+            
+            <div class="form-login-header">Or using a username and password:</div>
 
-{% block content %}
-  <h2>Log In</h2>
-  <form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Log In</button>
-  </form>
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger p-2">
+                        {% for error in form.non_field_errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                
+                <div class="mb-3">
+                    <input type="text" name="username" id="id_username" class="form-control" placeholder="Username">
+                </div>
+                <div class="mb-3">
+                    <input type="password" name="password" id="id_password" class="form-control" placeholder="Password">
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">Log In</button>
+            </form>
+            <div class="text-center mt-3">
+                <a href="{% url 'password_reset' %}">Forgot your password?</a>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -3,65 +3,189 @@
 
 {% block content %}
 <style>
-    /* This style block contains all the CSS needed for the new layout. */
+    /* --- Main Page Adjustments --- */
+    main.container {
+        margin-top: 1rem !important;
+        margin-bottom: 1rem !important;
+        max-width: 1320px !important;
+    }
+    .footer {
+        display: none !important;
+    }
 
     /* The main container for the entire chat interface */
     .chat-container {
         display: flex;
-        height: 75vh; /* Sets height to 75% of the browser window's height */
+        height: 88vh; 
         border: 1px solid #dee2e6;
         border-radius: .25rem;
-        overflow: hidden; /* Keeps the rounded corners neat */
+        overflow: hidden;
         background-color: #fff;
     }
 
     /* === Left Column: List of conversations === */
     .chat-sidebar {
-        flex: 0 0 300px; /* Fixed width of 300px */
+        flex: 0 0 300px;
         border-right: 1px solid #dee2e6;
-        overflow-y: auto; /* Adds a scrollbar if the list is too long */
-    }
-    .chat-sidebar .list-group-item {
-        border-radius: 0; /* Removes rounded corners for a flush look */
-        border-left: 0;
-        border-right: 0;
-        border-top: 0;
-    }
-    .chat-sidebar .list-group-item:first-child {
-        border-top: none;
-    }
-    .chat-sidebar .list-group-item:last-child {
-        border-bottom: none;
-    }
-    
-    /* === Middle Column: The chat window === */
-    .chat-main {
-        flex-grow: 1; /* Takes up all available space */
         display: flex;
         flex-direction: column;
     }
 
-    /* Header of the chat window (user's name, status) */
-    .chat-header {
-        padding: 1rem;
+    /* --- DEFINITIVE ALIGNMENT FIX --- */
+    .chat-sidebar-header, .chat-header {
+        height: 65px; /* Sets a FIXED height to align the bottom borders */
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
         border-bottom: 1px solid #dee2e6;
-        background-color: #f8f9fa;
+        flex-shrink: 0;
+        background-color: #fff;
+    }
+    
+    /* This aligns the text and makes the "Messages" title bigger and bolder */
+    .chat-sidebar-header h4 {
+        margin: 0 !important; 
+        font-size: 1.35rem; /* Increased font size */
+        font-weight: 900;   /* Made the font weight even bolder */
+    }
+    
+    .chat-header h5 {
+        margin: 0 !important;
+        font-size: 1.25rem;
+        font-weight: 600; /* Original weight for username */
+    }
+    /* --- End of Fix --- */
+
+    .conversation-list {
+        overflow-y: auto;
+        flex-grow: 1;
+    }
+    .conversation-link {
+    display: flex;
+    align-items: center; /* This vertically centers the content */
+    padding: 0.5rem 1rem; /* Adjust padding for a tighter look */
+    height: 70px;         /* This sets a UNIFORM HEIGHT for all items */
+    text-decoration: none;
+    color: inherit;
+}
+.conversation-link:hover {
+    background-color: #f8f9fa;
+}
+
+/* === MODIFIED STYLES FOR ACTIVE CHAT === */
+.conversation-link.active {
+    background-color: #0d6efd; /* Blue background */
+    border-color: #0d6efd;
+    color: #ffffff; /* White text for all children */
+}
+.conversation-link.active .username,
+.conversation-link.active .last-message,
+.conversation-link.active .timestamp {
+    color: inherit; /* Inherit the white color from the parent */
+}
+.conversation-link.active .username {
+    font-weight: 700; /* Bold username */
+}
+
+/* === END OF MODIFIED STYLES === */
+
+.conversation-link .avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+.conversation-link .content {
+    flex-grow: 1;
+    min-width: 0;
+}
+.conversation-link .content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+.conversation-link .username {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.9rem; /* Slightly smaller username */
+}
+.conversation-link .timestamp {
+    font-size: 0.7rem; /* Smaller timestamp */
+    color: #6c757d;
+    flex-shrink: 0;
+    margin-left: 8px;
+}
+.conversation-link .last-message {
+    font-size: 0.8rem; /* Smaller message text */
+    color: #6c757d;
+    margin-top: 1px;
+    line-height: 1.3; /* Control line spacing */
+
+    /* The following rules ensure it wraps and is limited to 2 lines */
+    white-space: normal; 
+    word-break: break-all;         
+    display: -webkit-box;
+    -webkit-line-clamp: 2;         
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.list-group-item.unread .username,
+.list-group-item.unread .last-message {
+    font-weight: bold;
+    color: #212529;
+}
+.list-group-item.unread-highlight {
+    background-color: #fffbe6;
+}
+    .list-group-item.unread .username,
+    .list-group-item.unread .last-message {
+        font-weight: bold;
+        color: #212529;
+    }
+    
+    /* This is the new style for the yellow highlight */
+    .list-group-item.unread-highlight {
+        background-color: #fffbe6; /* A light yellow color */
     }
 
-    /* The area where messages are displayed */
+    .chat-sidebar .list-group-item {
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+        border-top: 0;
+    }
+    .chat-sidebar .list-group-item:first-child { border-top: none; }
+    .chat-sidebar .list-group-item:last-child { border-bottom: none; }
+
+    /* === Middle Column: The chat window === */
+    .chat-main {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
     .chat-log {
         flex-grow: 1;
         padding: 1rem;
-        overflow-y: auto; /* Crucial for scrolling through messages */
+        overflow-y: auto;
     }
-
-    /* The form at the bottom to send a message */
     .chat-form-container {
-        padding: 1rem;
+        padding: 0;
         border-top: 1px solid #dee2e6;
-        background-color: #f8f9fa;
+        background-color: #fff;
     }
-    
+    .chat-form-container .form-control,
+    .chat-form-container .btn {
+        border: none;
+        border-radius: 0;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+    .chat-form-container .form-control { padding-left: 1rem; }
+    .chat-form-container .form-control:focus { box-shadow: none; }
+
     /* Placeholder shown when no chat is selected */
     .chat-placeholder {
         display: flex;
@@ -70,26 +194,73 @@
         height: 100%;
         text-align: center;
         color: #6c757d;
-        background-color: #f8f9fa;
+        background-color: #ffffff;
     }
 
     /* === Right Column: User Details === */
     .chat-details {
-        flex: 0 0 250px; /* Fixed width of 250px */
+        flex: 0 0 250px;
         border-left: 1px solid #dee2e6;
         padding: 1rem;
-        background-color: #f8f9fa;
+        background-color: #ffffff;
         overflow-y: auto;
     }
+    
+    @media (max-width: 991px) { /* This code applies to tablets and phones */
+    
+    /* Make the chat interface take up the full screen on mobile */
+    main.container {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+    }
+    .chat-container {
+        height: calc(100vh - 58px); /* Full screen height minus navbar */
+        border: none;
+        border-radius: 0;
+    }
+
+    /* Always hide the right-side details panel on mobile */
+    .chat-details {
+        display: none !important;
+    }
+
+    /* --- Logic for showing/hiding panels --- */
+
+    /* If NO chat is selected, hide the main chat window */
+    .chat-container:not(.chat-is-active) .chat-main {
+        display: none;
+    }
+
+    /* If a chat IS selected, hide the conversation list */
+    .chat-container.chat-is-active .chat-sidebar {
+        display: none;
+    }
+
+    /* Make the visible panel take up the full width */
+    .chat-sidebar, .chat-main {
+        flex: 1 1 100%;
+        border-right: none;
+    }
+    
+    /* Add a back button to the chat header on mobile */
+    .chat-header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+}
 </style>
 
-<h2 class="mb-4">Messages</h2>
-
-<div class="chat-container">
+<div class="chat-container {% if active_conversation %}chat-is-active{% endif %}">
 
     {# Left Column: Renders the list of conversations #}
     <div class="chat-sidebar">
-        <div class="list-group list-group-flush">
+        <div class="chat-sidebar-header">
+            <h4>Messages</h4>
+        </div>
+
+        <div class="conversation-list list-group list-group-flush">
             {% for conv in conversations %}
                 {% if conv.participant1 == request.user %}
                     {% with other_user=conv.participant2 %}
@@ -109,29 +280,37 @@
     {# Middle Column: Renders the active chat window #}
     <div class="chat-main">
         {% if active_conversation and other_user_profile %}
-            {# The header with the user's name and online status #}
             <div class="chat-header">
-                 {% include 'marketplace/partials/chat_window.html' with other_user=other_user_profile %}
-            </div>
+    {# This is the new back button for mobile #}
+    <a href="{% url 'my_messages' %}" class="btn d-lg-none me-2" style="border: none;"><i class="fas fa-arrow-left"></i></a>
+
+    {% include 'marketplace/partials/chat_window.html' with other_user=other_user_profile %}
+</div>
             
-            {# The main log where messages appear #}
-            <div id="chat-log" class="chat-log">
+            <div id="chat-log" class="chat-log chat-log-js">
                 {% for message in messages %}
                     {% include 'marketplace/partials/message.html' with message=message %}
                 {% endfor %}
             </div>
             
-            {# The form for typing and sending messages #}
             <div class="chat-form-container">
-                <form id="chat-form">
+                <form id="chat-form" class="chat-form-js" enctype="multipart/form-data">
+                    {% csrf_token %} {# <-- THIS LINE WAS MISSING #}
                     <div class="input-group">
-                        <input id="chat-message-input" type="text" class="form-control" placeholder="Type a message..." autocomplete="off">
+                        <input id="chat-message-input" name="message" type="text" class="form-control chat-message-input-js" placeholder="Type a message..." autocomplete="off">
+
+                        <input type="file" name="image" id="chat-image-input" class="chat-image-input-js" accept="image/*" style="display: none;">
+                        <label for="chat-image-input" class="btn btn-outline-secondary chat-image-label-js" style="border: none; padding-top: 1rem; padding-bottom: 1rem;">
+                            <i class="fas fa-paperclip"></i>
+                        </label>
+
+                        <span id="attached-filename" class="text-muted small align-self-center mx-2" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;"></span>
+
                         <button id="chat-message-submit" class="btn btn-primary">Send</button>
                     </div>
                 </form>
             </div>
         {% else %}
-            {# This message shows if no conversation is selected, matching your reference image #}
             <div class="chat-placeholder">
                 <div>
                     <i class="fas fa-comments fa-3x mb-3"></i>
@@ -151,17 +330,22 @@
                 <small class="text-muted">({{ other_user_profile.date_joined|timesince }} ago)</small>
             </p>
         {% else %}
-             <div class="text-center text-muted mt-5">
+            <div class="text-center text-muted mt-5">
                 <i class="fas fa-user-circle fa-2x mb-2"></i>
                 <p class="small">User details will appear here once you select a conversation.</p>
             </div>
         {% endif %}
     </div>
 </div>
+{% endblock %}
 
-{# This section handles the real-time chat functionality. It remains unchanged. #}
+{% block extra_js %}
+<script>
+    // Make the active conversation ID globally available for other scripts to read.
+    // It will be the conversation's ID number, or 'null' if no conversation is active.
+    var activeConversationId = {{ active_conversation.id|default:'null' }};
+</script>
 {% if active_conversation %}
-    {{ active_conversation.id|json_script:"active-conversation-id" }}
     {% if active_conversation.participant1 == request.user %}
         {{ active_conversation.participant2.username|json_script:"other-user-username" }}
     {% else %}
@@ -170,5 +354,4 @@
     {{ request.user.username|json_script:"current-user-username" }}
     {% include 'marketplace/partials/unified_chat_script.html' %}
 {% endif %}
-
 {% endblock %}

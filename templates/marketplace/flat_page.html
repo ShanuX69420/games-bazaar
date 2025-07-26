@@ -1,8 +1,37 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1 class="mb-4">{{ page.title }}</h1>
-    <div class="page-content">
-        {{ page.content|linebreaks }}
-    </div>
+<style>
+    .rules-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 2.5rem; /* Adds space between rule sections */
+        font-size: 0.9rem;
+    }
+    .rules-table th, .rules-table td {
+        border: 1px solid #dee2e6;
+        padding: 0.75rem 1rem;
+        vertical-align: top;
+    }
+    .rules-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        text-align: left;
+    }
+    .rules-table td:first-child {
+        width: 65%;
+    }
+    .rules-table td:last-child {
+        width: 35%;
+    }
+    .rules-table tbody tr:nth-of-type(odd) {
+        background-color: #f8f9fa;
+    }
+</style>
+
+<h1 class="mb-4">{{ page.title }}</h1>
+<div class="page-content">
+    {# This |safe filter is the crucial part that renders the HTML table #}
+    {{ page.content|safe }}
+</div>
 {% endblock %}

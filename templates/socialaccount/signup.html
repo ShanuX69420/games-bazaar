@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-body">
+            <h4 class="text-center mb-4">{% trans "Finalize Signup" %}</h4>
+            <p class="text-center text-muted">{% blocktrans with provider.name as provider %}You are about to sign up using your account from {{ provider }}. Please complete the form to finish.{% endblocktrans %}</p>
+
+            <form class="signup" id="signup_form" method="post" action="{% url 'socialaccount_signup' %}">
+                {% csrf_token %}
+
+                {% for error in form.non_field_errors %}
+                    <div class="alert alert-danger p-2 small">{{ error }}</div>
+                {% endfor %}
+
+                {% for field in form %}
+                    <div class="mb-3">
+                        <input type="{{ field.field.widget.input_type }}" name="{{ field.name }}" id="{{ field.id_for_label }}"
+                               class="form-control" placeholder="{{ field.label }}"
+                               {% if field.field.required %}required{% endif %}>
+                        {% for error in field.errors %}
+                            <div class="alert alert-danger p-2 mt-1 small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+                
+                {% if redirect_field_value %}
+                    <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                {% endif %}
+                
+                <button class="btn btn-primary w-100" type="submit">{% trans "Complete Sign Up" %}</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

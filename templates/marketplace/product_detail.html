@@ -1,56 +1,535 @@
 {% extends "base.html" %}
+{% load static %}
 {% load time_filters %}
+{% load math_filters %}
 
 {% block content %}
+
+<style>
+    /* Add this new style for the sticky sidebar */
+    .sidebar-sticky {
+        position: -webkit-sticky;
+        position: sticky;
+        top: 1.5rem;
+    }
+
+    /* New style to highlight the payment dropdown when needed */
+    .custom-dropdown-container.is-invalid {
+        border-color: var(--bs-danger) !important;
+    }
+    
+    /* --- NEW STYLES FOR IMAGE GALLERY --- */
+    .image-gallery-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .image-thumbnail-box {
+        width: 100px;
+        height: 100px;
+        border: 1px solid #dee2e6;
+        border-radius: .375rem;
+        overflow: hidden;
+        cursor: pointer;
+    }
+    .image-thumbnail-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.2s;
+    }
+    .image-thumbnail-box:hover img {
+        transform: scale(1.05);
+    }
+    #imagePreviewModal .modal-body img {
+        max-height: 80vh;
+    }
+    /* --- END OF NEW STYLES --- */
+
+
+    /* Existing styles */
+    .reviews-section-card { background-color: #fff; border: 1px solid #dee2e6; border-radius: .375rem; margin-bottom: 2.5rem; }
+    .review-summary-box { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1.5rem; border-bottom: 1px solid #dee2e6; flex-wrap: wrap;}
+    .review-summary-box .avg-rating { font-size: 3rem; font-weight: 700; line-height: 1; }
+    .review-summary-box .rating-stars { color: #ffc107; font-size: 1.25rem; margin-bottom: 0.25rem; }
+    .review-summary-box .review-count { color: #6c757d; }
+    #reviews-container { padding: 1.5rem; }
+    .load-more-reviews-container { padding: 0 1.5rem 1.5rem; text-align: center; }
+    .review-card { display: flex; gap: 1rem; padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid #e9ecef; }
+    .review-card:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .review-card .review-avatar img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+    .review-card .review-content { flex-grow: 1; }
+    .review-card .review-user-and-meta .username { font-weight: 600; font-size: 1rem; color: #212529; }
+    .review-card .review-meta-info { font-size: 0.85rem; color: #6c757d; }
+    .review-card .review-rating .review-stars { color: #ffc107; }
+    .review-card .review-comment { color: #212529; }
+    .filter-label {
+        font-size: 0.7rem; /* Smaller font size */
+        color: #6c757d;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px; /* Adds a little space between letters */
+        margin-bottom: 0.1rem;
+    }
+    .filter-value {
+        font-weight: 500; /* Less bold than the original */
+        font-size: 0.95rem; /* Slightly smaller value text */
+    }
+    .custom-dropdown-container {
+    position: relative;
+    border: 1px solid #dee2e6;
+    border-radius: .375rem;
+    background-color: #fff;
+    cursor: pointer;
+}
+.dropdown-selected {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+}
+.dropdown-caret {
+    color: #6c757d;
+    margin-left: 1rem;
+    transition: transform 0.2s ease-in-out;
+}
+.custom-dropdown-container.open .dropdown-caret {
+    transform: rotate(180deg);
+}
+.dropdown-options {
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    right: 0;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: .375rem;
+    z-index: 10;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.dropdown-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+}
+.dropdown-option:hover {
+    background-color: #f8f9fa;
+}
+.payment-option-details {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+}
+.payment-option-details img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+.payment-option-price {
+    font-weight: 600;
+}
+.payment-option-end {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+</style>
+
 <div class="row">
-    <div class="col-md-7">
-        <h2 class="mb-1">{{ product.game.title }}</h2>
-        <p class="lead text-muted">{{ product.listing_title }}</p>
-        <hr>
 
-        {% if product.image %}
-            <img src="{{ product.image.url }}" alt="{{ product.listing_title }}" class="img-fluid rounded mb-3">
-        {% endif %}
-
-        <p><strong>Seller:</strong> <a href="{% url 'public_profile' product.seller.username %}">{{ product.seller.username }}</a></p>
-        <p><strong>Price:</strong> Rs{{ product.price }}</p>
-        <p><strong>Category:</strong> {{ product.category.name }}</p>
-
-        <h5 class="mt-4">Description:</h5>
-        <p>{{ product.description|linebreaks }}</p>
-
-        <div class="mt-4">
-            <button id="buy-now-btn" class="btn btn-success btn-lg" data-url="{% url 'create_order' pk=product.pk %}">Buy Now</button>
+    <div class="col-lg-2 d-none d-lg-block">
+        <div class="sidebar-sticky">
+            <a href="{% url 'listing_page' game_pk=product.game.pk category_pk=product.category.pk %}" class="text-decoration-none text-dark fw-bold mb-3 d-flex align-items-center">
+    <i class="fas fa-chevron-left fa-xs me-2"></i>{{ product.game.title }} - {{ product.category.name }}
+</a>
         </div>
     </div>
 
-    <div class="col-md-5">
-        <h4>Chat with seller</h4>
-        {% include 'marketplace/partials/unified_chat_panel.html' %}
+    {# --- MAIN CONTENT COLUMN (Spans full width on mobile/tablet) --- #}
+    <div class="col-lg-5 col-md-7">
+        
+        <div class="d-lg-none mb-3">
+            <a href="{% url 'listing_page' game_pk=product.game.pk category_pk=product.category.pk %}" class="btn btn-outline-secondary w-100">
+                <i class="fas fa-arrow-left"></i>
+                Back to {{ product.game.title }} - {{ product.category.name }}
+            </a>
+        </div>
+        
+        {# --- Block A: Ordering Info --- #}
+        <h2 class="mb-1">Ordering</h2>
+        {% if product.automatic_delivery %}
+            <div class="d-flex align-items-center text-success mb-2">
+                <i class="fas fa-bolt me-2"></i>
+                <span class="fw-bold">Automatic delivery</span>
+            </div>
+        {% endif %}
+        <div class="row mt-4">
+            {% for option in ordered_filter_options %}
+            <div class="col-6 mb-3">
+                <div class="filter-label">{{ option.filter.name }}</div>
+                <div class="filter-value">{{ option.value }}</div>
+            </div>
+            {% endfor %}
+            {% if product.stock_count is not None %}
+            <div class="col-6 mb-3">
+                <div class="filter-label">In Stock</div>
+                <div class="filter-value">{{ product.stock_count }}</div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="mt-3">
+            <div class="filter-label mb-1">TITLE</div>
+            <div class="filter-value" style="font-weight: normal; font-size: 14px;">{{ product.listing_title|linebreaksbr }}</div>
+        </div>
+
+        <div class="filter-label mt-4 mb-1">DESCRIPTION</div>
+        <div class="filter-value" style="font-weight: normal; font-size: 14px;">
+            {{ product.description|linebreaksbr }}
+        </div>
+        
+        {# --- Block B: Payment & Purchase Section --- #}
+        
+        {% if product.images.all %}
+            <div class="filter-label mt-4 mb-2">IMAGES</div>
+            <div class="image-gallery-container">
+                {% for image in product.images.all %}
+                    <div class="image-thumbnail-box" data-bs-toggle="modal" data-bs-target="#imagePreviewModal" data-img-src="{{ image.image.url }}">
+                        <img src="{{ image.image.url }}" alt="Product image {{ forloop.counter }}">
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="filter-label mt-4 mb-1">PAYMENT METHOD</div>
+        <div class="custom-dropdown-container" id="payment-method-dropdown">
+            <div class="dropdown-selected">
+                <div class="payment-option-details">
+                    <span>Not selected</span>
+                </div>
+                <div class="payment-option-end">
+                    <span class="payment-option-price">from Rs{{ product.price|floatformat:2 }}</span>
+                    <i class="fas fa-chevron-down dropdown-caret"></i>
+                </div>
+            </div>
+            <div class="dropdown-options">
+                <div class="dropdown-option" data-value="Easypaisa" data-img-src="{% static 'images/easypaisa_logo.png' %}" data-price="Rs{{ product.price|floatformat:2 }}">
+                    <div class="payment-option-details">
+                        <img src="{% static 'images/easypaisa_logo.png' %}" alt="Easypaisa Logo">
+                        <span>Easypaisa</span>
+                    </div>
+                    <div class="payment-option-end">
+                        <span class="payment-option-price">Rs{{ product.price|floatformat:2 }}</span>
+                        <i class="fas fa-chevron-down dropdown-caret invisible"></i>
+                    </div>
+                </div>
+                <div class="dropdown-option" data-value="Jazzcash" data-img-src="{% static 'images/jazzcash_logo.png' %}" data-price="Rs{{ product.price|floatformat:2 }}">
+                    <div class="payment-option-details">
+                        <img src="{% static 'images/jazzcash_logo.png' %}" alt="Jazzcash Logo">
+                        <span>Jazzcash</span>
+                    </div>
+                    <div class="payment-option-end">
+                        <span class="payment-option-price">Rs{{ product.price|floatformat:2 }}</span>
+                        <i class="fas fa-chevron-down dropdown-caret invisible"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-3">
+            <a href="#" id="multiple-purchase-toggle" class="text-decoration-none fw-bold small">Multiple purchase</a>
+        </div>
+        <div id="multiple-purchase-section" class="mt-2" style="display: none;">
+            <div class="row gx-2 align-items-center">
+                <div class="col">
+                    <label for="quantity-input" class="form-label small text-muted text-center mb-1 d-block">TO BE RECEIVED</label>
+                    <div class="input-group">
+                        <input type="number" id="quantity-input" class="form-control text-center fw-bold" value="1" min="0">
+                        <span class="input-group-text">pcs.</span>
+                    </div>
+                </div>
+                <div class="col-auto align-self-end pb-2">
+                    <i class="fas fa-exchange-alt text-muted"></i>
+                </div>
+                <div class="col">
+                    <label for="total-price-display" class="form-label small text-muted text-center mb-1 d-block">TO BE PAID</label>
+                    <div class="input-group">
+                        <span class="input-group-text">Rs</span>
+                        <input type="text" id="total-price-display" class="form-control text-center fw-bold" value="" readonly placeholder="0.00">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            {% if user.is_authenticated %}
+                {% if user != product.seller %}
+                    <button id="buy-now-btn" class="btn btn-success btn-lg w-100" data-url="{% url 'create_order' pk=product.pk %}">Buy Now</button>
+                    <p class="text-muted text-center small mt-2">
+                        Your payment is held securely. The seller will not receive the funds until you have confirmed successful delivery of your order.
+                    </p>
+                {% else %}
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'edit_product' pk=product.pk %}" class="btn btn-outline-primary">Edit Listing</a>
+                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteConfirmationModal">
+                            Delete Listing
+                        </button>
+                    </div>
+                {% endif %}
+            {% else %}
+                 <a href="{% url 'login' %}?next={{ request.path }}" class="btn btn-success btn-lg w-100">Log in to Buy</a>
+                 <p class="text-muted text-center small mt-2">
+                    Your payment is held securely. The seller will not receive the funds until you have confirmed successful delivery of your order.
+                </p>
+            {% endif %}
+        </div>
+        
+        {# --- Block D: Chat Panel (Mobile/Tablet View ONLY) --- #}
+        <div class="d-lg-none my-4">
+            {% if user.is_authenticated and user != product.seller %}
+                {% include 'marketplace/partials/unified_chat_panel.html' with other_user=product.seller product=product %}
+            {% elif not user.is_authenticated %}
+                <div class="border p-3 rounded text-center">
+                    <p>Please <a href="{% url 'login' %}?next={{ request.path }}">log in</a> or <a href="{% url 'register' %}?next={{ request.path }}">register</a> to send a message to the seller.</p>
+                </div>
+            {% endif %}
+        </div>
+        
+        {# --- Block C: Seller's Reviews --- #}
+        <h3 id="reviews-section" class="mt-5 mb-4">Seller's Reviews</h3>
+        <div class="reviews-section-card">
+            <div class="review-summary-box">
+                <div class="d-flex align-items-center" style="gap: 1.5rem;">
+                    <div>
+                        <div class="avg-rating">{{ average_rating|default:0|floatformat:1 }}</div>
+                        <div class="text-muted">out of 5</div>
+                    </div>
+                    <div>
+                        <div class="rating-stars">
+                            {% for i in "12345" %}
+                                <i class="fa-star {% if i|add:0 <= average_rating|default:0 %}fas text-warning{% else %}far text-muted{% endif %}"></i>
+                            {% endfor %}
+                        </div>
+                        <div class="review-count">
+                            Based on {{ review_count }} review{{ review_count|pluralize }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dropdown">
+                    <button class="btn btn-light border dropdown-toggle" type="button" id="reviewFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        {% if current_rating_filter %}
+                            {% with rating_int=current_rating_filter|add:0 %}
+                            <span class="text-warning">
+                                {% for j in "12345" %}<i class="fa-star {% if j|add:0 <= rating_int %}fas{% else %}far{% endif %}"></i>{% endfor %}
+                            </span>
+                            {% endwith %}
+                        {% else %}
+                            All reviews
+                        {% endif %}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="reviewFilterDropdown">
+                        <li><a class="dropdown-item {% if not current_rating_filter %}active{% endif %}" href="{% url 'product_detail' pk=product.pk %}#reviews-section">All reviews</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        {% for i in "54321" %}
+                        <li>
+                            <a class="dropdown-item {% if current_rating_filter == i %}active{% endif %}" href="?rating={{ i }}#reviews-section">
+                                <span class="text-warning">
+                                    {% with rating_int=i|add:0 %}{% for j in "12345" %}<i class="fa-star {% if j|add:0 <= rating_int %}fas{% else %}far{% endif %}"></i>{% endfor %}{% endwith %}
+                                </span>
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+
+            <div id="reviews-container">
+                {% for review in reviews %}
+                    {% if user == product.seller %}
+                        {% include 'marketplace/partials/_profile_review_item.html' with review=review %}
+                    {% else %}
+                        {% include 'marketplace/partials/_public_review_item.html' with review=review %}
+                    {% endif %}
+                {% empty %}
+                    <div class="alert alert-light m-0">
+                        {% if current_rating_filter %}
+                            No {{ current_rating_filter }}-star reviews found for this seller.
+                        {% else %}
+                            This seller has no reviews yet.
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            {% if reviews.has_next %}
+                <div class="load-more-reviews-container">
+                    <button id="load-more-reviews" class="btn btn-outline-primary" data-page="{{ reviews.next_page_number }}">Show More Reviews</button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# --- CHAT PANEL COLUMN (Desktop View Only) --- #}
+    <div class="col-lg-5 col-md-5 d-none d-lg-block">
+        <div class="sidebar-sticky">
+             {% if user.is_authenticated and user != product.seller %}
+                 {% include 'marketplace/partials/unified_chat_panel.html' with other_user=product.seller product=product %}
+             {% elif not user.is_authenticated %}
+                 <div class="border p-3 rounded text-center mt-4">
+                     <p>Please <a href="{% url 'login' %}?next={{ request.path }}">log in</a> or <a href="{% url 'register' %}?next={{ request.path }}">register</a> to send a message to the seller.</p>
+                 </div>
+             {% endif %}
+        </div>
     </div>
 </div>
 
-<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+{# --- MODAL FOR DELETION --- #}
+<div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteConfirmationModalLabel">Confirm Deletion</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to permanently delete this listing? This action cannot be undone.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <form action="{% url 'delete_product' pk=product.pk %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Yes, Delete Listing</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
 
-{% if request.user.is_authenticated %}
+
+<div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-labelledby="imagePreviewModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-body p-0">
+        <img id="modal-image" src="" class="img-fluid" alt="Image Preview">
+      </div>
+    </div>
+  </div>
+</div>
+
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    var activeConversationId = {{ active_conversation.id|default:'null' }};
+</script>
+{% if user.is_authenticated %}
     {{ product.seller.username|json_script:"other-user-username" }}
     {{ request.user.username|json_script:"current-user-username" }}
+    {% if user != product.seller %}
+        {% include 'marketplace/partials/unified_chat_script.html' %}
+    {% endif %}
+{% endif %}
 
-    {# Include the "Buy Now" button script #}
-    <script>
-    const buyNowBtn = document.querySelector('#buy-now-btn');
+<script>
+document.addEventListener('DOMContentLoaded', function() {
     
+    // --- Custom Payment Dropdown & Multiple Purchase Logic ---
+    const dropdownContainer = document.getElementById('payment-method-dropdown');
+    const multiplePurchaseToggle = document.getElementById('multiple-purchase-toggle');
+    const multiplePurchaseSection = document.getElementById('multiple-purchase-section');
+    const quantityInput = document.getElementById('quantity-input');
+    const totalPriceDisplay = document.getElementById('total-price-display');
+    const productPrice = parseFloat("{{ product.price }}");
+    const buyNowBtn = document.querySelector('#buy-now-btn');
+    let paymentMethodSelected = false;
+
+    const updateTotalPrice = () => {
+        if (!paymentMethodSelected) {
+            totalPriceDisplay.value = '';
+            return;
+        }
+        dropdownContainer.classList.remove('is-invalid');
+        let quantity = parseInt(quantityInput.value, 10);
+        if (isNaN(quantity) || quantity < 0) {
+            quantity = 0;
+            quantityInput.value = 0;
+        }
+        totalPriceDisplay.value = (quantity * productPrice).toFixed(2);
+    };
+
+    if (dropdownContainer) {
+        const selected = dropdownContainer.querySelector('.dropdown-selected');
+        const optionsContainer = dropdownContainer.querySelector('.dropdown-options');
+        const options = optionsContainer.querySelectorAll('.dropdown-option');
+        const selectedDetails = selected.querySelector('.payment-option-details');
+        const selectedPrice = selected.querySelector('.payment-option-price');
+
+        selected.addEventListener('click', (event) => {
+            event.stopPropagation();
+            optionsContainer.style.display = optionsContainer.style.display === 'block' ? 'none' : 'block';
+            dropdownContainer.classList.toggle('open');
+        });
+
+        options.forEach(option => {
+            option.addEventListener('click', function() {
+                paymentMethodSelected = true;
+                const imgSrc = this.dataset.imgSrc;
+                const value = this.dataset.value;
+                const price = this.dataset.price;
+                selectedDetails.innerHTML = `<img src="${imgSrc}" alt="${value} Logo"><span>${value}</span>`;
+                selectedPrice.textContent = price;
+                optionsContainer.style.display = 'none';
+                dropdownContainer.classList.remove('open');
+                updateTotalPrice();
+            });
+        });
+
+        document.addEventListener('click', function() {
+            if (optionsContainer.style.display === 'block') {
+                optionsContainer.style.display = 'none';
+                dropdownContainer.classList.remove('open');
+            }
+        });
+    }
+
+    if (multiplePurchaseToggle) {
+        multiplePurchaseToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            multiplePurchaseSection.style.display = 'block';
+            this.style.display = 'none'; // Hide the link after clicking
+        });
+    }
+
+    if (quantityInput) {
+        quantityInput.addEventListener('input', function() {
+            if (!paymentMethodSelected) {
+                dropdownContainer.classList.add('is-invalid');
+                totalPriceDisplay.value = '';
+            } else {
+                updateTotalPrice();
+            }
+        });
+    }
+
     if (buyNowBtn) {
         buyNowBtn.addEventListener('click', function() {
             const url = this.dataset.url;
             const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-    
-            // Disable the button and show a processing state with a spinner
+            const quantity = quantityInput.value;
+
             this.disabled = true;
             this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
-    
+            
+            const formData = new FormData();
+            formData.append('quantity', quantity);
+
             fetch(url, {
                 method: 'POST',
+                body: formData,
                 headers: {
                     'X-CSRFToken': csrfToken,
                     'X-Requested-With': 'XMLHttpRequest'
@@ -59,10 +538,8 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success' && data.order_url) {
-                    // On success, redirect to the new order page
                     window.location.href = data.order_url;
                 } else {
-                    // On failure, show an alert and restore the button to its original state
                     alert(data.message || 'An error occurred. Please try again.');
                     this.disabled = false;
                     this.innerHTML = 'Buy Now';
@@ -70,16 +547,59 @@
             })
             .catch(error => {
                 console.error('Error creating order:', error);
-                // On a network or unexpected error, restore the button
                 alert('An unexpected error occurred. Please check your connection and try again.');
                 this.disabled = false;
                 this.innerHTML = 'Buy Now';
             });
         });
     }
-    </script>
 
-    {# Include the unified chat WebSocket script #}
-    {% include 'marketplace/partials/unified_chat_script.html' %}
-{% endif %}
+    const loadMoreButton = document.getElementById('load-more-reviews');
+    if (loadMoreButton) {
+        loadMoreButton.addEventListener('click', function() {
+            let page = this.dataset.page;
+            const ratingFilter = "{{ current_rating_filter|default:'' }}";
+            let url = `/ajax/load-more-reviews/{{ product.seller.username }}/?page=${page}`;
+
+            if (ratingFilter) {
+                url += `&rating=${ratingFilter}`;
+            }
+
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const reviewsContainer = document.getElementById('reviews-container');
+                    reviewsContainer.insertAdjacentHTML('beforeend', data.html);
+
+                    if (data.has_next) {
+                        this.dataset.page = parseInt(page) + 1;
+                        this.disabled = false;
+                        this.innerHTML = 'Show More Reviews';
+                    } else {
+                        this.parentElement.remove();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading more reviews:', error);
+                    this.disabled = false;
+                    this.innerHTML = 'Show More Reviews';
+                });
+        });
+    }
+
+    // --- NEW SCRIPT FOR IMAGE MODAL ---
+    const imagePreviewModalEl = document.getElementById('imagePreviewModal');
+    if (imagePreviewModalEl) {
+        const modalImage = document.getElementById('modal-image');
+        imagePreviewModalEl.addEventListener('show.bs.modal', function(event) {
+            const thumbnail = event.relatedTarget;
+            const imgSrc = thumbnail.dataset.imgSrc;
+            modalImage.src = imgSrc;
+        });
+    }
+});
+</script>
 {% endblock %}

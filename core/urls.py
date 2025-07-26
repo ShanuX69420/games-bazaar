@@ -9,6 +9,7 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('marketplace.urls')),
+    path('accounts/', include('allauth.urls')),
 ]
 
 # This handles user-uploaded media files

@@ -1,5 +1,253 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+    /* Main container and section styling */
+    .settings-container {
+        max-width: 900px;
+    }
+    .settings-section-row {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .settings-section-row:last-of-type {
+        border-bottom: none;
+    }
+    .settings-section-title h4 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #212529;
+    }
+
+    /* Profile section styling */
+    .profile-layout {
+        display: flex;
+        align-items: center;
+    }
+    .profile-avatar {
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    .profile-buttons {
+        margin-left: 2rem;
+    }
+    .profile-buttons .btn {
+        display: block;
+        margin-bottom: 0.5rem;
+        width: 200px;
+    }
+    .profile-buttons .btn:last-child {
+        margin-bottom: 0;
+    }
+
+    /* Radio button styling */
+    .radio-option label {
+        cursor: pointer;
+    }
+
+    /* Image preview in modal */
+    #image-preview {
+        max-width: 100%;
+        max-height: 60vh;
+        margin-top: 1rem;
+        border-radius: .25rem;
+    }
+</style>
+
+<div class="container settings-container">
     <h1 class="mb-4">Settings</h1>
-    <p>User settings and options will be available here in the future.</p>
+    <hr class="mb-0">
+
+    <div id="success-alert" class="alert alert-success mt-4" style="display: none;"></div>
+
+    {# --- PROFILE SECTION --- #}
+    <div class="row settings-section-row">
+        <div class="col-md-3 settings-section-title">
+            <h4>Profile</h4>
+        </div>
+        <div class="col-md-9">
+            <div class="profile-layout">
+                <img src="{{ user.profile.image_url }}" alt="{{ user.username }}'s Avatar" class="profile-avatar" id="profile-avatar-img">
+                <div class="profile-buttons">
+                    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#avatarModal">Change avatar</button>
+                    <a href="{% url 'password_change' %}" class="btn btn-outline-secondary">Change password</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- LISTINGS SETTINGS SECTION --- #}
+    <div class="row settings-section-row">
+        <div class="col-md-3 settings-section-title">
+            <h4>Listings Settings</h4>
+        </div>
+        <div class="col-md-9">
+            <form id="listing-visibility-form">
+                {% csrf_token %}
+                <div class="form-check radio-option">
+                    <label>
+                        <input class="form-check-input" type="radio" name="show_listings_on_site" value="True" {% if user.profile.show_listings_on_site %}checked{% endif %}>
+                        Show my listings
+                    </label>
+                </div>
+                <div class="form-check radio-option">
+                    <label>
+                        <input class="form-check-input" type="radio" name="show_listings_on_site" value="False" {% if not user.profile.show_listings_on_site %}checked{% endif %}>
+                        Hide my listings
+                    </label>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# --- NOTIFICATIONS SECTION --- #}
+    <div class="row settings-section-row">
+        <div class="col-md-3 settings-section-title">
+            <h4>Notifications</h4>
+        </div>
+        <div class="col-md-9">
+            <p class="text-muted">This setting will be available soon</p>
+        </div>
+    </div>
+
+</div>
+
+<div class="modal fade" id="avatarModal" tabindex="-1" aria-labelledby="avatarModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="avatarModalLabel">Change Profile Picture</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <form id="avatar-upload-form" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="file" name="image" id="avatar-file-input" accept="image/*" style="display: none;">
+            <label for="avatar-file-input" class="btn btn-secondary">Choose a picture</label>
+            <div id="image-preview-container"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" id="upload-avatar-btn" class="btn btn-primary" disabled>Upload</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    // --- Avatar Upload Logic ---
+    const avatarForm = document.getElementById('avatar-upload-form');
+    const fileInput = document.getElementById('avatar-file-input');
+    const previewContainer = document.getElementById('image-preview-container');
+    const uploadBtn = document.getElementById('upload-avatar-btn');
+    const avatarModalEl = document.getElementById('avatarModal');
+    const avatarModal = new bootstrap.Modal(avatarModalEl);
+    const choosePicLabel = document.querySelector('label[for="avatar-file-input"]');
+
+    fileInput.addEventListener('change', function() {
+        // When a file is selected...
+        if (this.files && this.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Show the image preview
+                previewContainer.innerHTML = `<img src="${e.target.result}" id="image-preview" style="max-width: 100%; max-height: 300px; margin-top: 1rem; border-radius: .25rem;">`;
+                // Hide the "Choose a picture" button
+                if (choosePicLabel) choosePicLabel.style.display = 'none';
+                // Enable the upload button
+                uploadBtn.disabled = false;
+            }
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+
+    uploadBtn.addEventListener('click', function() {
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Uploading...';
+        
+        const formData = new FormData(avatarForm);
+
+        fetch("{% url 'ajax_update_profile_picture' %}", {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': csrfToken }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Add a unique timestamp to the URL to bypass browser cache
+                const newImageUrl = data.image_url + '?t=' + new Date().getTime();
+
+                // Update the main avatar on the settings page
+                document.getElementById('profile-avatar-img').src = newImageUrl;
+                // Update the small avatar in the website's top navigation bar
+                const navbarAvatar = document.querySelector('.navbar-nav .dropdown-toggle img');
+                if (navbarAvatar) navbarAvatar.src = newImageUrl;
+                
+                showSuccessAlert('Avatar updated successfully!');
+                avatarModal.hide();
+            } else {
+                alert('Error uploading image: ' + JSON.stringify(data.errors));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An unexpected error occurred. Please try again.');
+        })
+        .finally(() => {
+            // Reset the upload button text
+            this.disabled = false;
+            this.innerHTML = 'Upload';
+        });
+    });
+    
+    // This new part resets the modal to its original state after it closes
+    avatarModalEl.addEventListener('hidden.bs.modal', function () {
+        avatarForm.reset();
+        previewContainer.innerHTML = '';
+        if (choosePicLabel) choosePicLabel.style.display = 'inline-block';
+        uploadBtn.disabled = true;
+    });
+
+
+    // --- Listing Visibility Logic (Unchanged) ---
+    const visibilityForm = document.getElementById('listing-visibility-form');
+    visibilityForm.addEventListener('change', function(e) {
+        if (e.target.name === 'show_listings_on_site') {
+            const formData = new FormData(visibilityForm);
+            
+            fetch("{% url 'ajax_update_listing_visibility' %}", {
+                method: 'POST',
+                body: new URLSearchParams(formData),
+                headers: { 'X-CSRFToken': csrfToken }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showSuccessAlert('Listing visibility updated!');
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    });
+
+    // --- Helper for showing success messages (Unchanged)---
+    function showSuccessAlert(message) {
+        const alertDiv = document.getElementById('success-alert');
+        alertDiv.textContent = message;
+        alertDiv.style.display = 'block';
+        setTimeout(() => {
+            alertDiv.style.display = 'none';
+        }, 3000);
+    }
+});
+</script>
 {% endblock %}

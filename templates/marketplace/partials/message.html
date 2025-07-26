@@ -6,7 +6,7 @@
             <div><strong>Gamers Market</strong><span class="badge bg-primary ms-1">notification</span></div>
             <small class="text-muted">{{ message.timestamp|smart_time }}</small>
         </div>
-        <div class="p-2 mt-1" style="background-color: #eef2fa; border-left: 3px solid #0d6efd; color: #445d89;">
+        <div class="p-2 mt-1" style="background-color: #eafaf1; border-left: 3px solid #2ABF64; color: #1a6e3c;">
             <i class="fas fa-info-circle me-1"></i>
             {{ message.content|linebreaksbr }}
         </div>
@@ -17,6 +17,13 @@
             <strong>{{ message.sender.username }}</strong>
             <small class="text-muted">{{ message.timestamp|smart_time }}</small>
         </div>
-        <p class="mb-0 text-break">{{ message.content|linebreaksbr }}</p>
+        
+        {% if message.image and message.image.url %}
+            <a href="{{ message.image.url }}" target="_blank" title="Open original image">
+                <img src="{{ message.image.url }}" alt="User attachment" style="max-width: 280px; max-height: 250px; border-radius: 8px; margin-top: 5px; cursor: pointer;">
+            </a>
+        {% endif %}
+        
+        <div class="mb-0 text-break mt-1" style="overflow-wrap: break-word;">{{ message.content|linebreaksbr }}</div>
     </div>
 {% endif %}

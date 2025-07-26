@@ -1,40 +1,52 @@
-{% load time_filters %}
+{% load time_filters humanize %}
 
-<a href="{% url 'order_detail' order.pk %}" class="sale-row status-{{ order.status|lower }}">
+{# Desktop View - visible on medium screens and up #}
+<div class="sale-row status-{{ order.status|lower }} d-none d-md-grid" onclick="window.location.href='{% url 'order_detail' order.pk %}';">
     {# Date #}
-    <div>
+    <div data-label="Date">
         <div class="fw-bold">{{ order.created_at|date:"d M, H:i" }}</div>
         <small class="text-muted">{{ order.created_at|timesince }} ago</small>
     </div>
     {# Order #}
-    <div>#{{ order.id }}</div>
+    <div data-label="Order">#{{ order.id }}</div>
     {# Description #}
-    <div>
-        <strong>{{ order.product.listing_title }}</strong>
-        <div class="text-muted small">{{ order.product.game.title }}, {{ order.product.category.name }}</div>
+    <div data-label="Description">
+        {% if order.product %}
+            <strong>{{ order.product.listing_title }}</strong>
+            <div class="text-muted small">{{ order.product.game.title }}, {{ order.product.category.name }}</div>
+        {% else %}
+            <strong>{{ order.listing_title_snapshot }}</strong>
+            <div class="text-muted small">{{ order.game_snapshot.title }}, {{ order.category_snapshot.name }}</div>
+        {% endif %}
     </div>
     {# Buyer #}
-    <div class="buyer-info">
-        <img src="{{ order.buyer.profile.image_url }}" alt="{{ order.buyer.username }}">
-        <div>
-            <div class="fw-bold">{{ order.buyer.username }}</div>
-            <div class="user-status {% if order.buyer.profile.is_online %}online{% else %}offline{% endif %}"
-                 data-username="{{ order.buyer.username }}"
-                 {% if not order.buyer.profile.is_online and order.buyer.profile.last_seen %}
-                     data-iso-timestamp="{{ order.buyer.profile.last_seen.isoformat }}"
-                 {% endif %}>
-                {% if order.buyer.profile.is_online %}
-                    Online
-                {% elif order.buyer.profile.last_seen %}
-                    was active {{ order.buyer.profile.last_seen|timesince }} ago
-                {% else %}
-                    Offline
-                {% endif %}
+    <div data-label="Buyer">
+        <div class="buyer-info">
+            <a href="{% url 'public_profile' order.buyer.username %}" onclick="event.stopPropagation();">
+                <img src="{{ order.buyer.profile.image_url }}" alt="{{ order.buyer.username }}">
+            </a>
+            <div>
+                <a href="{% url 'public_profile' order.buyer.username %}" class="text-decoration-none" style="color: inherit;" onclick="event.stopPropagation();">
+                    <div class="fw-bold username-text">{{ order.buyer.username }}</div>
+                </a>
+                <div class="user-status {% if order.buyer.profile.is_online %}online{% else %}offline{% endif %}"
+                     data-username="{{ order.buyer.username }}"
+                     {% if not order.buyer.profile.is_online and order.buyer.profile.last_seen %}
+                         data-iso-timestamp="{{ order.buyer.profile.last_seen.isoformat }}"
+                     {% endif %}>
+                    {% if order.buyer.profile.is_online %}
+                        Online
+                    {% elif order.buyer.profile.last_seen %}
+                        was active {{ order.buyer.profile.last_seen|naturaltime }}
+                    {% else %}
+                        Offline
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
     {# Status #}
-    <div>
+    <div data-label="Status">
         <span class="badge rounded-pill status-badge
             {% if order.status == 'COMPLETED' %}text-bg-success
             {% elif order.status == 'PROCESSING' %}text-bg-info
@@ -46,5 +58,60 @@
         </span>
     </div>
     {# Total #}
-    <div class="fw-bold text-end">Rs{{ order.total_price|floatformat:2 }}</div>
+    <div data-label="Total" class="fw-bold text-end">Rs{{ order.total_price|floatformat:2 }}</div>
+</div>
+
+{# Mobile View - visible only on small screens #}
+<a href="{% url 'order_detail' order.pk %}" class="mobile-purchase-card d-md-none status-{{ order.status|lower }}">
+    <div class="mobile-left-col">
+        <div class="mobile-time-info">
+            <span class="fw-bold">{{ order.created_at|date:"d M, H:i" }}</span>
+            <span class="text-muted">{{ order.created_at|timesince }} ago</span>
+        </div>
+        <div class="mobile-order-info">
+            Order #{{ order.id }}
+        </div>
+        {% if order.product %}
+            <div class="mobile-listing-title">
+                {{ order.product.listing_title }}
+            </div>
+            <div class="mobile-game-info">
+                {{ order.product.game.title }}, {{ order.product.category.name }}
+            </div>
+        {% else %}
+            <div class="mobile-listing-title">
+                {{ order.listing_title_snapshot }}
+            </div>
+            <div class="mobile-game-info">
+                {{ order.game_snapshot.title }}, {{ order.category_snapshot.name }}
+            </div>
+        {% endif %}
+        <div class="mobile-seller-info">
+            <img src="{{ order.buyer.profile.image_url }}" alt="{{ order.buyer.username }}">
+            <div>
+                <div class="username-text">{{ order.buyer.username }}</div>
+                <div class="user-status {% if order.buyer.profile.is_online %}online{% else %}offline{% endif %}"
+                     data-username="{{ order.buyer.username }}"
+                     {% if not order.buyer.profile.is_online and order.buyer.profile.last_seen %}
+                         data-iso-timestamp="{{ order.buyer.profile.last_seen.isoformat }}"
+                     {% endif %}>
+                    {% if order.buyer.profile.is_online %}Online{% elif order.buyer.profile.last_seen %}was active {{ order.buyer.profile.last_seen|naturaltime }}{% else %}Offline{% endif %}
+                </div>
+            </div>
+        </div>
+        <div>
+            <span class="badge rounded-pill status-badge
+                {% if order.status == 'COMPLETED' %}text-bg-success
+                {% elif order.status == 'PROCESSING' %}text-bg-info
+                {% elif order.status == 'REFUNDED' %}text-bg-warning
+                {% elif order.status == 'CANCELLED' or order.status == 'DISPUTED' %}text-bg-danger
+                {% else %}text-bg-secondary
+                {% endif %}">
+                {{ order.get_status_display }}
+            </span>
+        </div>
+    </div>
+    <div class="mobile-right-col">
+        Rs{{ order.total_price|floatformat:2 }}
+    </div>
 </a>

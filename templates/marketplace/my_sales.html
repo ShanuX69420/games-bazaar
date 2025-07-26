@@ -4,34 +4,44 @@
 {% block content %}
 <style>
     .sales-container {
-        display: flex;
-        flex-direction: column;
+        border: 1px solid #e0e0e0;
+        border-radius: .25rem;
+        background-color: #fff;
     }
     .filter-form {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-        align-items: center;
-        flex-wrap: wrap;
+        padding: 1rem 1.5rem;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #e0e0e0;
     }
     .sales-header, .sale-row {
         display: grid;
-        grid-template-columns: 1.5fr 1fr 2.5fr 2fr 1fr 1fr;
+        grid-template-columns: 1.5fr 1fr 3fr 2fr 1.5fr 1fr;
         gap: 1rem;
+        padding: .75rem 1.5rem;
         align-items: center;
-        padding: 0.75rem 1rem;
-        border-bottom: 1px solid #dee2e6;
     }
     .sales-header {
-        font-weight: bold;
+        font-weight: 600;
+        font-size: 0.9rem;
         color: #6c757d;
-        background-color: #f8f9fa;
-        border-top: 1px solid #dee2e6;
+        border-bottom: 1px solid #e0e0e0;
+        text-transform: uppercase;
     }
     .sale-row {
-        text-decoration: none;
-        color: inherit;
+        border-bottom: 1px solid #e0e0e0;
         transition: background-color 0.2s ease-in-out;
+        cursor: pointer;
+    }
+    .sale-row:last-child {
+        border-bottom: none;
+    }
+    .sale-row.status-processing {
+        background-color: #eafaf1;
+    }
+    .sale-row.status-refunded,
+    .sale-row.status-cancelled,
+    .sale-row.status-disputed {
+        background-color: #fffbe6;
     }
     .sale-row:hover {
         background-color: #f1f3f5;
@@ -42,9 +52,15 @@
         gap: 0.75rem;
     }
     .buyer-info img {
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
+    }
+    .username-text:hover {
+        text-decoration: underline;
+    }
+    .status-badge {
+        font-size: 0.8rem;
     }
     .user-status {
         font-size: 0.8rem;
@@ -54,48 +70,95 @@
         color: #198754;
         font-weight: bold;
     }
-    .status-badge {
-        font-size: 0.85em;
+    .load-more-container {
+        padding: 1.5rem;
+        text-align: center;
     }
-
+    
+    /* --- MOBILE STYLES (Copied from my_purchases.html) --- */
     @media (max-width: 767px) {
-        .sales-header {
-            display: none;
+        .sales-header { display: none; }
+        .sales-container {
+            border: none;
+            background-color: transparent;
         }
-        .sale-row {
-            grid-template-columns: 1fr;
+
+        .mobile-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 0.5rem 0.5rem 0.5rem;
+            font-weight: 600;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .mobile-purchase-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            padding: 1rem;
             border: 1px solid #dee2e6;
             border-radius: 0.375rem;
             margin-bottom: 1rem;
+            text-decoration: none;
+            color: inherit;
+            background-color: #fff;
         }
-        .sale-row > div {
-            padding-bottom: 0.5rem;
-            border-bottom: 1px dashed #e9ecef;
+        .mobile-purchase-card:hover {
+            background-color: #f8f9fa;
         }
-         .sale-row > div:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
+        .mobile-purchase-card.status-processing {
+            background-color: #eafaf1;
         }
-        .sale-row > div:before {
-            content: attr(data-label);
+        .mobile-purchase-card.status-refunded,
+        .mobile-purchase-card.status-cancelled,
+        .mobile-purchase-card.status-disputed {
+            background-color: #fffbe6;
+        }
+        .mobile-left-col {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            flex-grow: 1;
+            padding-right: 1rem;
+        }
+        .mobile-right-col {
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
             font-weight: bold;
-            display: inline-block;
-            margin-right: 0.5rem;
-            color: #495057;
+            white-space: nowrap;
         }
-        /* Assign labels for mobile view */
-        .sale-row > div:nth-child(1):before { content: 'Date:'; }
-        .sale-row > div:nth-child(2):before { content: 'Order:'; }
-        .sale-row > div:nth-child(3):before { content: 'Description:'; }
-        .sale-row > div:nth-child(4):before { content: 'Buyer:'; }
-        .sale-row > div:nth-child(5):before { content: 'Status:'; }
-        .sale-row > div:nth-child(6):before { content: 'Total:'; }
-
-        .buyer-info {
-             justify-content: flex-start;
+        .mobile-time-info {
+            font-size: 0.9rem;
         }
-        .text-end {
-            text-align: left !important;
+        .mobile-order-info {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        .mobile-listing-title {
+            font-weight: normal;
+        }
+        .mobile-game-info {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        .mobile-seller-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .mobile-seller-info img {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+        }
+        .mobile-seller-info .username-text {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .mobile-seller-info .user-status {
+            font-size: 0.75rem;
         }
     }
 </style>
@@ -104,19 +167,27 @@
 
 <div class="sales-container">
     <form method="get" class="filter-form">
-        <div class="flex-grow-1">
-            <input type="text" name="search" class="form-control" placeholder="Search by game, buyer, or order ID..." value="{{ request.GET.search }}">
-        </div>
-        <div>
-            <select name="status" class="form-select">
-                <option value="">All Statuses</option>
-                {% for value, display in status_choices %}
-                    <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ display }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <button type="submit" class="btn btn-primary">Filter</button>
+        <div class="row g-2 align-items-end">
+            <div class="col-lg-3 col-md-4">
+                <label for="order_number" class="form-label small">Order #</label>
+                <input type="text" name="order_number" id="order_number" class="form-control form-control-sm" value="{{ filter_values.order_number }}">
+            </div>
+            <div class="col-lg-3 col-md-4">
+                <label for="buyer_name" class="form-label small">Buyer</label>
+                <input type="text" name="buyer_name" id="buyer_name" class="form-control form-control-sm" value="{{ filter_values.buyer_name }}">
+            </div>
+            <div class="col-lg-4 col-md-4">
+                <label for="status" class="form-label small">Status</label>
+                <select name="status" id="status" class="form-select form-select-sm">
+                    <option value="">All Statuses</option>
+                    {% for value, display in statuses_for_filter %}
+                        <option value="{{ value }}" {% if filter_values.status == value %}selected{% endif %}>{{ display }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-12">
+                <button type="submit" class="btn btn-primary btn-sm w-100">Show</button>
+            </div>
         </div>
     </form>
 
@@ -128,6 +199,11 @@
         <div>Status</div>
         <div class="text-end">Total</div>
     </div>
+    
+    <div class="mobile-header d-md-none mt-3">
+        <span>Description</span>
+        <span>Total</span>
+    </div>
 
     <div id="sales-list">
         {% for order in orders %}
@@ -138,6 +214,50 @@
             </div>
         {% endfor %}
     </div>
+
+    {% if orders.has_next %}
+        <div class="load-more-container">
+            <button id="load-more-btn" class="btn btn-outline-primary" data-page="{{ orders.next_page_number }}">Show More Sales</button>
+        </div>
+    {% endif %}
 </div>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loadMoreButton = document.getElementById('load-more-btn');
+    if (loadMoreButton) {
+        loadMoreButton.addEventListener('click', function() {
+            let page = this.dataset.page;
+            const currentUrl = new URL(window.location.href);
+            const params = new URLSearchParams(currentUrl.search);
+            params.set('page', page);
+
+            let url = `{% url 'load_more_sales' %}?${params.toString()}`;
+
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const listContainer = document.getElementById('sales-list');
+                    listContainer.insertAdjacentHTML('beforeend', data.html);
+
+                    if (data.has_next) {
+                        this.dataset.page = parseInt(page) + 1;
+                        this.disabled = false;
+                        this.innerHTML = 'Show More Sales';
+                    } else {
+                        this.parentElement.remove();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading more sales:', error);
+                    this.disabled = false;
+                    this.innerHTML = 'Show More Sales';
+                });
+        });
+    }
+});
+</script>
 {% endblock %}

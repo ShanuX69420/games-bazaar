@@ -1,0 +1,38 @@
+{% load time_filters %}
+<div class="review-card" id="review-{{ review.pk }}">
+    <div class="review-avatar">
+        <img src="{{ review.buyer.profile.image_url }}" alt="{{ review.buyer.username }}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">
+    </div>
+    <div class="review-content">
+        <div class="review-main-header">
+            <div style="flex-grow: 1;">
+                <div class="review-user-and-meta">
+                    <span class="username">{{ review.created_at|simple_time_since|capfirst }}</span> 
+                </div>
+                <div class="review-product-info">
+                    {% if review.order.product %}
+                        {{ review.order.product.game.title }}
+                    {% else %}
+                        {{ review.order.game_snapshot.title }}
+                    {% endif %}, {{ review.order.total_price|floatformat:2 }} $
+                </div>
+            </div>
+            <div class="review-rating">
+                <div class="review-stars">
+                    {% for i in "12345" %}
+                        <i class="fa-star {% if i|add:0 <= review.rating %}fas{% else %}far{% endif %}"></i>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <p class="review-comment mb-2">
+            {{ review.comment|linebreaksbr }}
+        </p>
+
+        <div>
+            <a href="#" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editReviewModal" data-review-id="{{ review.pk }}" data-edit-url="{% url 'edit_review' review.pk %}">Edit</a>
+            <a href="#" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteReviewModal" data-delete-url="{% url 'delete_review' review.pk %}">Delete</a>
+        </div>
+    </div>
+</div>

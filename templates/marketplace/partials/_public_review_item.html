@@ -1,0 +1,36 @@
+{% load time_filters %}
+<div class="review-card">
+    <div class="review-avatar">
+        {# Using a static path to a default image #}
+        <img src="/static/images/default.jpg" alt="User avatar" style="width: 48px; height: 48px; border-radius: 50%;">
+    </div>
+    <div class="review-content">
+        <div class="review-main-header">
+            <div style="flex-grow: 1;">
+                <div class="review-user-and-meta">
+                    {# This part is not a link and shows the simplified date #}
+                    <span class="username">{{ review.created_at|simple_time_since }}</span>
+                    <div class="review-meta-info">
+                        <span>
+                            {% if review.order.product %}
+                                {{ review.order.product.game.title }}
+                            {% else %}
+                                {{ review.order.game_snapshot.title }}
+                            {% endif %}, Rs {{ review.order.total_price|floatformat:0 }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="review-rating">
+                <div class="review-stars">
+                    {% for i in "12345" %}
+                        <i class="fa-star {% if i|add:0 <= review.rating %}fas{% else %}far{% endif %}"></i>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <p class="review-comment mb-0">
+            {{ review.comment|linebreaksbr }}
+        </p>
+    </div>
+</div>

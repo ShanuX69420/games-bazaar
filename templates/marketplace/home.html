@@ -2,77 +2,85 @@
 
 {% block content %}
 <style>
-    /* --- Final Design with Bold Categories --- */
-    
-    .nav-alphabet {
+    /*
+      These styles will position the alphabet bar on the left,
+      perfectly aligned with the content below the header.
+    */
+    .alphabet-sidebar {
+        /* This makes the navigation bar stick to the top as you scroll down */
         position: sticky;
-        top: 1rem;
-        font-size: 0.85rem;
-        font-weight: 500;
-        text-align: center;
-    }
-    .nav-alphabet a {
-        color: #6e7681;
-        padding: 0.1rem 0;
-        display: block;
-    }
-    .nav-alphabet a:hover {
-        color: #c9d1d9;
+        top: 1.5rem; /* A little space from the top of the content area */
+        text-align: left;
     }
 
+    .alphabet-sidebar ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .alphabet-sidebar a {
+        display: block;
+        padding: 0.1rem 0;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #2ABF64;
+        text-decoration: none;
+    }
+    .alphabet-sidebar a:hover {
+        color: #229a50;
+    }
+
+
+    /* --- Styles for the game cells (unchanged) --- */
     .game-cell {
         padding: 0.75rem;
         border-radius: 8px;
     }
-
-    /* Game title link with a darker color */
     .game-cell-title a {
-        color: #6e7681; 
-        font-size: 1rem;
+        color: #222;
+        font-size: 15px;
         font-weight: 600;
         text-decoration: none;
     }
     .game-cell-title a:hover {
         text-decoration: underline;
-        color: #c9d1d9;
     }
-
-    /* Category links are now lighter and bold */
     .game-cell-categories {
         margin-top: 0.35rem;
     }
     .game-cell-categories a {
-        color: #c9d1d9;
-        font-size: 0.8rem;
-        font-weight: 500; /* This makes the text bold */
+        color: #229a50;
+        font-size: 13px;
+        font-weight: 500;
         text-decoration: none;
     }
-    .game-cell-categories a:hover {
+   .game-cell-categories a:hover {
         text-decoration: underline;
-        color: #fff;
-    }
-
-    /* Separator dot to match the category style */
+   }
     .category-separator {
         color: #c9d1d9;
         margin: 0 0.4rem;
         font-size: 0.8rem;
-        font-weight: 500; /* Also bold */
+        font-weight: 500;
     }
 </style>
 
 <div class="row">
-    <div class="col-md-1">
-        <ul class="list-unstyled nav-alphabet">
-            {% for letter in letters %}
-                <li><a href="#letter-{{ letter }}" class="text-decoration-none">{{ letter }}</a></li>
-            {% endfor %}
-            <li><a href="#letter-%23" class="text-decoration-none">#</a></li>
-        </ul>
+
+    <div class="col-md-1 d-none d-md-block">
+        <div class="alphabet-sidebar">
+            <ul>
+                {% for letter in letters %}
+                    <li><a href="#letter-{{ letter }}">{{ letter }}</a></li>
+                {% endfor %}
+                <li><a href="#letter-%23">#</a></li>
+            </ul>
+        </div>
     </div>
 
     <div class="col-md-11">
-        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 gx-3 gy-2">
+        <div class="row row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 gx-3 gy-2">
             {% for game in games %}
                 <div class="col">
                     <div class="game-cell">
@@ -99,4 +107,5 @@
         </div>
     </div>
 </div>
+
 {% endblock %}

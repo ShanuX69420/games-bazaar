@@ -9,6 +9,7 @@
             </a>
             <ul class="dropdown-menu" aria-labelledby="supportDropdown">
                 <li><a class="dropdown-item" href="{% url 'support_center' %}">Submit a Request</a></li>
+                <li><a class="dropdown-item" href="/rules/">Rules</a></li>
             </ul>
         </li>
     </ul>
@@ -23,7 +24,6 @@
                     <img src="{{ user.profile.image_url }}" alt="p" width="32" height="32" class="rounded-circle">
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                    {# This is the new, combined Profile link #}
                     <li>
                         <a class="dropdown-item profile-dropdown-item" href="{% url 'public_profile' user.username %}">
                             <span class="profile-username">{{ user.username }}</span>

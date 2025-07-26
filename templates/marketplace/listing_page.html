@@ -1,39 +1,590 @@
 {% extends "base.html" %}
-
+{% load grouping_filters %}
 {% block content %}
-    <h1 class="mb-4">{{ game.title }}</h1>
-
-    <ul class="nav nav-pills mb-4">
-        {% for category in all_categories %}
-            <li class="nav-item">
-                <a class="nav-link {% if category.id == current_category.id %}active{% endif %}" href="{% url 'listing_page' game_pk=game.pk category_pk=category.pk %}">
-                    {{ category.name }} <span class="badge bg-secondary">{{ category.listing_count }}</span>
-                </a>
-            </li>
-        {% endfor %}
-    </ul>
-
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="mb-0">{{ current_category.name }}</h3>
-        <div>
-            <a href="{% url 'create_product' game_pk=game.pk category_pk=current_category.pk %}" class="btn btn-primary">Sell {{ current_category.name }}</a>
-        </div>
-    </div>
-    <hr>
-
-    <div class="list-group">
-        {% for listing in listings %}
-            <a href="{% url 'product_detail' listing.pk %}" class="list-group-item list-group-item-action">
-                <div class="d-flex w-100 justify-content-between">
-                    <h5 class="mb-1">{{ listing.listing_title }}</h5>
-                    <span class="text-success fw-bold">Rs{{ listing.price|floatformat:2 }}</span>
-                </div>
-                <p class="mb-1">Sold by: {{ listing.seller.username }}</p>
-            </a>
-        {% empty %}
-            <div class="list-group-item">
-                <p class="mb-0">There are no listings in this category yet. Be the first to sell!</p>
+{% if messages %}
+    <div style="padding: 10px; text-align: center;">
+        {% for message in messages %}
+            <div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% else %}alert-info{% endif %}" role="alert">
+                {{ message }}
             </div>
         {% endfor %}
     </div>
+{% endif %}
+<style>
+    /* --- Styles for the new status dot --- */
+    .seller-avatar-container {
+        position: relative;
+        flex-shrink: 0; /* Prevents the container from shrinking */
+    }
+    .status-dot {
+        position: absolute;
+        bottom: 0; /* Adjusted position */
+        right: 0;  /* Adjusted position */
+        width: 14px;   /* Increased size */
+        height: 14px;  /* Increased size */
+        background-color: #6c757d;
+        border-radius: 50%;
+        border: 2.5px solid white; /* Slightly thicker border */
+    }
+    .status-dot.online {
+        background-color: #198754; /* Success green for online status */
+    }
+    
+    .listing-area {
+        border-radius: 0.375rem;
+        background-color: #fff;
+    }
+
+    .listing-row-item {
+        display: block; /* Ensures the link takes up the full space */
+        border-bottom: 1px solid #e9ecef;
+        transition: background-color 0.15s ease-in-out;
+    }
+    .listing-row-item:last-child {
+        border-bottom: none;
+    }
+    .listing-row-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    /* --- MODIFIED CODE BLOCK (CSS GRID) --- */
+    .listing-grid-header, .listing-grid {
+        display: grid;
+        {% if game_category_link.primary_filter %}
+        grid-template-columns: 1fr 8.5fr 1.5fr 1fr;
+        {% else %}
+        grid-template-columns: 8.5fr 1.5fr 1fr;
+        {% endif %}
+        gap: 1rem;
+        align-items: center;
+        padding: 12px 8px;
+    }
+
+    .listing-grid-header {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: black;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .listing-grid {
+        color: inherit;
+        text-decoration: none;
+        min-height: 65px;
+    }
+    /* --- END OF MODIFIED CODE BLOCK --- */
+
+    .listing-grid-header .header-price {
+        text-align: right;
+        cursor: pointer;
+    }
+    .header-price a {
+        color: inherit;
+        text-decoration: none;
+    }
+    .listing-grid-header .header-description {
+        text-align: left;
+    }
+    .category-pills { list-style: none; padding-left: 0; display: flex; flex-wrap: wrap; gap: 0.75rem; }
+    .category-pills .nav-link { display: inline-flex; align-items: center; padding: 0.65rem 1.25rem; font-size: 0.9rem; line-height: 1.5; text-align: center; text-decoration: none; white-space: nowrap; border-radius: 50rem; transition: all .15s ease-in-out; background-color: #f1f3f5; color: #212529; }
+    .category-pills .nav-link .category-name { font-weight: 600; }
+    .category-pills .nav-link .badge { margin-left: 0.5rem; font-weight: 500; background-color: #e9ecef; color: #212529; }
+    .category-pills .nav-link.active { background-color: #212529; color: #fff; }
+    .category-pills .nav-link.active .badge { background-color: #495057; color: #fff; }
+    .category-pills .nav-link:not(.active):hover { background-color: #dee2e6; }
+
+    /* --- UPDATED FILTER BAR STYLES --- */
+    .filter-bar {
+        padding: 1rem 0px;
+        background-color: #fff;
+        margin-bottom: 0;
+    }
+    /* Make all direct children controls of the row fill the height */
+    .filter-bar .form-select,
+    .filter-bar .form-control,
+    .filter-bar .filter-toggle-box,
+    .filter-bar .button-filter-container {
+        height: 100%;
+        font-weight: 600;
+        min-height: 36px; /* Reduced height from 42px */
+    }
+
+    .filter-bar .form-control::placeholder {
+        font-weight: 600;
+        color: #6c757d;
+        opacity: 0.8;
+    }
+
+    /* Toggle switch styles */
+    .filter-toggle-box {
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 0.25rem 0.75rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        background-color: #fff;
+    }
+    .filter-toggle-box .fa-bolt { color: #2ABF64; }
+    .filter-toggle-box .form-check-input { margin-left: 1rem; cursor: pointer; }
+    .filter-toggle-box .form-check-label { font-size: 0.875rem; font-weight: 600; }
+
+    /* Button-based filter styles */
+    .button-filter-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: stretch; /* Stretch buttons to fill height */
+    }
+    .button-filter-container .btn {
+        min-width: 60px; /* Reduced width from 80px */
+        font-weight: 600;
+        background-color: #e9ecef;
+        border: 1px solid #dee2e6;
+        color: #495057;
+        transition: all 0.2s ease-in-out;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-grow: 1; /* Allows buttons to grow if needed */
+    }
+    .button-filter-container .btn-check:checked + .btn,
+    .button-filter-container .btn:hover {
+        background-color: #212529;
+        color: #fff;
+        border-color: #212529;
+    }
+
+    /* --- THIS IS THE MODIFIED PART --- */
+    .listing-primary-filter {
+        font-size: 0.8rem; /* Made smaller */
+        font-weight: 600;  /* Made it semi-bold */
+        color: #6c757d;    /* Changed color to a muted grey */
+        word-break: break-word;
+        padding-bottom: 2px; /* Added a little space below */
+    }
+    /* --- END OF MODIFIED PART --- */
+
+    .listing-description {
+        font-size: 0.9rem;
+        line-height: 1.4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    .listing-seller {
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+    }
+    .seller-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    .seller-info {
+        line-height: 1.2;
+    }
+    .seller-username {
+        font-weight: bold;
+        font-size: 0.95rem;
+        color: #343a40;
+    }
+    .seller-username:hover {
+        text-decoration: underline;
+    }
+    .seller-rating {
+        font-size: 0.5rem;
+        display: flex;
+        align-items: center;
+    }
+    .seller-rating-stars {
+        color: #ffc107;
+    }
+    .seller-rating-count {
+        margin-left: 0.25rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #6c757d;
+    }
+    .seller-meta {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+    .listing-price {
+        text-align: right;
+        font-weight: 600;
+    }
+
+    .listing-price-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: center;
+        line-height: 1.2;
+    }
+    .auto-delivery-indicator {
+        font-size: 0.8rem;
+        color: #2ABF64;
+    }
+     @media (max-width: 991px) {
+        .filter-bar .row > .col-lg {
+            margin-bottom: 0.75rem; /* Add space between filter rows and button on mobile */
+        }
+        .filter-bar .col-lg-auto a.btn {
+            width: 100%;
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
+    }
+    @media (max-width: 767px){
+
+    .seller-username.online {
+        color: #229a50 !important;
+    }
+
+    .seller-username {
+        color: #a6a6a6 !important;
+    }
+    
+    
+    .listing-primary-filter {
+        font-size: 12px; /* Made smaller */
+        font-weight: 600;  /* Made it semi-bold */
+        color: #888;    /* Changed color to a muted grey */
+        word-break: break-word;
+        padding-bottom: 2px; /* Added a little space below */
+    }   
+    .listing-grid {
+    display: grid;
+    /* Two columns: left for details, right for price */
+    grid-template-columns: 1fr auto;
+    /* Define column and row placement for each item */
+    gap: 0 1rem; /* No vertical gap, but a gap between columns */
+    }
+    .listing-primary-filter,
+    .listing-description,
+    .listing-seller {
+        grid-column: 1; /* All these items go into the first column */
+    }
+    .listing-seller {
+        padding-top: 8px; /* Add some space above the seller info */
+        gap: 0.4rem;
+
+    }
+    .listing-price-wrapper {
+        grid-column: 2; /* Price goes into the second column */
+        grid-row: 1 / span 3; /* And spans all three rows of the first column */
+        align-self: start; /* Align to the top */
+        text-align: right;
+    }
+    .listing-price {
+            font-size: 14px;
+            color: #000; /* This makes the price text black */
+        }
+
+
+    /* --- FINAL PADDING OVERRIDE --- */
+    /* This rule targets BOTH the header and the listing rows */
+    .listing-area .d-md-none.px-4,
+    #listings-container .listing-grid {
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+    }
+    .seller-username {
+        font-size: 12px !important;
+    }
+    
+    }
+</style>
+
+<div class="row">
+    <div class="col-md-12">
+
+        <div class="mb-4">
+            <h1 class="mb-3">{{ game.title }} {{ current_category.name }}</h1>
+            <p class="lead text-muted" style="max-width: 800px;">
+                Buy {{ game.title }} {{ current_category.name }} with confidence from fellow gamers right here. Our marketplace is built on trust, which is why we secure your payment and only release it to the seller after you've confirmed your order is complete. Happy gaming!
+            </p>
+        </div>
+        
+        <ul class="nav category-pills mb-4">
+            {% for category in all_categories %}
+                <li class="nav-item">
+                    <a class="nav-link {% if category.id == current_category.id %}active{% endif %}" href="{% url 'listing_page' game_pk=game.pk category_pk=category.pk %}">
+                        <span class="category-name">{{ category.name }}</span> <span class="badge rounded-pill">{{ category.listing_count }}</span>
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<div class="listing-area">
+    <form method="get" class="filter-bar" id="listing-filters" action="{% url 'listing_page' game_pk=game.pk category_pk=current_category.pk %}">
+
+    <input type="hidden" name="sort" id="sort_param" value="{{ sort_order|default:'' }}">
+
+    <div class="row d-lg-none mb-3">
+        <div class="col-6">
+            <button class="btn btn-outline-secondary w-100" type="button" data-bs-toggle="collapse" data-bs-target="#filter-collapse-mobile" aria-expanded="true" aria-controls="filter-collapse-mobile">
+                <span class="d-flex justify-content-between align-items-center">
+                    <span>Filters</span>
+                    <i class="fas fa-sliders-h"></i>
+                </span>
+            </button>
+        </div>
+        <div class="col-6">
+    <a href="{% url 'my_listings_in_category' game_pk=game.pk category_pk=current_category.pk %}" class="btn btn-primary w-100">Sell {{ current_category.name }}</a>
+</div>
+    </div>
+    <div class="collapse show d-lg-block" id="filter-collapse-mobile">
+        <div class="d-flex justify-content-between align-items-start" style="gap: 1rem;">
+        
+            <div class="flex-grow-1">
+                <div class="row g-2 align-items-stretch">
+                    {# Primary Filters - each gets its own column #}
+                    {% for f in category_filters %}
+                        <div class="col-lg-auto">
+                            {% if f.filter_type == 'dropdown' %}
+                                <select name="filter_{{ f.id }}" class="form-select filter-control">
+                                    <option value="">{{ f.name }}</option>
+                                    {% for option in f.options.all %}
+                                        <option value="{{ option.id }}" {% if active_filters|get_item:f.id == option.id %}selected{% endif %}>
+                                            {{ option.value }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            {% elif f.filter_type == 'buttons' %}
+                                <div class="button-filter-container">
+                                    <input type="radio" class="btn-check filter-control" name="filter_{{ f.id }}" id="btn-check-{{ f.id }}-all" value="" autocomplete="off" {% if not active_filters|get_item:f.id %}checked{% endif %}>
+                                    <label class="btn" for="btn-check-{{ f.id }}-all">All</label>
+                                    {% for option in f.options.all %}
+                                        <input type="radio" class="btn-check filter-control" name="filter_{{ f.id }}" id="btn-check-{{ f.id }}-{{ option.id }}" value="{{ option.id }}" autocomplete="off" {% if active_filters|get_item:f.id == option.id %}checked{% endif %}>
+                                        <label class="btn" for="btn-check-{{ f.id }}-{{ option.id }}">{{ option.value }}</label>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+
+                    {# Secondary Filters #}
+                    {% if game_category_link.allows_automated_delivery %}
+                    <div class="col-lg-auto">
+                        <div class="form-check form-switch filter-toggle-box">
+                            <label class="form-check-label w-100" for="auto_delivery_only">
+                                <i class="fas fa-bolt"></i> Automatic delivery
+                            </label>
+                            <input class="form-check-input filter-control" type="checkbox" role="switch" name="auto_delivery_only" id="auto_delivery_only" {% if filter_values.auto_delivery_only %}checked{% endif %}>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="col-lg-auto">
+                        <div class="form-check form-switch filter-toggle-box">
+                            <label class="form-check-label w-100" for="online_only">Online sellers only</label>
+                            <input class="form-check-input filter-control" type="checkbox" role="switch" name="online_only" id="online_only" {% if filter_values.online_only %}checked{% endif %}>
+                        </div>
+                    </div>
+                    
+                    {# Search Bar - this column is now auto-sized #}
+                    <div class="col-lg-auto">
+                        <input type="search" name="q" id="q" class="form-control filter-control" style="min-width: 200px;" value="{{ filter_values.q|default:'' }}" placeholder="Search by description...">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-shrink-0 d-none d-lg-block">
+    <a href="{% url 'my_listings_in_category' game_pk=game.pk category_pk=current_category.pk %}" class="btn btn-primary h-100 d-flex align-items-center">Sell {{ current_category.name }}</a>
+</div>
+
+        </div>
+    </div>
+    </form>
+    
+    <div class="d-flex justify-content-between align-items-center px-4 py-2 border-bottom d-md-none" style="font-weight: 600;">
+        <div>Description</div>
+        <div class="price-sort-header" style="color: #495057; cursor: pointer;">
+            Price
+            <span class="sort-arrow-icon">
+                {% if sort_order == 'price_asc' %}
+                    <i class="fas fa-arrow-down fa-xs ms-1"></i>
+                {% elif sort_order == 'price_desc' %}
+                    <i class="fas fa-arrow-up fa-xs ms-1"></i>
+                {% else %}
+                    <i class="fas fa-sort fa-xs ms-1" style="color: #adb5bd;"></i>
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
+    <div class="listing-grid-header d-none d-md-grid">
+        {% if game_category_link.primary_filter %}
+        <div>{{ game_category_link.primary_filter.name }}</div>
+        {% endif %}
+        <div class="header-description">Description</div>
+        <div>Seller</div>
+        
+        <div class="header-price price-sort-header" style="cursor: pointer;">
+            Price
+            <span class="sort-arrow-icon">
+                {% if sort_order == 'price_asc' %}
+                    <i class="fas fa-arrow-down fa-xs ms-1"></i>
+                {% elif sort_order == 'price_desc' %}
+                    <i class="fas fa-arrow-up fa-xs ms-1"></i>
+                {% else %}
+                    <i class="fas fa-sort fa-xs ms-1" style="color: #adb5bd;"></i>
+                {% endif %}
+            </span>
+        </div>
+    </div>
+    <div id="listings-container" style="transition: opacity 0.3s ease-in-out;">
+        {% include 'marketplace/_listings_partial.html' with listings=listings game_category_link=game_category_link %}
+    </div>
+
+    {% if listings.has_next %}
+        <div class="load-more-container">
+            <button id="load-more-btn" class="btn btn-outline-primary" data-page="{{ listings.next_page_number }}">Show More Listings</button>
+        </div>
+    {% endif %}
+
+</div>
+
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('listing-filters');
+    const listingsContainer = document.getElementById('listings-container');
+    let searchTimeout;
+
+    document.querySelectorAll('.filter-toggle-box').forEach(box => {
+        box.addEventListener('click', function(event) {
+            if (event.target.tagName !== 'INPUT') {
+                const checkbox = this.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    checkbox.click();
+                }
+            }
+        });
+    });
+
+    const handleFilterChange = () => {
+        listingsContainer.style.opacity = '0.5';
+        const formData = new FormData(filterForm);
+        const params = new URLSearchParams();
+        for (const pair of formData.entries()) {
+            if (pair[1]) {
+                params.append(pair[0], pair[1]);
+            }
+        }
+        
+        const url = `${filterForm.action}?${params.toString()}`;
+
+        fetch(url, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        })
+        .then(response => response.text())
+        .then(html => {
+            listingsContainer.innerHTML = html;
+            listingsContainer.style.opacity = '1';
+            if (window.location.href !== url) {
+                history.replaceState(null, '', url);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching listings:', error);
+            listingsContainer.style.opacity = '1';
+        });
+    };
+
+    filterForm.addEventListener('change', (e) => {
+        if (e.target.matches('.filter-control')) {
+            handleFilterChange();
+        }
+    });
+
+    filterForm.addEventListener('input', (e) => {
+        if (e.target.matches('#q')) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(handleFilterChange, 300);
+        }
+    });
+
+    const priceSortHeaders = document.querySelectorAll('.price-sort-header');
+    const sortParamInput = document.getElementById('sort_param');
+
+    if (priceSortHeaders.length > 0) {
+        priceSortHeaders.forEach(header => {
+            header.addEventListener('click', function() {
+                const currentSort = sortParamInput.value;
+                const sortArrowIcons = document.querySelectorAll('.sort-arrow-icon');
+                
+                if (currentSort === 'price_asc') {
+                    sortParamInput.value = 'price_desc';
+                    sortArrowIcons.forEach(icon => {
+                        icon.innerHTML = '<i class="fas fa-arrow-up fa-xs ms-1"></i>';
+                    });
+                } else if (currentSort === 'price_desc') {
+                    sortParamInput.value = '';
+                    sortArrowIcons.forEach(icon => {
+                         icon.innerHTML = '<i class="fas fa-sort fa-xs ms-1" style="color: #adb5bd;"></i>';
+                    });
+                } else {
+                    sortParamInput.value = 'price_asc';
+                    sortArrowIcons.forEach(icon => {
+                        icon.innerHTML = '<i class="fas fa-arrow-down fa-xs ms-1"></i>';
+                    });
+                }
+                handleFilterChange();
+            });
+        });
+    }
+
+    const loadMoreButton = document.getElementById('load-more-btn');
+    if (loadMoreButton) {
+        loadMoreButton.addEventListener('click', function() {
+            let page = this.dataset.page;
+            const formData = new FormData(filterForm);
+            const params = new URLSearchParams();
+            for (const pair of formData.entries()) {
+                if (pair[1]) {
+                    params.append(pair[0], pair[1]);
+                }
+            }
+            params.set('page', page);
+
+            let url = `{% url 'load_more_listings' game_pk=game.pk category_pk=current_category.pk %}?${params.toString()}`;
+
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const listContainer = document.getElementById('listings-container');
+                    listContainer.insertAdjacentHTML('beforeend', data.html);
+
+                    if (data.has_next) {
+                        this.dataset.page = parseInt(page) + 1;
+                        this.disabled = false;
+                        this.innerHTML = 'Show More Listings';
+                    } else {
+                        this.parentElement.remove();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading more listings:', error);
+                    this.disabled = false;
+                    this.innerHTML = 'Show More Listings';
+                });
+        });
+    }
+});
+</script>
+
 {% endblock %}

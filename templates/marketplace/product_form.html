@@ -1,14 +1,335 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h2 class="mb-3">Create New Listing</h2>
-    <div class="alert alert-info">
-        You are creating a listing for **{{ category.name }}** in **{{ game.title }}**.
-    </div>
+<style>
+    /* Custom styling for the new listing page */
+    .new-offer-container {
+        max-width: 700px; /* Or your preferred width */
+        margin: auto;
+    }
 
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn btn-primary mt-3">Save Listing</button>
-    </form>
+    .form-group-custom {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label-custom {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .form-text-custom {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    /* --- Styles for Multi-Image Upload --- */
+    #image-upload-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .image-preview-box {
+        position: relative;
+        width: 100px;
+        height: 100px;
+        border: 1px solid #dee2e6;
+        border-radius: .375rem;
+        overflow: hidden;
+    }
+    .image-preview-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        cursor: pointer;
+    }
+    .delete-image-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background-color: rgba(0,0,0,0.6);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
+        line-height: 24px;
+        text-align: center;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    .image-preview-box:hover .delete-image-btn {
+        opacity: 1;
+    }
+    .image-upload-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100px;
+        height: 100px;
+        border: 2px dashed #dee2e6;
+        border-radius: .375rem;
+        cursor: pointer;
+        transition: border-color 0.2s, background-color 0.2s;
+    }
+    .image-upload-placeholder:hover {
+        border-color: #2ABF64;
+        background-color: #f8f9fa;
+    }
+    .image-upload-placeholder i {
+        font-size: 2.5rem;
+        color: #adb5bd;
+    }
+    
+    /* Hide the real file input */
+    #id_images {
+        display: none;
+    }
+</style>
+
+<div class="container" style="max-width: 900px;">
+    <div class="row">
+        <div class="col-lg-auto d-none d-lg-block">
+            <a href="{% if is_editing %}{% url 'product_detail' product.pk %}{% else %}{% url 'listing_page' game_pk=game.pk category_pk=category.pk %}{% endif %}" class="btn btn-outline-secondary mt-1">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+        <div class="col">
+            <div class="new-offer-container" style="margin: 0; max-width: 100%;">
+                <a href="{% if is_editing %}{% url 'product_detail' product.pk %}{% else %}{% url 'listing_page' game_pk=game.pk category_pk=category.pk %}{% endif %}" class="btn btn-outline-secondary mb-3 d-lg-none">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+                <h2 class="mb-4">{% if is_editing %}Edit Listing{% else %}New Listing{% endif %}</h2>
+
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    {% for field in form %}
+                        {% if field.name|slice:":7" == "filter_" %}
+                        <div class="form-group-custom">
+                            <label for="{{ field.id_for_label }}" class="form-label-custom">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}
+                                <div class="alert alert-danger p-2 mt-1">{{ field.errors }}</div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <div class="form-group-custom">
+                        <label for="{{ form.listing_title.id_for_label }}" class="form-label-custom">{{ form.listing_title.label }}</label>
+                        {{ form.listing_title }}
+                        <small class="form-text-custom">Appears directly on the table.</small>
+                    </div>
+                    
+                    <div class="form-group-custom">
+                        <label for="{{ form.description.id_for_label }}" class="form-label-custom">{{ form.description.label }}</label>
+                        {{ form.description }}
+                        <small class="form-text-custom">Links to download games are prohibited.</small>
+                    </div>
+
+                    <div class="form-group-custom">
+                        <label for="{{ form.post_purchase_message.id_for_label }}" class="form-label-custom">{{ form.post_purchase_message.label }}</label>
+                        {{ form.post_purchase_message }}
+                        <small class="form-text-custom">Optional. Will be sent to each buyer.</small>
+                    </div>
+
+                    <div class="form-group-custom">
+                        <label class="form-label-custom">Images</label>
+                        <input type="file" id="id_images" name="images" multiple accept="image/*">
+                        <div id="image-upload-container">
+                            {% if is_editing and form.instance.images.all %}
+                                {% for image in form.instance.images.all %}
+                                <div class="image-preview-box existing-image" data-image-id="{{ image.id }}">
+                                    <img src="{{ image.image.url }}" alt="Existing product image">
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                             <label for="id_images" class="image-upload-placeholder" id="image-upload-placeholder-box">
+                                <i class="fas fa-camera"></i>
+                            </label>
+                        </div>
+                        <small class="form-text-custom">{% if is_editing %}Uploading new images will replace all existing ones.{% else %}Up to 5 images can be uploaded.{% endif %}</small>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 form-group-custom">
+                            <label for="{{ form.price.id_for_label }}" class="form-label-custom" id="price-label">Price for 1 Pcs.</label>
+                            <div class="input-group">
+                                <span class="input-group-text">Rs</span>
+                                {{ form.price }}
+                            </div>
+                        </div>
+                        <div class="col-md-6 form-group-custom" id="stock-container">
+                            <label for="{{ form.stock.id_for_label }}" class="form-label-custom">{{ form.stock.label }}</label>
+                            <div class="input-group">
+                                {{ form.stock }}
+                                <span class="input-group-text">pcs.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        {{ form.automatic_delivery }}
+                        <label class="form-check-label" for="{{ form.automatic_delivery.id_for_label }}">
+                            {{ form.automatic_delivery.label }}
+                        </label>
+                    </div>
+                    <div id="stock-details-container" class="mb-3" style="display: none;">
+                        <label for="{{ form.stock_details.id_for_label }}" class="form-label">{{ form.stock_details.label }}</label>
+                        {{ form.stock_details }}
+                        {% if form.stock_details.help_text %}
+                        <small class="form-text text-muted">{{ form.stock_details.help_text|linebreaksbr }}</small>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg mt-3">{% if is_editing %}Save Changes{% else %}Save{% endif %}</button>
+                        {% if is_editing %}
+                            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteConfirmationModal">
+                                Delete Listing
+                            </button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if is_editing %}
+<div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteConfirmationModalLabel">Confirm Deletion</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to permanently delete this listing? This action cannot be undone.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <form action="{% url 'delete_product' pk=product.pk %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Yes, Delete Listing</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+<div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-labelledby="imagePreviewModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-body p-0">
+        <img id="modal-image" src="" class="img-fluid" alt="Image Preview">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // JS for automatic delivery checkbox
+    const autoDeliveryCheckbox = document.getElementById('{{ form.automatic_delivery.id_for_label }}');
+    const stockDetailsContainer = document.getElementById('stock-details-container');
+    const stockContainer = document.getElementById('stock-container');
+    const priceLabel = document.getElementById('price-label');
+
+    if (autoDeliveryCheckbox && stockDetailsContainer && stockContainer && priceLabel) {
+        function toggleStockDetails() {
+            const isAuto = autoDeliveryCheckbox.checked;
+            stockDetailsContainer.style.display = isAuto ? 'block' : 'none';
+            stockContainer.style.display = isAuto ? 'none' : 'block';
+            priceLabel.textContent = isAuto ? 'Price for 1 Pcs.' : 'Price';
+        }
+        toggleStockDetails();
+        autoDeliveryCheckbox.addEventListener('change', toggleStockDetails);
+    }
+
+    // --- NEW JS FOR MULTI-IMAGE UPLOAD ---
+    const imageInput = document.getElementById('id_images');
+    const previewContainer = document.getElementById('image-upload-container');
+    const placeholder = document.getElementById('image-upload-placeholder-box');
+    const imageModal = new bootstrap.Modal(document.getElementById('imagePreviewModal'));
+    const modalImage = document.getElementById('modal-image');
+
+    const dataTransfer = new DataTransfer();
+    const MAX_IMAGES = 5;
+
+    const updateFileInput = () => {
+        imageInput.files = dataTransfer.files;
+        // Show/hide placeholder
+        const existingImagesCount = document.querySelectorAll('.existing-image').length;
+        placeholder.style.display = (dataTransfer.items.length + existingImagesCount) < MAX_IMAGES ? 'flex' : 'none';
+    };
+
+    const createPreview = (file, index) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const div = document.createElement('div');
+            div.className = 'image-preview-box';
+            div.setAttribute('data-index', index);
+            
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.addEventListener('click', () => {
+                modalImage.src = e.target.result;
+                imageModal.show();
+            });
+            
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'delete-image-btn';
+            btn.innerHTML = '<i class="fas fa-trash-alt fa-xs"></i>';
+            btn.addEventListener('click', (event) => {
+                event.stopPropagation(); // prevent modal from opening
+                const idxToRemove = Array.from(previewContainer.children).indexOf(div) - document.querySelectorAll('.existing-image').length;
+                if(idxToRemove >= 0) {
+                    dataTransfer.items.remove(idxToRemove);
+                    div.remove();
+                    updateFileInput();
+                }
+            });
+            
+            div.appendChild(img);
+            div.appendChild(btn);
+            previewContainer.insertBefore(div, placeholder);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    imageInput.addEventListener('change', function() {
+        // Clear only the newly added previews, not the existing ones from the server
+        document.querySelectorAll('.image-preview-box:not(.existing-image)').forEach(el => el.remove());
+        dataTransfer.clearData();
+
+        const newFiles = this.files.length;
+        const existingImagesCount = document.querySelectorAll('.existing-image').length;
+
+        if (existingImagesCount + newFiles > MAX_IMAGES) {
+            alert(`You can only upload a maximum of ${MAX_IMAGES} images.`);
+            this.value = ''; // Clear the file input
+            return;
+        }
+
+        Array.from(this.files).forEach((file, index) => {
+            dataTransfer.items.add(file);
+            createPreview(file, index);
+        });
+        
+        updateFileInput();
+    });
+
+    // Initial check for placeholder visibility on page load (for edit view)
+    updateFileInput();
+});
+</script>
 {% endblock %}
