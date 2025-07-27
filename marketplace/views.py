@@ -21,6 +21,9 @@ from itertools import groupby
 from operator import attrgetter
 from django.core.paginator import Paginator
 from django.template.loader import render_to_string
+from django.views.decorators.csrf import csrf_exempt
+from .jazzcash_utils import get_jazzcash_payment_params, verify_jazzcash_response
+from django.conf import settings
 
 from .models import (
     Game, Category, Product, Order, Review, FlatPage,
@@ -944,3 +947,80 @@ def boost_listings(request, game_pk):
         messages.success(request, success_message)
 
     return redirect(request.META.get('HTTP_REFERER', reverse_lazy('game_detail', kwargs={'pk': game_pk})))
+
+@login_required
+@csrf_exempt
+@transaction.atomic
+def jazzcash_payment(request, product_id):
+    product = get_object_or_404(Product, pk=product_id)
+    
+    if request.method == 'POST':
+        # Create an order
+        order = Order.objects.create(
+            buyer=request.user,
+            seller=product.seller,
+            product=product,
+            total_price=product.price,
+            status='PENDING_PAYMENT',
+            listing_title_snapshot=product.listing_title,
+            description_snapshot=product.description,
+            game_snapshot=product.game,
+            category_snapshot=product.category,
+        )
+        order.filter_options_snapshot.set(product.filter_options.all())
+
+        jazzcash_params = get_jazzcash_payment_params(order.total_price, order.id)
+        
+        context = {
+            'jazzcash_params': jazzcash_params,
+            'JAZZCASH_TRANSACTION_URL': settings.JAZZCASH_TRANSACTION_URL
+        }
+        return render(request, 'marketplace/jazzcash_payment_form.html', context)
+    
+    # Redirect if it's a GET request or something else
+    return redirect('product_detail', pk=product.pk)
+
+@csrf_exempt
+@transaction.atomic
+def jazzcash_callback(request):
+    if request.method == 'POST':
+        response_data = request.POST.dict()
+        if verify_jazzcash_response(response_data):
+            pp_ResponseCode = response_data.get('pp_ResponseCode')
+
+            try:
+                # Correctly get order_id from pp_BillReference
+                order_id = int(response_data.get('pp_BillReference'))
+                order = Order.objects.select_for_update().get(id=order_id)
+            except (ValueError, TypeError, Order.DoesNotExist):
+                messages.error(request, "There was an issue finding your order.")
+                return redirect('payment_failed')
+
+            if pp_ResponseCode == '000':
+                # Only update status if it's still pending
+                if order.status == 'PENDING_PAYMENT':
+                    order.status = 'PROCESSING'
+                    order.save() # The post_save signal will handle transaction creation
+                messages.success(request, "Payment successful!")
+                return redirect('order_confirmation', order_id=order.id)
+            else:
+                error_message = response_data.get('pp_ResponseMessage', 'An unknown error occurred.')
+                messages.error(request, f"Payment failed: {error_message}")
+                order.status = 'CANCELLED'
+                order.save()
+                return redirect('payment_failed')
+        else:
+            messages.error(request, "Invalid response from Jazzcash. Payment could not be verified.")
+            return redirect('payment_failed')
+
+    return redirect('home')
+
+@login_required
+def payment_failed_view(request):
+    # You can pass more context here if needed, like an error message
+    return render(request, 'marketplace/payment_failed.html')
+
+@login_required
+def order_confirmation_view(request, order_id):
+    order = get_object_or_404(Order, id=order_id, buyer=request.user)
+    return render(request, 'marketplace/order_confirmation.html', {'order': order})

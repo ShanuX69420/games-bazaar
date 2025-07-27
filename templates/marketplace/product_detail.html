@@ -267,7 +267,10 @@
         <div class="mt-4">
             {% if user.is_authenticated %}
                 {% if user != product.seller %}
-                    <button id="buy-now-btn" class="btn btn-success btn-lg w-100" data-url="{% url 'create_order' pk=product.pk %}">Buy Now</button>
+                    <form action="{% url 'jazzcash_payment' product_id=product.pk %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success btn-lg w-100">Buy Now with Jazzcash</button>
+                    </form>
                     <p class="text-muted text-center small mt-2">
                         Your payment is held securely. The seller will not receive the funds until you have confirmed successful delivery of your order.
                     </p>
@@ -444,7 +447,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const quantityInput = document.getElementById('quantity-input');
     const totalPriceDisplay = document.getElementById('total-price-display');
     const productPrice = parseFloat("{{ product.price }}");
-    const buyNowBtn = document.querySelector('#buy-now-btn');
     let paymentMethodSelected = false;
 
     const updateTotalPrice = () => {
@@ -515,44 +517,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // THIS JAVASCRIPT BLOCK IS NOW REMOVED
+    /*
+    const buyNowBtn = document.querySelector('#buy-now-btn');
     if (buyNowBtn) {
-        buyNowBtn.addEventListener('click', function() {
-            const url = this.dataset.url;
-            const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-            const quantity = quantityInput.value;
-
-            this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
-            
-            const formData = new FormData();
-            formData.append('quantity', quantity);
-
-            fetch(url, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success' && data.order_url) {
-                    window.location.href = data.order_url;
-                } else {
-                    alert(data.message || 'An error occurred. Please try again.');
-                    this.disabled = false;
-                    this.innerHTML = 'Buy Now';
-                }
-            })
-            .catch(error => {
-                console.error('Error creating order:', error);
-                alert('An unexpected error occurred. Please check your connection and try again.');
-                this.disabled = false;
-                this.innerHTML = 'Buy Now';
-            });
-        });
+        buyNowBtn.addEventListener('click', function() { ... });
     }
+    */
 
     const loadMoreButton = document.getElementById('load-more-reviews');
     if (loadMoreButton) {

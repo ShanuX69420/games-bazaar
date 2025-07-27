@@ -3,6 +3,8 @@ from django.urls import path, reverse_lazy
 from django.contrib.auth import views as auth_views
 from . import views
 
+
+
 urlpatterns = [
     # Main pages
     path('', views.home, name='home'),
@@ -57,6 +59,10 @@ urlpatterns = [
     path('ajax/load-more-sales/', views.load_more_sales, name='load_more_sales'),
     path('ajax/load-more-transactions/', views.load_more_transactions, name='load_more_transactions'),
     path('ajax/load-more-listings/<int:game_pk>/<int:category_pk>/', views.load_more_listings, name='load_more_listings'),
+    path('jazzcash/payment/<int:product_id>/', views.jazzcash_payment, name='jazzcash_payment'),
+    path('jazzcash/callback/', views.jazzcash_callback, name='jazzcash_callback'),
+    path('payment-failed/', views.payment_failed_view, name='payment_failed'),
+    path('order-confirmation/<int:order_id>/', views.order_confirmation_view, name='order_confirmation'),
 
     # The generic slug URL MUST BE LAST.
     path('<slug:slug>/', views.flat_page_view, name='flat_page'),

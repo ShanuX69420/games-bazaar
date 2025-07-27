@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Redirecting to Jazzcash...</title>
+</head>
+<body onload="document.jazzcash_form.submit()">
+    <p>Please wait, you are being redirected to Jazzcash for payment.</p>
+    <form name="jazzcash_form" action="{{ JAZZCASH_TRANSACTION_URL }}" method="post">
+        {% for key, value in jazzcash_params.items %}
+            <input type="hidden" name="{{ key }}" value="{{ value }}">
+        {% endfor %}
+    </form>
+</body>
+</html>

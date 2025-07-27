@@ -232,3 +232,10 @@ SOCIALACCOUNT_PROVIDERS = {
         'VERSION': 'v13.0',
     }
 }
+
+# Jazzcash Settings
+JAZZCASH_MERCHANT_ID = 'MC204336'  # Replace with your Merchant ID
+JAZZCASH_PASSWORD = '5s58aww3u3'      # Replace with your Password
+JAZZCASH_INTEGERITY_SALT = 'sh87hz08s9'  # Replace with your Integrity Salt
+JAZZCASH_TRANSACTION_URL = 'https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform'
+JAZZCASH_RETURN_URL = 'http://127.0.0.1:8000/jazzcash/callback/'
