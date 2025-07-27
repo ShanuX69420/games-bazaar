@@ -4,9 +4,6 @@ from django.http import JsonResponse, HttpResponseForbidden, HttpResponse
 from datetime import timedelta
 from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
-from django.conf import settings
-import hmac
-import hashlib
 from django.contrib.auth.forms import UserCreationForm
 from django.urls import reverse_lazy
 from django.contrib.auth import forms as auth_forms
@@ -506,75 +503,6 @@ def delete_product(request, pk):
     # Redirect if accessed via GET, or for some other reason
     return redirect('product_detail', pk=pk)
 
-
-@login_required
-@transaction.atomic
-def start_jazzcash_payment(request, pk):
-    if request.method != 'POST':
-        return HttpResponseForbidden()
-
-    product = get_object_or_404(Product.objects.select_for_update(), pk=pk)
-
-    if product.seller == request.user:
-        return HttpResponseForbidden()
-
-    try:
-        quantity = int(request.POST.get('quantity', 1))
-        if quantity < 1:
-            quantity = 1
-    except (ValueError, TypeError):
-        quantity = 1
-
-    total_price = product.price * quantity
-
-    order = Order.objects.create(
-        buyer=request.user,
-        seller=product.seller,
-        product=product,
-        total_price=total_price,
-        status='PENDING_PAYMENT',
-        payment_method='Jazzcash',
-        listing_title_snapshot=product.listing_title,
-        description_snapshot=product.description,
-        game_snapshot=product.game,
-        category_snapshot=product.category,
-    )
-    order.filter_options_snapshot.set(product.filter_options.all())
-
-    txn_ref = f"ORDER{order.id}"
-    now = timezone.now()
-    params = {
-        'pp_Version': '1.1',
-        'pp_TxnType': 'MWALLET',
-        'pp_Language': 'EN',
-        'pp_MerchantID': settings.JAZZCASH_MERCHANT_ID,
-        'pp_Password': settings.JAZZCASH_PASSWORD,
-        'pp_TxnRefNo': txn_ref,
-        'pp_Amount': str(int(total_price * 100)),
-        'pp_TxnDateTime': now.strftime('%Y%m%d%H%M%S'),
-        'pp_TxnExpiryDateTime': (now + timedelta(hours=1)).strftime('%Y%m%d%H%M%S'),
-        'pp_ReturnURL': settings.JAZZCASH_RETURN_URL,
-        'pp_SecureHash': '',
-        'pp_SubMerchantID': '',
-        'pp_BillReference': str(order.id),
-        'pp_Description': product.listing_title,
-    }
-
-    # Calculate secure hash
-    sorted_pairs = [(k, params[k]) for k in sorted(params.keys()) if k != 'pp_SecureHash']
-    hash_string = '&'.join(str(v) for k, v in sorted_pairs)
-    digest = hmac.new(
-        settings.JAZZCASH_INTEGRITY_SALT.encode('utf-8'),
-        hash_string.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
-    params['pp_SecureHash'] = digest
-
-    return render(request, 'marketplace/jazzcash_redirect.html', {
-        'gateway_url': settings.JAZZCASH_POST_URL,
-        'params': params,
-    })
-
 @login_required
 @transaction.atomic
 def create_order(request, pk):
@@ -663,82 +591,6 @@ def create_order(request, pk):
 
     order_url = reverse_lazy('order_detail', kwargs={'pk': order.pk})
     return JsonResponse({'status': 'success', 'order_url': order_url})
-
-
-@transaction.atomic
-def jazzcash_return(request):
-    data = request.POST if request.method == 'POST' else request.GET
-    order_id = data.get('pp_BillReference')
-    order = get_object_or_404(Order, pk=order_id, status='PENDING_PAYMENT')
-
-    # verify secure hash
-    received_hash = data.get('pp_SecureHash', '')
-    params = {k: v for k, v in data.items() if k != 'pp_SecureHash'}
-    sorted_pairs = [(k, params[k]) for k in sorted(params.keys())]
-    hash_string = '&'.join(str(v) for k, v in sorted_pairs)
-    digest = hmac.new(
-        settings.JAZZCASH_INTEGRITY_SALT.encode('utf-8'),
-        hash_string.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
-
-    if digest == received_hash and data.get('pp_ResponseCode') == '000':
-        product = order.product
-        quantity = 1
-        try:
-            quantity = int(data.get('quantity', 1))
-        except (ValueError, TypeError):
-            pass
-
-        item_to_deliver = None
-        if product.automatic_delivery:
-            stock_items = [item for item in product.stock_details.splitlines() if item.strip()]
-            if len(stock_items) >= quantity:
-                items_to_deliver_list = stock_items[:quantity]
-                product.stock_details = "\n".join(stock_items[quantity:])
-                item_to_deliver = "\n".join(items_to_deliver_list)
-                if not product.stock_details.strip():
-                    product.is_active = False
-                product.save()
-        else:
-            if product.stock is not None and product.stock >= quantity:
-                product.stock -= quantity
-                if product.stock == 0:
-                    product.is_active = False
-                product.save()
-
-        order.status = 'PROCESSING'
-        order.save()
-
-        p1, p2 = sorted((order.buyer.id, order.seller.id))
-        conversation, _ = Conversation.objects.get_or_create(participant1_id=p1, participant2_id=p2)
-
-        if product.automatic_delivery and item_to_deliver:
-            message_content = (
-                f"Order #{order.id}: Your automatically delivered item{'s are' if quantity > 1 else ' is'} available below.\n\n"
-                f"---\n{item_to_deliver}\n---"
-            )
-            Message.objects.create(
-                conversation=conversation,
-                sender=product.seller,
-                content=message_content,
-                is_system_message=True
-            )
-
-        if product.post_purchase_message:
-            Message.objects.create(
-                conversation=conversation,
-                sender=product.seller,
-                content=product.post_purchase_message,
-                is_system_message=False
-            )
-
-        return redirect('order_detail', pk=order.pk)
-    else:
-        order.status = 'CANCELLED'
-        order.save()
-        messages.error(request, 'Payment verification failed.')
-        return redirect('product_detail', pk=order.product.pk)
 
 @login_required
 def order_detail(request, pk):
