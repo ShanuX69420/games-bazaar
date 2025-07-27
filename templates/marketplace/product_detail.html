@@ -267,7 +267,7 @@
         <div class="mt-4">
             {% if user.is_authenticated %}
                 {% if user != product.seller %}
-                    <button id="buy-now-btn" class="btn btn-success btn-lg w-100" data-url="{% url 'create_order' pk=product.pk %}">Buy Now</button>
+                    <button id="buy-now-btn" class="btn btn-success btn-lg w-100" data-url="{% url 'create_order' pk=product.pk %}" data-jazzcash-url="{% url 'start_jazzcash_payment' pk=product.pk %}">Buy Now</button>
                     <p class="text-muted text-center small mt-2">
                         Your payment is held securely. The seller will not receive the funds until you have confirmed successful delivery of your order.
                     </p>
@@ -446,6 +446,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const productPrice = parseFloat("{{ product.price }}");
     const buyNowBtn = document.querySelector('#buy-now-btn');
     let paymentMethodSelected = false;
+    let selectedMethod = null;
 
     const updateTotalPrice = () => {
         if (!paymentMethodSelected) {
@@ -477,6 +478,7 @@ document.addEventListener('DOMContentLoaded', function() {
         options.forEach(option => {
             option.addEventListener('click', function() {
                 paymentMethodSelected = true;
+                selectedMethod = this.dataset.value;
                 const imgSrc = this.dataset.imgSrc;
                 const value = this.dataset.value;
                 const price = this.dataset.price;
@@ -518,12 +520,29 @@ document.addEventListener('DOMContentLoaded', function() {
     if (buyNowBtn) {
         buyNowBtn.addEventListener('click', function() {
             const url = this.dataset.url;
+            const jazzUrl = this.dataset.jazzcashUrl;
             const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
             const quantity = quantityInput.value;
 
+            if (!paymentMethodSelected) {
+                dropdownContainer.classList.add('is-invalid');
+                return;
+            }
+
+            if (selectedMethod === 'Jazzcash') {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = jazzUrl;
+                form.innerHTML = `<input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">` +
+                                 `<input type="hidden" name="quantity" value="${quantity}">`;
+                document.body.appendChild(form);
+                form.submit();
+                return;
+            }
+
             this.disabled = true;
             this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
-            
+
             const formData = new FormData();
             formData.append('quantity', quantity);
 

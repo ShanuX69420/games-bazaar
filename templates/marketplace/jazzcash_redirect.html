@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<p>Redirecting to JazzCash...</p>
+<form id="jazzcash-form" method="post" action="{{ gateway_url }}">
+  {% for key, value in params.items %}
+  <input type="hidden" name="{{ key }}" value="{{ value }}" />
+  {% endfor %}
+</form>
+<script>
+document.getElementById('jazzcash-form').submit();
+</script>
+{% endblock %}
