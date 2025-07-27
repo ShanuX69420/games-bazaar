@@ -34,6 +34,8 @@ urlpatterns = [
 
     # Order Management & Reviews
     path('listing/<int:pk>/buy/', views.create_order, name='create_order'),
+    path('listing/<int:pk>/buy-jazzcash/', views.start_jazzcash_payment, name='start_jazzcash_payment'),
+    path('jazzcash/return/', views.jazzcash_return, name='jazzcash_return'),
     path('order/<int:pk>/', views.order_detail, name='order_detail'),
     path('order/<int:pk>/complete/', views.complete_order, name='complete_order'),
     path('order/<int:pk>/refund/', views.refund_order, name='refund_order'),

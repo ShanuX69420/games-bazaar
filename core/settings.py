@@ -233,9 +233,18 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
+<<<<<<< HEAD
 # Jazzcash Settings
 JAZZCASH_MERCHANT_ID = 'MC204336'  # Replace with your Merchant ID
 JAZZCASH_PASSWORD = '5s58aww3u3'      # Replace with your Password
 JAZZCASH_INTEGERITY_SALT = 'sh87hz08s9'  # Replace with your Integrity Salt
 JAZZCASH_TRANSACTION_URL = 'https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform'
 JAZZCASH_RETURN_URL = 'http://127.0.0.1:8000/jazzcash/callback/'
+=======
+# JazzCash configuration (replace with real merchant credentials in production)
+JAZZCASH_MERCHANT_ID = os.environ.get('JAZZCASH_MERCHANT_ID', 'MC12345')
+JAZZCASH_PASSWORD = os.environ.get('JAZZCASH_PASSWORD', 'password')
+JAZZCASH_INTEGRITY_SALT = os.environ.get('JAZZCASH_INTEGRITY_SALT', 'integrity')
+JAZZCASH_RETURN_URL = os.environ.get('JAZZCASH_RETURN_URL', 'http://localhost:8000/jazzcash/return/')
+JAZZCASH_POST_URL = os.environ.get('JAZZCASH_POST_URL', 'https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform/')
+>>>>>>> a41c80809c70701606f7e5e6ae68c93e6d7a1add
