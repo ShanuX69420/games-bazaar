@@ -7,6 +7,8 @@ from django.conf.urls.static import static
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 urlpatterns = [
+    # Our custom admin chat URLs MUST come before the default admin
+    path('admin/chat/', include('marketplace.admin_urls', namespace='admin_chat')),
     path('admin/', admin.site.urls),
     path('', include('marketplace.urls')),
     path('accounts/', include('allauth.urls')),

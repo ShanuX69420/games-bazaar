@@ -30,9 +30,17 @@
             {{ review.comment|linebreaksbr }}
         </p>
 
-        <div>
-            <a href="#" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editReviewModal" data-review-id="{{ review.pk }}" data-edit-url="{% url 'edit_review' review.pk %}">Edit</a>
-            <a href="#" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteReviewModal" data-delete-url="{% url 'delete_review' review.pk %}">Delete</a>
-        </div>
+        {# Show existing reply if it exists #}
+        {% if review.reply %}
+            {% include 'marketplace/partials/_review_reply.html' with reply=review.reply %}
+        {% endif %}
+
+        {# Only show edit/delete for the buyer's own review #}
+        {% if request.user == review.buyer %}
+            <div class="mt-3">
+                <a href="#" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editReviewModal" data-review-id="{{ review.pk }}" data-edit-url="{% url 'edit_review' review.pk %}">Edit</a>
+                <a href="#" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteReviewModal" data-delete-url="{% url 'delete_review' review.pk %}">Delete</a>
+            </div>
+        {% endif %}
     </div>
 </div>

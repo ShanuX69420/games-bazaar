@@ -33,15 +33,10 @@ def get_jazzcash_payment_params(amount, order_id):
         'ppmpf_5': '5',
     }
 
-    # Create a string for hashing by sorting key/value pairs alphabetically by key
-    sorted_pairs = []
-    for key in sorted(params):
-        value = params[key]
-        if key == 'pp_SecureHash' or value is None or value == '':
-            continue
-        sorted_pairs.append(f"{key}={value}")
-
-    hash_string = settings.JAZZCASH_INTEGERITY_SALT + '&' + '&'.join(sorted_pairs)
+    # Create a string for hashing by sorting dictionary values alphabetically by key
+    sorted_params_list = [str(params[key]) for key in sorted(params) if key != 'pp_SecureHash' and params[key]]
+    
+    hash_string = settings.JAZZCASH_INTEGERITY_SALT + '&' + '&'.join(sorted_params_list)
     
     params['pp_SecureHash'] = hashlib.sha256(hash_string.encode()).hexdigest()
 
@@ -53,17 +48,12 @@ def verify_jazzcash_response(response_data):
 
     received_hash = response_data.get('pp_SecureHash', '')
     
-    # Create a list of key/value pairs for hashing, sorted alphabetically by key
+    # Create a list of values for hashing, sorted alphabetically by key
     # Exclude pp_SecureHash from the hash calculation itself
-    sorted_pairs = []
-    for key in sorted(response_data):
-        value = response_data[key]
-        if key == 'pp_SecureHash' or value is None or value == '':
-            continue
-        sorted_pairs.append(f"{key}={value}")
+    sorted_params_list = [str(response_data[key]) for key in sorted(response_data) if key != 'pp_SecureHash' and response_data[key]]
 
     # Prepend the Integrity Salt
-    hash_string = settings.JAZZCASH_INTEGERITY_SALT + '&' + '&'.join(sorted_pairs)
+    hash_string = settings.JAZZCASH_INTEGERITY_SALT + '&' + '&'.join(sorted_params_list)
     
     # Generate the hash
     generated_hash = hashlib.sha256(hash_string.encode()).hexdigest()

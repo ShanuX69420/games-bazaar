@@ -9,6 +9,95 @@ from django.dispatch import receiver
 from model_utils import FieldTracker
 from decimal import Decimal # Import Decimal
 
+# Custom QuerySet classes for optimized queries
+class ProductQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(is_active=True)
+    
+    def with_seller_info(self):
+        return self.select_related('seller__profile', 'game', 'category')
+    
+    def with_full_details(self):
+        return self.select_related(
+            'seller__profile', 'game', 'category'
+        ).prefetch_related('filter_options__filter', 'images')
+    
+    def by_game_category(self, game, category):
+        return self.filter(game=game, category=category, is_active=True)
+    
+    def recent_first(self):
+        return self.order_by('-created_at')
+
+class OrderQuerySet(models.QuerySet):
+    def with_full_details(self):
+        return self.select_related(
+            'buyer__profile', 'seller__profile', 'product__game', 
+            'product__category', 'game_snapshot', 'category_snapshot'
+        ).prefetch_related('filter_options_snapshot__filter')
+    
+    def by_status(self, status):
+        return self.filter(status=status)
+    
+    def recent_first(self):
+        return self.order_by('-created_at')
+
+class ReviewQuerySet(models.QuerySet):
+    def with_full_details(self):
+        return self.select_related(
+            'buyer__profile', 'order__product__game', 'order__product__category'
+        ).prefetch_related('reply')
+    
+    def by_seller(self, seller):
+        return self.filter(seller=seller)
+    
+    def by_rating(self, rating):
+        return self.filter(rating=rating)
+    
+    def recent_first(self):
+        return self.order_by('-created_at')
+
+class MessageQuerySet(models.QuerySet):
+    def with_sender_info(self):
+        return self.select_related('sender__profile', 'conversation')
+    
+    def unread(self):
+        return self.filter(is_read=False)
+    
+    def by_timestamp(self):
+        return self.order_by('timestamp')
+
+# Custom Managers
+class ProductManager(models.Manager):
+    def get_queryset(self):
+        return ProductQuerySet(self.model, using=self._db)
+    
+    def active(self):
+        return self.get_queryset().active()
+    
+    def with_full_details(self):
+        return self.get_queryset().with_full_details()
+
+class OrderManager(models.Manager):
+    def get_queryset(self):
+        return OrderQuerySet(self.model, using=self._db)
+    
+    def with_full_details(self):
+        return self.get_queryset().with_full_details()
+
+class ReviewManager(models.Manager):
+    def get_queryset(self):
+        return ReviewQuerySet(self.model, using=self._db)
+    
+    def with_full_details(self):
+        return self.get_queryset().with_full_details()
+
+class MessageManager(models.Manager):
+    def get_queryset(self):
+        return MessageQuerySet(self.model, using=self._db)
+    
+    def with_sender_info(self):
+        return self.get_queryset().with_sender_info()
+
 class SiteConfiguration(models.Model):
     default_commission_rate = models.DecimalField(max_digits=5, decimal_places=2, default=10.00)
     def __str__(self): return "Site Configuration"
@@ -60,17 +149,26 @@ class Category(models.Model):
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     commission_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    last_seen = models.DateTimeField(null=True, blank=True)
+    last_seen = models.DateTimeField(null=True, blank=True, db_index=True)
     image = models.ImageField(upload_to='profile_pics', null=True, blank=True)
-    show_listings_on_site = models.BooleanField(default=True)
+    show_listings_on_site = models.BooleanField(default=True, db_index=True)
+    is_moderator = models.BooleanField(default=False, help_text="Can join conversations for dispute resolution")
     @property
     def image_url(self):
         if self.image and hasattr(self.image, 'url'): return self.image.url
         else: return '/static/images/default.jpg'
     @property
     def is_online(self):
-        if self.last_seen: return timezone.now() < self.last_seen + datetime.timedelta(seconds=30)
+        if self.last_seen: 
+            # More accurate online window - 10 seconds for better precision
+            return timezone.now() < self.last_seen + datetime.timedelta(seconds=10)
         return False
+    
+    @property
+    def can_moderate(self):
+        """Check if user can moderate conversations (admin or moderator)"""
+        return self.user.is_staff or self.user.is_superuser or self.is_moderator
+    
     def __str__(self): return f'{self.user.username} Profile'
 
 @receiver(post_save, sender=User)
@@ -83,16 +181,19 @@ class Product(models.Model):
     game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name='listings')
     listing_title = models.CharField(max_length=255)
     description = models.TextField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=10, decimal_places=2, db_index=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True)
-    automatic_delivery = models.BooleanField(default=False, verbose_name="Automatic delivery")
+    automatic_delivery = models.BooleanField(default=False, verbose_name="Automatic delivery", db_index=True)
     stock = models.PositiveIntegerField(null=True, blank=True, verbose_name="In Stock")
     stock_details = models.TextField(blank=True)
     post_purchase_message = models.TextField(blank=True, verbose_name="Message to the buyer after payment")
     is_virtual = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
     filter_options = models.ManyToManyField('FilterOption', blank=True)
+    
+    # Custom manager
+    objects = ProductManager()
 
     @property
     def stock_count(self):
@@ -115,9 +216,9 @@ class Order(models.Model):
     seller = models.ForeignKey(User, related_name='sales', on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING_PAYMENT')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING_PAYMENT', db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True, db_index=True)
     commission_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     
     # Snapshot fields to preserve data after product deletion
@@ -128,6 +229,9 @@ class Order(models.Model):
     filter_options_snapshot = models.ManyToManyField('FilterOption', blank=True, related_name='order_filter_options_snapshots')
 
     tracker = FieldTracker()
+    
+    # Custom manager
+    objects = OrderManager()
     
     def __str__(self): 
         title = self.listing_title_snapshot or (self.product.listing_title if self.product else 'a deleted product')
@@ -156,27 +260,67 @@ class Review(models.Model):
     order = models.OneToOneField(Order, on_delete=models.CASCADE)
     buyer = models.ForeignKey(User, on_delete=models.CASCADE)
     seller = models.ForeignKey(User, related_name='reviews', on_delete=models.CASCADE)
-    rating = models.PositiveSmallIntegerField()
+    rating = models.PositiveSmallIntegerField(db_index=True)
     comment = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    
+    # Custom manager
+    objects = ReviewManager()
+    
     def __str__(self): return f"Review by {self.buyer.username} for Order #{self.order.id}"
+
+class ReviewReply(models.Model):
+    review = models.OneToOneField(Review, on_delete=models.CASCADE, related_name='reply')
+    seller = models.ForeignKey(User, on_delete=models.CASCADE)
+    reply_text = models.TextField(max_length=1000, help_text="Seller's response to the review")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Review Reply"
+        verbose_name_plural = "Review Replies"
+    
+    def __str__(self): 
+        return f"Reply by {self.seller.username} to review #{self.review.id}"
 
 class Conversation(models.Model):
     participant1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversations1')
     participant2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversations2')
+    moderator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='moderated_conversations', help_text="Admin/moderator who joined for dispute resolution")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_disputed = models.BooleanField(default=False, help_text="Whether this conversation has dispute resolution active")
+    
     class Meta: unique_together = ('participant1', 'participant2')
-    def __str__(self): return f"Conversation between {self.participant1.username} and {self.participant2.username}"
+    
+    def __str__(self): 
+        if self.moderator:
+            return f"Conversation between {self.participant1.username} and {self.participant2.username} (Moderator: {self.moderator.username})"
+        return f"Conversation between {self.participant1.username} and {self.participant2.username}"
+    
+    def get_participants(self):
+        """Returns all participants including moderator"""
+        participants = [self.participant1, self.participant2]
+        if self.moderator:
+            participants.append(self.moderator)
+        return participants
+    
+    def is_participant(self, user):
+        """Check if user is a participant (including moderator)"""
+        return user in [self.participant1, self.participant2, self.moderator]
 
 class Message(models.Model):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
     content = models.TextField(blank=True)
     image = models.ImageField(upload_to='chat_images/', blank=True, null=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
-    is_read = models.BooleanField(default=False)
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    is_read = models.BooleanField(default=False, db_index=True)
     is_system_message = models.BooleanField(default=False)
+    
+    # Custom manager
+    objects = MessageManager()
+    
     def __str__(self): return f"Message from {self.sender.username} at {self.timestamp}"
 
 class WithdrawalRequest(models.Model):

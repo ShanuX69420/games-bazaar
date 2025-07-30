@@ -99,6 +99,44 @@
         background-color: #fff;
         margin-bottom: 0;
     }
+    
+    /* Ensure filters wrap properly when getting close to button */
+    .filter-bar .flex-grow-1 {
+        flex-basis: 70%; /* Take at least 70% width */
+        min-width: 300px; /* Minimum width before wrapping */
+    }
+    
+    .filter-bar .flex-shrink-0 {
+        flex-basis: auto;
+        min-width: 150px; /* Minimum button width */
+    }
+    
+    /* Search box wrapping behavior */
+    .filter-bar .row {
+        --bs-gutter-x: 0.5rem;
+    }
+    
+    /* Force search box to new line when space is tight */
+    @media (min-width: 992px) and (max-width: 1400px) {
+        .filter-bar .order-lg-last {
+            order: 999;
+            flex-basis: 100%;
+            margin-top: 0.5rem;
+        }
+    }
+    
+    /* When filters wrap, ensure proper spacing */
+    @media (max-width: 1200px) {
+        .filter-bar .flex-grow-1 {
+            flex-basis: 100%;
+            margin-bottom: 1rem;
+        }
+        
+        .filter-bar .flex-shrink-0 {
+            flex-basis: 100%;
+            align-self: stretch;
+        }
+    }
     /* Make all direct children controls of the row fill the height */
     .filter-bar .form-select,
     .filter-bar .form-control,
@@ -343,9 +381,9 @@
 </div>
     </div>
     <div class="collapse show d-lg-block" id="filter-collapse-mobile">
-        <div class="d-flex justify-content-between align-items-start" style="gap: 1rem;">
+        <div class="d-flex flex-wrap justify-content-between align-items-start" style="gap: 1rem;">
         
-            <div class="flex-grow-1">
+            <div class="flex-grow-1" style="min-width: 0;">
                 <div class="row g-2 align-items-stretch">
                     {# Primary Filters - each gets its own column #}
                     {% for f in category_filters %}
@@ -391,9 +429,9 @@
                         </div>
                     </div>
                     
-                    {# Search Bar - this column is now auto-sized #}
-                    <div class="col-lg-auto">
-                        <input type="search" name="q" id="q" class="form-control filter-control" style="min-width: 200px;" value="{{ filter_values.q|default:'' }}" placeholder="Search by description...">
+                    {# Search Bar - this column breaks to new line when needed #}
+                    <div class="col-lg-auto col-12 order-lg-last">
+                        <input type="search" name="q" id="q" class="form-control filter-control" style="min-width: 250px;" value="{{ filter_values.q|default:'' }}" placeholder="Search by description...">
                     </div>
                 </div>
             </div>

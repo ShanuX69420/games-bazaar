@@ -17,6 +17,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     let chatSocket = null;
+    let isLoadingOlderMessages = false;
+    let hasMoreMessages = {% if has_more_messages %}true{% else %}false{% endif %};
+    let currentOffset = 0; // Start from 0, will be incremented as we load more
+    
 
     function formatSmartTimeJS(isoString) {
         if (!isoString) return '';
@@ -64,6 +68,106 @@ document.addEventListener('DOMContentLoaded', function() {
             log.scrollTop = log.scrollHeight;
         }
     };
+
+    const loadOlderMessages = async () => {
+        if (isLoadingOlderMessages || !hasMoreMessages) {
+            return;
+        }
+
+        isLoadingOlderMessages = true;
+
+        // Show loading indicator
+        allChatLogs.forEach(log => {
+            const loadingIndicator = log.querySelector('.loading-indicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'block';
+            }
+        });
+
+        try {
+            const response = await fetch(`/ajax/load-older-messages/${otherUserUsername}/?offset=${currentOffset}&limit=20`);
+            const data = await response.json();
+
+            if (data.status === 'success' && data.messages_html.length > 0) {
+                // Store current scroll position
+                const firstChatLog = allChatLogs[0];
+                const scrollHeight = firstChatLog.scrollHeight;
+                const scrollTop = firstChatLog.scrollTop;
+
+                // Add older messages after the debug button but before existing messages
+                data.messages_html.forEach(messageHtml => {
+                    allChatLogs.forEach(log => {
+                        const messageWrapper = document.createElement('div');
+                        messageWrapper.innerHTML = messageHtml;
+                        
+                        // Insert older messages after the indicators but before existing messages
+                        const noMoreIndicator = log.querySelector('.no-more-messages');
+                        const loadingIndicator = log.querySelector('.loading-indicator');
+                        
+                        // Find the last indicator element
+                        const insertAfter = noMoreIndicator || loadingIndicator;
+                        if (insertAfter) {
+                            insertAfter.insertAdjacentElement('afterend', messageWrapper.firstElementChild);
+                        } else {
+                            // Fallback: prepend to the chat log
+                            log.prepend(messageWrapper.firstElementChild);
+                        }
+                    });
+                });
+
+                // Restore scroll position (maintain user's position)
+                const newScrollHeight = firstChatLog.scrollHeight;
+                const heightDifference = newScrollHeight - scrollHeight;
+                allChatLogs.forEach(log => {
+                    log.scrollTop = scrollTop + heightDifference;
+                });
+
+                // Update state
+                currentOffset = data.new_offset;
+                hasMoreMessages = data.has_more;
+
+                // Show "no more messages" indicator if we've reached the end
+                if (!hasMoreMessages) {
+                    allChatLogs.forEach(log => {
+                        const noMoreMessagesIndicator = log.querySelector('.no-more-messages');
+                        if (noMoreMessagesIndicator) {
+                            noMoreMessagesIndicator.style.display = 'block';
+                        }
+                    });
+                }
+            } else {
+                hasMoreMessages = false;
+                // Show "no more messages" indicator
+                allChatLogs.forEach(log => {
+                    const noMoreMessagesIndicator = log.querySelector('.no-more-messages');
+                    if (noMoreMessagesIndicator) {
+                        noMoreMessagesIndicator.style.display = 'block';
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error loading older messages:', error);
+        } finally {
+            // Hide loading indicator
+            allChatLogs.forEach(log => {
+                const loadingIndicator = log.querySelector('.loading-indicator');
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'none';
+                }
+            });
+            isLoadingOlderMessages = false;
+        }
+    };
+
+    // Add scroll event listeners to chat logs for infinite scroll
+    allChatLogs.forEach(log => {
+        log.addEventListener('scroll', () => {
+            // Check if user scrolled to the top (with a small threshold)
+            if (log.scrollTop <= 50 && hasMoreMessages && !isLoadingOlderMessages) {
+                loadOlderMessages();
+            }
+        });
+    });
 
     allChatForms.forEach(form => {
         form.addEventListener('submit', (e) => {

@@ -14,7 +14,12 @@
 {% else %}
     <div class="mb-3">
         <div class="d-flex justify-content-between">
-            <strong>{{ message.sender.username }}</strong>
+            <div>
+                <strong>{{ message.sender.username }}</strong>
+                {% if message.sender.profile.can_moderate %}
+                    <span class="badge bg-warning text-dark ms-1">Support</span>
+                {% endif %}
+            </div>
             <small class="text-muted">{{ message.timestamp|smart_time }}</small>
         </div>
         

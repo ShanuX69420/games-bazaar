@@ -2,7 +2,7 @@
 from django.db.models import Sum
 from django import forms
 from .models import (
-    Product, Review, WithdrawalRequest, Order, SupportTicket, Profile, Category,
+    Product, Review, ReviewReply, WithdrawalRequest, Order, SupportTicket, Profile, Category,
     Filter, FilterOption, GameCategory, ProductImage
 )
 from django.contrib.auth.forms import UserCreationForm
@@ -66,6 +66,23 @@ class ReviewForm(forms.ModelForm):
         fields = ['rating', 'comment']
         widgets = { 'comment': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}), }
 
+class ReviewReplyForm(forms.ModelForm):
+    class Meta:
+        model = ReviewReply
+        fields = ['reply_text']
+        widgets = {
+            'reply_text': forms.Textarea(attrs={
+                'rows': 3, 
+                'class': 'form-control', 
+                'placeholder': 'Write your response to this review...',
+                'maxlength': '1000'
+            })
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['reply_text'].label = 'Your Reply'
+
 class WithdrawalRequestForm(forms.ModelForm):
     class Meta:
         model = WithdrawalRequest
@@ -87,6 +104,21 @@ class SupportTicketForm(forms.ModelForm):
     class Meta:
         model = SupportTicket
         fields = ['subject', 'message']
+        widgets = {
+            'subject': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Brief description of your issue'
+            }),
+            'message': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 6,
+                'placeholder': 'Please describe your issue in detail...'
+            })
+        }
+        labels = {
+            'subject': 'Subject',
+            'message': 'Detailed Message'
+        }
 
 class ProfilePictureForm(forms.ModelForm):
     class Meta:

@@ -20,6 +20,9 @@
             {% else %}
                 Offline
             {% endif %}
+            {% if other_user.profile.can_moderate %}
+                <span class="badge bg-warning text-dark ms-2">Support</span>
+            {% endif %}
         </small>
     </div>
 </div>

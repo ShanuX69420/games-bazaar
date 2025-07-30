@@ -25,12 +25,13 @@ def update_user_last_seen(user):
 def get_unread_conversation_count(user):
     """
     Calculates the number of conversations with at least one unread message for a user.
+    Optimized to use a single query instead of subquery.
     """
     if not user.is_authenticated:
         return 0
-    user_conversations = Conversation.objects.filter(Q(participant1=user) | Q(participant2=user))
+    
     return Message.objects.filter(
-        conversation__in=user_conversations,
+        Q(conversation__participant1=user) | Q(conversation__participant2=user) | Q(conversation__moderator=user),
         is_read=False
     ).exclude(
         sender=user
@@ -45,8 +46,8 @@ def mark_message_as_read_in_db(message_id, user):
     try:
         message = Message.objects.select_related('conversation__participant1', 'conversation__participant2').get(id=message_id)
         
-        # Security check: Make sure the user is a participant and not the sender
-        is_participant = (message.conversation.participant1 == user or message.conversation.participant2 == user)
+        # Security check: Make sure the user is a participant (including moderator) and not the sender
+        is_participant = message.conversation.is_participant(user)
         if is_participant and message.sender != user and not message.is_read:
             message.is_read = True
             message.save(update_fields=['is_read'])
@@ -64,20 +65,30 @@ async def broadcast_presence(user, status_data, channel_layer):
     # This must be an async function to get conversations
     @database_sync_to_async
     def get_conversations(u):
-        return list(Conversation.objects.filter(Q(participant1=u) | Q(participant2=u)).select_related('participant1', 'participant2'))
+        return list(Conversation.objects.filter(
+            Q(participant1=u) | Q(participant2=u) | Q(moderator=u)
+        ).select_related('participant1', 'participant2', 'moderator').only(
+            'id', 'participant1__username', 'participant2__username', 'moderator__username'
+        ))
 
     conversations = await get_conversations(user)
 
     for conv in conversations:
-        other_user = conv.participant2 if conv.participant1 == user else conv.participant1
-        await channel_layer.group_send(
-            f"notifications_{other_user.username}",
-            {
-                'type': 'send_notification',
-                'notification_type': 'presence_update',
-                'data': status_data
-            }
-        )
+        # Send presence updates to all participants except the current user
+        participants = [conv.participant1, conv.participant2]
+        if conv.moderator:
+            participants.append(conv.moderator)
+        
+        for participant in participants:
+            if participant != user:
+                await channel_layer.group_send(
+                    f"notifications_{participant.username}",
+                    {
+                        'type': 'send_notification',
+                        'notification_type': 'presence_update',
+                        'data': status_data
+                    }
+                )
 
 async def notify_read_receipt(message, user, channel_layer):
     """
@@ -177,15 +188,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def mark_messages_as_read(self, conversation, user):
         """Marks all messages in the conversation as read when it's opened by the recipient."""
-        # This is now an async method, so we await the database call directly
-        updated_count = await database_sync_to_async(
-            conversation.messages.filter(is_read=False).exclude(sender=user).update
-        )(is_read=True)
+        # Batch update for better performance
+        @database_sync_to_async
+        def batch_update_messages():
+            return conversation.messages.filter(is_read=False).exclude(sender=user).update(is_read=True)
+        
+        updated_count = await batch_update_messages()
 
         # If any messages were updated, we need to send a notification
         if updated_count > 0:
-            # We can now call our async helper directly
-            await notify_read_receipt(conversation.messages.last(), user, self.channel_layer)
+            # Get the last message efficiently
+            @database_sync_to_async
+            def get_last_message():
+                return conversation.messages.select_related('conversation').last()
+            
+            last_message = await get_last_message()
+            if last_message:
+                await notify_read_receipt(last_message, user, self.channel_layer)
 
 
 class NotificationConsumer(AsyncWebsocketConsumer):
@@ -199,30 +218,27 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
         
+        # Update presence immediately on connection (important for Opera)
         await update_user_last_seen(self.user)
         await broadcast_presence(self.user, {
             'username': self.user.username,
             'is_online': True,
             'last_seen_iso': timezone.now().isoformat()
         }, self.channel_layer)
+        
+        # Log connection for debugging Opera issues
+        print(f"User {self.user.username} connected to notifications at {timezone.now()}")
 
     async def disconnect(self, close_code):
         if hasattr(self, 'user') and self.user.is_authenticated:
+            # Update last_seen immediately before disconnect
             await update_user_last_seen(self.user)
             
-            @database_sync_to_async
-            def get_profile_last_seen_iso(u):
-                try:
-                    return Profile.objects.get(user=u).last_seen.isoformat()
-                except (Profile.DoesNotExist, AttributeError):
-                    return timezone.now().isoformat()
-
-            last_seen_iso = await get_profile_last_seen_iso(self.user)
-            
+            # Broadcast offline status immediately
             await broadcast_presence(self.user, {
                 'username': self.user.username,
                 'is_online': False,
-                'last_seen_iso': last_seen_iso
+                'last_seen_iso': timezone.now().isoformat()
             }, self.channel_layer)
 
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
@@ -230,18 +246,31 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         """
         Listens for heartbeat pings from the client to update the user's online status.
+        Enhanced for Opera browser stability.
         """
         try:
             data = json.loads(text_data)
             if data.get('type') == 'heartbeat':
+                # Update last_seen with current timestamp
                 await update_user_last_seen(self.user)
+                
+                # Broadcast online status to all conversation partners
                 await broadcast_presence(self.user, {
-                'username': self.user.username,
-                'is_online': True,
-                'last_seen_iso': timezone.now().isoformat()
-            }, self.channel_layer)
-        except (json.JSONDecodeError, Exception):
-            # Ignore errors to keep the connection stable
+                    'username': self.user.username,
+                    'is_online': True,
+                    'last_seen_iso': timezone.now().isoformat()
+                }, self.channel_layer)
+                
+                # Send confirmation back to client for Opera debugging
+                await self.send(text_data=json.dumps({
+                    'type': 'heartbeat_ack', 
+                    'timestamp': timezone.now().isoformat(),
+                    'user': self.user.username
+                }))
+                
+        except (json.JSONDecodeError, Exception) as e:
+            # Log errors for debugging but don't crash the connection
+            print(f"WebSocket receive error for {self.user.username}: {e}")
             pass
 
     async def send_notification(self, event):

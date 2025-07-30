@@ -407,18 +407,138 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function formatTimeSince(isoString) { if (!isoString) return ''; const date = new Date(isoString); const now = new Date(); const seconds = Math.floor((now - date) / 1000); if (seconds < 60) return "just now"; let interval = seconds / 31536000; if (interval > 1) return Math.floor(interval) + " years ago"; interval = seconds / 2592000; if (interval > 1) return Math.floor(interval) + " months ago"; interval = seconds / 86400; if (interval > 1) return Math.floor(interval) + " days ago"; interval = seconds / 3600; if (interval > 1) return Math.floor(interval) + " hours ago"; interval = seconds / 60; if (interval > 1) return Math.floor(interval) + " minutes ago"; return "just now"; }
     function updateRelativeTimestamps() { const elements = document.querySelectorAll('[data-iso-timestamp]'); elements.forEach(element => { if (element.dataset.isoTimestamp) element.textContent = `was active ${formatTimeSince(element.dataset.isoTimestamp)}`; }); }
-    function updateUserStatusOnPage(data) { const statusElements = document.querySelectorAll(`.user-status[data-username="${data.username}"]`); if (statusElements.length === 0) return; statusElements.forEach(statusEl => { if (data.is_online) { statusEl.textContent = 'Online'; statusEl.className = 'user-status online'; statusEl.removeAttribute('data-iso-timestamp'); } else { const lastSeenText = `was active ${formatTimeSince(data.last_seen_iso)}`; statusEl.textContent = lastSeenText; statusEl.className = 'user-status offline'; statusEl.setAttribute('data-iso-timestamp', data.last_seen_iso); } }); }
+    function updateUserStatusOnPage(data) { 
+        // Update all status elements for this user
+        const statusElements = document.querySelectorAll(`.user-status[data-username="${data.username}"]`); 
+        const sellerElements = document.querySelectorAll(`.seller-username[data-username="${data.username}"]`);
+        
+        // Update status text elements
+        statusElements.forEach(statusEl => { 
+            if (data.is_online) { 
+                statusEl.textContent = 'Online'; 
+                statusEl.className = 'user-status online'; 
+                statusEl.removeAttribute('data-iso-timestamp'); 
+            } else { 
+                const lastSeenText = `was active ${formatTimeSince(data.last_seen_iso)}`; 
+                statusEl.textContent = lastSeenText; 
+                statusEl.className = 'user-status offline'; 
+                statusEl.setAttribute('data-iso-timestamp', data.last_seen_iso); 
+            } 
+        });
+        
+        // Update seller username elements (for listings)
+        sellerElements.forEach(sellerEl => {
+            if (data.is_online) {
+                sellerEl.classList.add('online');
+                sellerEl.classList.remove('offline');
+            } else {
+                sellerEl.classList.remove('online');
+                sellerEl.classList.add('offline');
+            }
+        });
+        
+        // Update status dots
+        const statusDots = document.querySelectorAll(`.status-dot[data-username="${data.username}"]`);
+        statusDots.forEach(dot => {
+            if (data.is_online) {
+                dot.classList.add('online');
+            } else {
+                dot.classList.remove('online');
+            }
+        });
+    }
     function updateConversationLink(data) { const conversationLink = document.querySelector(`.list-group-item[data-conversation-id="${data.conversation_id}"]`); if (!conversationLink) return; const lastMessageElement = conversationLink.querySelector('.last-message'); const timestampElement = conversationLink.querySelector('.timestamp'); const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent); if (lastMessageElement) { let messagePrefix = ''; if (data.sender_username === currentUserUsername) { messagePrefix = 'You: '; } lastMessageElement.textContent = messagePrefix + data.last_message_content; } if (timestampElement) { timestampElement.textContent = formatTimeSince(data.last_message_timestamp); } if (data.sender_username !== currentUserUsername) { conversationLink.classList.add('unread', 'unread-highlight'); } const parentList = conversationLink.parentNode; if (parentList) { parentList.prepend(conversationLink); } }
     {% if user.is_authenticated %}
     function updateBadge(selector, count) { const link = document.querySelector(selector); if (!link) return; let badge = link.querySelector('.badge'); if (!badge) { badge = document.createElement('span'); badge.className = 'badge bg-danger ms-1'; link.appendChild(badge); } if (count > 0) { badge.textContent = count; badge.style.display = ''; } else { if (badge) badge.remove(); } }
     function connectNotifications() {
-        const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent); const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://'; const notificationSocket = new WebSocket(protocol + window.location.host + '/ws/notifications/'); let heartbeatInterval = null;
-        notificationSocket.onopen = function(e) { console.log("Notification socket connected."); heartbeatInterval = setInterval(() => { notificationSocket.send(JSON.stringify({ 'type': 'heartbeat' })); }, 25000); };
+        const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent); 
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://'; 
+        let notificationSocket = new WebSocket(protocol + window.location.host + '/ws/notifications/'); 
+        let heartbeatInterval = null;
+        let reconnectAttempts = 0;
+        let isTabVisible = !document.hidden;
+        
+        // Enhanced Opera-specific tab visibility handling
+        document.addEventListener('visibilitychange', function() {
+            const wasVisible = isTabVisible;
+            isTabVisible = !document.hidden;
+            
+            if (isTabVisible && !wasVisible) {
+                console.log("Tab became visible - Opera recovery mode");
+                // Always send immediate heartbeat when tab becomes visible
+                if (notificationSocket.readyState === WebSocket.OPEN) {
+                    notificationSocket.send(JSON.stringify({ 'type': 'heartbeat' }));
+                    console.log("Sent recovery heartbeat");
+                } else {
+                    // Force reconnection if connection is lost
+                    notificationSocket.close();
+                    setTimeout(() => connectNotifications(), 50);
+                }
+            }
+        });
+        
+        notificationSocket.onopen = function(e) { 
+            console.log("Notification socket connected."); 
+            reconnectAttempts = 0;
+            // Send immediate heartbeat on connection
+            notificationSocket.send(JSON.stringify({ 'type': 'heartbeat' }));
+            // Consistent heartbeat interval for all browsers - 3 seconds for accuracy
+            const heartbeatFrequency = 3000; // 3 seconds for more accurate status
+            
+            heartbeatInterval = setInterval(() => { 
+                if (notificationSocket.readyState === WebSocket.OPEN) {
+                    // Send heartbeat when tab is visible or focus event detected
+                    if (isTabVisible) {
+                        notificationSocket.send(JSON.stringify({ 'type': 'heartbeat' })); 
+                        console.log("Heartbeat sent - visible:", isTabVisible);
+                    }
+                }
+            }, heartbeatFrequency);
+        };
         notificationSocket.onmessage = function(e) {
             const content = JSON.parse(e.data); const notificationType = content.type; const data = content.data;
-            if (notificationType === 'new_message') { updateConversationLink(data); const isChatActive = typeof activeConversationId !== 'undefined' && activeConversationId !== null && activeConversationId === data.conversation_id; if (!isChatActive) { updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count); if (data.sender_username !== currentUserUsername) { playNotificationSound(); } } } else if (notificationType === 'read_receipt_update') { updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count); const conversationLink = document.querySelector(`.list-group-item[data-conversation-id="${data.conversation_id}"]`); if (conversationLink) { conversationLink.classList.remove('unread', 'unread-highlight'); } } else if (notificationType === 'presence_update') { updateUserStatusOnPage(data); }
+            if (notificationType === 'new_message') { updateConversationLink(data); const isChatActive = typeof activeConversationId !== 'undefined' && activeConversationId !== null && activeConversationId === data.conversation_id; if (!isChatActive) { updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count); if (data.sender_username !== currentUserUsername) { playNotificationSound(); } } } else if (notificationType === 'read_receipt_update') { updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count); const conversationLink = document.querySelector(`.list-group-item[data-conversation-id="${data.conversation_id}"]`); if (conversationLink) { conversationLink.classList.remove('unread', 'unread-highlight'); } } else if (notificationType === 'presence_update') { updateUserStatusOnPage(data); } else if (notificationType === 'heartbeat_ack') { console.log('Heartbeat acknowledged at', content.timestamp, 'for user', content.user); }
         };
-        notificationSocket.onclose = function(e) { console.log("Notification socket closed. Reconnecting..."); clearInterval(heartbeatInterval); setTimeout(connectNotifications, 1000); };
+        notificationSocket.onclose = function(e) { 
+            console.log("Notification socket closed. Code:", e.code, "Reason:", e.reason); 
+            clearInterval(heartbeatInterval); 
+            
+            // Consistent reconnection logic for all browsers
+            const delay = Math.min(500 + (reconnectAttempts * 200), 2000);
+            
+            reconnectAttempts++;
+            console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
+            setTimeout(() => {
+                if (reconnectAttempts < 10) { // Prevent infinite reconnection
+                    connectNotifications();
+                }
+            }, delay); 
+        };
+        
+        // Handle connection errors
+        notificationSocket.onerror = function(e) {
+            console.log("Notification socket error:", e);
+        };
+        
+        // Universal event handling for better status accuracy
+        window.addEventListener('focus', function() {
+            console.log("Window focused - sending immediate heartbeat");
+            if (notificationSocket.readyState === WebSocket.OPEN) {
+                notificationSocket.send(JSON.stringify({ 'type': 'heartbeat' }));
+            } else {
+                console.log("Connection lost during focus - reconnecting");
+                notificationSocket.close();
+                setTimeout(() => connectNotifications(), 50);
+            }
+        });
+        
+        // Listen to page show event (when returning from background)
+        window.addEventListener('pageshow', function(e) {
+            console.log("Page show event - sending heartbeat");
+            if (notificationSocket.readyState === WebSocket.OPEN) {
+                notificationSocket.send(JSON.stringify({ 'type': 'heartbeat' }));
+            }
+        });
     }
     function playNotificationSound() { const sound = document.getElementById('notification-sound'); if (sound) { sound.play().catch(error => console.log("Playback failed:", error)); } }
     connectNotifications(); setInterval(updateRelativeTimestamps, 30000);

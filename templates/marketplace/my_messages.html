@@ -321,7 +321,7 @@
         {% endif %}
     </div>
 
-    {# Right Column: Renders details about the other user #}
+    {# Right Column: Renders details about the other user and admin controls #}
     <div class="chat-details">
         {% if other_user_profile %}
             <h6 class="text-muted text-uppercase small">Registration Date</h6>
@@ -329,6 +329,21 @@
                 {{ other_user_profile.date_joined|date:"d F Y, H:i" }} <br>
                 <small class="text-muted">({{ other_user_profile.date_joined|timesince }} ago)</small>
             </p>
+            
+            {% if active_conversation and not active_conversation.is_disputed %}
+                <hr>
+                <div class="d-grid">
+                    <button class="btn btn-outline-danger btn-sm" onclick="reportDispute({{ active_conversation.id }})">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Report Dispute
+                    </button>
+                </div>
+            {% elif active_conversation.is_disputed %}
+                <div class="alert alert-warning alert-sm mt-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Dispute Reported</strong><br>
+                    <small>An admin will review this conversation</small>
+                </div>
+            {% endif %}
         {% else %}
             <div class="text-center text-muted mt-5">
                 <i class="fas fa-user-circle fa-2x mb-2"></i>
@@ -353,5 +368,31 @@
     {% endif %}
     {{ request.user.username|json_script:"current-user-username" }}
     {% include 'marketplace/partials/unified_chat_script.html' %}
+    
+    <script>
+        function reportDispute(conversationId) {
+            if (confirm('Are you sure you want to report this conversation as a dispute? An admin will review the conversation.')) {
+                fetch(`/ajax/report-dispute/${conversationId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Content-Type': 'application/json',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error reporting dispute: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error reporting dispute');
+                });
+            }
+        }
+    </script>
 {% endif %}
 {% endblock %}

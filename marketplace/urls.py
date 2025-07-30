@@ -39,6 +39,9 @@ urlpatterns = [
     path('order/<int:pk>/refund/', views.refund_order, name='refund_order'),
     path('review/<int:pk>/edit/', views.edit_review, name='edit_review'),
     path('review/<int:pk>/delete/', views.delete_review, name='delete_review'),
+    path('review/<int:review_pk>/reply/', views.create_review_reply, name='create_review_reply'),
+    path('review-reply/<int:reply_pk>/edit/', views.edit_review_reply, name='edit_review_reply'),
+    path('review-reply/<int:reply_pk>/delete/', views.delete_review_reply, name='delete_review_reply'),
 
 
     # User-specific pages
@@ -51,6 +54,7 @@ urlpatterns = [
     path('profile/<str:username>/', views.public_profile_view, name='public_profile'),
     path('ajax/load-more-reviews/<str:username>/', views.load_more_reviews, name='load_more_reviews'),
     path('ajax/send-message/<str:username>/', views.send_chat_message, name='send_chat_message'),
+    path('ajax/load-older-messages/<str:username>/', views.load_older_messages, name='load_older_messages'),
     path('ajax/update-profile-picture/', views.ajax_update_profile_picture, name='ajax_update_profile_picture'),
     path('ajax/update-listing-visibility/', views.ajax_update_listing_visibility, name='ajax_update_listing_visibility'),
     path('ajax/boost-listings/<int:game_pk>/', views.boost_listings, name='boost_listings'),
@@ -63,6 +67,9 @@ urlpatterns = [
     path('jazzcash/callback/', views.jazzcash_callback, name='jazzcash_callback'),
     path('payment-failed/', views.payment_failed_view, name='payment_failed'),
     path('order-confirmation/<int:order_id>/', views.order_confirmation_view, name='order_confirmation'),
+    
+    # Dispute reporting
+    path('ajax/report-dispute/<int:conversation_id>/', views.report_dispute, name='report_dispute'),
 
     # The generic slug URL MUST BE LAST.
     path('<slug:slug>/', views.flat_page_view, name='flat_page'),

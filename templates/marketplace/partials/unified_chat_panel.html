@@ -51,6 +51,15 @@
 
     {# Card Body: The scrollable chat log #}
     <div class="chat-panel-log chat-log-js">
+        <div class="loading-indicator text-center py-2" style="display: none;">
+            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <small class="text-muted ms-2">Loading older messages...</small>
+        </div>
+        <div class="no-more-messages text-center py-2 text-muted" style="display: none;">
+            <small><i class="fas fa-comments"></i> You've reached the beginning of your conversation</small>
+        </div>
         {% for message in messages %}
             {% include 'marketplace/partials/message.html' with message=message %}
         {% endfor %}

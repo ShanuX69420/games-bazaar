@@ -22,24 +22,34 @@ from operator import attrgetter
 from django.core.paginator import Paginator
 from django.template.loader import render_to_string
 from django.views.decorators.csrf import csrf_exempt
+from django.core.cache import cache
+from django.views.decorators.cache import cache_page
 from .jazzcash_utils import get_jazzcash_payment_params, verify_jazzcash_response
 from django.conf import settings
 
 from .models import (
-    Game, Category, Product, Order, Review, FlatPage,
+    Game, Category, Product, Order, Review, ReviewReply, FlatPage,
     Conversation, Message, WithdrawalRequest, SupportTicket, SiteConfiguration, Profile, Transaction, GameCategory, UserGameBoost, ProductImage
 )
 from .forms import (
-    ProductForm, ReviewForm, WithdrawalRequestForm, SupportTicketForm,
+    ProductForm, ReviewForm, ReviewReplyForm, WithdrawalRequestForm, SupportTicketForm,
     ProfilePictureForm, ProfileUpdateForm, CustomUserCreationForm
 )
 
 
 def live_search(request):
     query = request.GET.get('q', '').strip()
-    if not query:
+    if not query or len(query) < 2:  # Minimum 2 characters to reduce load
         return JsonResponse([], safe=False)
-    games = Game.objects.filter(title__istartswith=query).order_by('title').prefetch_related('categories')[:12]
+        
+    # Cache search results for 2 minutes
+    cache_key = f'search_{query.lower()}'
+    cached_results = cache.get(cache_key)
+    
+    if cached_results is not None:
+        return JsonResponse(cached_results, safe=False)
+    
+    games = Game.objects.filter(title__istartswith=query).select_related().prefetch_related('categories')[:6]
     results = []
     for game in games:
         try:
@@ -58,6 +68,8 @@ def live_search(request):
             'url': game_url,
             'categories': categories_data
         })
+    
+    cache.set(cache_key, results, 120)  # Cache for 2 minutes
     return JsonResponse(results, safe=False)
 
 class RegisterView(generic.CreateView):
@@ -86,7 +98,14 @@ def form_valid(self, form):
         return super().form_valid(form)
 
 def home(request):
-    all_games = Game.objects.prefetch_related('categories').order_by(Lower('title'))
+    # Cache games for 10 minutes since they don't change frequently
+    cache_key = 'home_games_list'
+    all_games = cache.get(cache_key)
+    
+    if all_games is None:
+        all_games = list(Game.objects.prefetch_related('categories').order_by(Lower('title')))
+        cache.set(cache_key, all_games, 600)  # 10 minutes
+    
     letters = list(string.ascii_uppercase)
     context = {'games': all_games, 'letters': letters}
     return render(request, 'marketplace/home.html', context)
@@ -101,7 +120,7 @@ def search_results(request):
     return render(request, 'marketplace/search_results.html', context)
 
 def product_detail(request, pk):
-    product = get_object_or_404(Product.objects.select_related('seller__profile', 'game', 'category').prefetch_related('filter_options__filter'), pk=pk)
+    product = get_object_or_404(Product.objects.with_full_details(), pk=pk)
     seller = product.seller
     messages = []
     active_conversation = None
@@ -116,13 +135,14 @@ def product_detail(request, pk):
         message_manager = conversation.messages
         message_count = message_manager.count()
         messages = message_manager.order_by('timestamp')[max(0, message_count - 50):]
-    all_reviews = Review.objects.filter(seller=seller).select_related('buyer__profile', 'order__product__game', 'order__product__category').order_by('-created_at')
+        has_more_messages = message_count > 50
+    all_reviews = Review.objects.with_full_details().by_seller(seller).recent_first()
     rating_filter = request.GET.get('rating')
     if rating_filter and rating_filter.isdigit() and 1 <= int(rating_filter) <= 5:
         reviews_to_display = all_reviews.filter(rating=int(rating_filter))
     else:
         reviews_to_display = all_reviews
-    paginator = Paginator(reviews_to_display, 10)
+    paginator = Paginator(reviews_to_display, 15)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     review_stats = all_reviews.aggregate(average_rating=Avg('rating'), review_count=Count('id'))
@@ -141,13 +161,22 @@ def product_detail(request, pk):
         'current_rating_filter': rating_filter,
         'profile_user': seller,
         'ordered_filter_options': ordered_filter_options,
+        'has_more_messages': has_more_messages if 'has_more_messages' in locals() else False,
     }
     return render(request, 'marketplace/product_detail.html', context)
 
 def game_detail_view(request, pk):
-    game = get_object_or_404(Game, pk=pk)
-    categories = game.categories.all()
-    context = {'game': game, 'categories': categories}
+    # Cache game details for 5 minutes
+    cache_key = f'game_detail_{pk}'
+    cached_data = cache.get(cache_key)
+    
+    if cached_data is None:
+        game = get_object_or_404(Game, pk=pk)
+        categories = list(game.categories.all())
+        cached_data = {'game': game, 'categories': categories}
+        cache.set(cache_key, cached_data, 300)  # 5 minutes
+    
+    context = cached_data
     return render(request, 'marketplace/game_detail.html', context)
 
 
@@ -170,26 +199,28 @@ def listing_page_view(request, game_pk, category_pk):
         game=OuterRef('game')
     ).order_by('-boosted_at').values('boosted_at')[:1]
 
-    listings_query = Product.objects.filter(
+    listings_query = Product.objects.with_full_details().filter(
         game=game,
         category=current_category,
         is_active=True,
         seller__profile__show_listings_on_site=True
-    ).select_related('seller__profile').prefetch_related('filter_options').annotate(
+    ).annotate(
         seller_avg_rating=Avg('seller__reviews__rating'),
         seller_review_count=Count('seller__reviews__id'),
         boost_time=Subquery(boost_subquery)
     )
 
     if filter_online_only == 'on':
-        thirty_seconds_ago = timezone.now() - timedelta(seconds=30)
-        listings_query = listings_query.filter(seller__profile__last_seen__gte=thirty_seconds_ago)
+        ten_seconds_ago = timezone.now() - timedelta(seconds=10)
+        listings_query = listings_query.filter(seller__profile__last_seen__gte=ten_seconds_ago)
 
     if filter_auto_delivery == 'on':
         listings_query = listings_query.filter(automatic_delivery=True)
 
     if filter_q:
-        listings_query = listings_query.filter(listing_title__icontains=filter_q)
+        # Only search if query is meaningful length to reduce DB load
+        if len(filter_q.strip()) >= 2:
+            listings_query = listings_query.filter(listing_title__icontains=filter_q)
 
     if sort_order == 'price_asc':
         listings_query = listings_query.order_by(F('boost_time').desc(nulls_last=True), 'price')
@@ -209,7 +240,7 @@ def listing_page_view(request, game_pk, category_pk):
             listings_query = listings_query.filter(filter_options=int(param_value))
             active_filters[f.id] = int(param_value)
 
-    paginator = Paginator(listings_query, 200)
+    paginator = Paginator(listings_query, 20)
     page_number = request.GET.get('page')
     listings = paginator.get_page(page_number)
 
@@ -259,30 +290,43 @@ def load_more_listings(request, game_pk, category_pk):
     filter_q = request.GET.get('q', '').strip()
     sort_order = request.GET.get('sort', '')
 
+    boost_subquery = UserGameBoost.objects.filter(
+        user=OuterRef('seller'),
+        game=OuterRef('game')
+    ).order_by('-boosted_at').values('boosted_at')[:1]
+
     listings_query = Product.objects.filter(
         game=game,
         category=current_category,
         is_active=True,
         seller__profile__show_listings_on_site=True
-    ).select_related('seller__profile').prefetch_related('filter_options').annotate(
+    ).select_related('seller__profile', 'game', 'category').prefetch_related(
+        'filter_options__filter',
+        'images'  
+    ).annotate(
         seller_avg_rating=Avg('seller__reviews__rating'),
-        seller_review_count=Count('seller__reviews__id')
+        seller_review_count=Count('seller__reviews__id'),
+        boost_time=Subquery(boost_subquery)
     )
 
     if filter_online_only == 'on':
-        thirty_seconds_ago = timezone.now() - timedelta(seconds=30)
-        listings_query = listings_query.filter(seller__profile__last_seen__gte=thirty_seconds_ago)
+        ten_seconds_ago = timezone.now() - timedelta(seconds=10)
+        listings_query = listings_query.filter(seller__profile__last_seen__gte=ten_seconds_ago)
 
     if filter_auto_delivery == 'on':
         listings_query = listings_query.filter(automatic_delivery=True)
 
     if filter_q:
-        listings_query = listings_query.filter(listing_title__icontains=filter_q)
+        # Only search if query is meaningful length to reduce DB load
+        if len(filter_q.strip()) >= 2:
+            listings_query = listings_query.filter(listing_title__icontains=filter_q)
 
     if sort_order == 'price_asc':
-        listings_query = listings_query.order_by('price')
+        listings_query = listings_query.order_by(F('boost_time').desc(nulls_last=True), 'price')
     elif sort_order == 'price_desc':
-        listings_query = listings_query.order_by('-price')
+        listings_query = listings_query.order_by(F('boost_time').desc(nulls_last=True), '-price')
+    else:
+        listings_query = listings_query.order_by(F('boost_time').desc(nulls_last=True), '-created_at')
 
     category_filters = game_category_link.filters.all().prefetch_related('options')
     active_filters = {}
@@ -294,7 +338,7 @@ def load_more_listings(request, game_pk, category_pk):
             listings_query = listings_query.filter(filter_options=int(param_value))
             active_filters[f.id] = int(param_value)
 
-    paginator = Paginator(listings_query, 100)
+    paginator = Paginator(listings_query, 20)
     page_number = request.GET.get('page')
     listings = paginator.get_page(page_number)
 
@@ -320,7 +364,10 @@ def public_profile_view(request, username):
 
     products_qs = Product.objects.filter(
         seller=profile_user, is_active=True, game__isnull=False, category__isnull=False
-    ).select_related('game', 'category').prefetch_related('filter_options__filter').order_by('game__title', 'category__name')
+    ).select_related('game', 'category', 'seller__profile').prefetch_related(
+        'filter_options__filter',
+        'images'
+    ).order_by('game__title', 'category__name')
 
     # Efficiently fetch GameCategory objects
     game_cat_pks = products_qs.values_list('game_id', 'category_id').distinct()
@@ -346,13 +393,13 @@ def public_profile_view(request, username):
                 'game_category_link': game_category_link
             })
 
-    all_reviews = Review.objects.filter(seller=profile_user).select_related('buyer__profile', 'order__product__game', 'order__product__category').order_by('-created_at')
+    all_reviews = Review.objects.filter(seller=profile_user).select_related('buyer__profile', 'order__product__game', 'order__product__category').prefetch_related('reply').order_by('-created_at')
     rating_filter = request.GET.get('rating')
     if rating_filter and rating_filter.isdigit() and 1 <= int(rating_filter) <= 5:
         reviews_to_display = all_reviews.filter(rating=int(rating_filter))
     else: reviews_to_display = all_reviews
     
-    paginator = Paginator(reviews_to_display, 25)
+    paginator = Paginator(reviews_to_display, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     review_stats = all_reviews.aggregate(average_rating=Avg('rating'), review_count=Count('id'))
@@ -366,6 +413,7 @@ def public_profile_view(request, username):
         message_manager = conversation.messages
         message_count = message_manager.count()
         chat_messages = message_manager.order_by('timestamp')[max(0, message_count - 50):]
+        has_more_messages = message_count > 50
 
     context = {
         'profile_user': profile_user,
@@ -377,6 +425,7 @@ def public_profile_view(request, username):
         'p_form': p_form,
         'grouped_listings': grouped_listings,
         'current_rating_filter': rating_filter,
+        'has_more_messages': has_more_messages if 'has_more_messages' in locals() else False,
     }
     return render(request, 'marketplace/public_profile.html', context)
 
@@ -594,7 +643,7 @@ def create_order(request, pk):
 
 @login_required
 def order_detail(request, pk):
-    order = get_object_or_404(Order.objects.select_related('buyer__profile', 'seller__profile', 'product__game', 'product__category', 'game_snapshot', 'category_snapshot'), pk=pk)
+    order = get_object_or_404(Order.objects.with_full_details(), pk=pk)
     if request.user != order.buyer and request.user != order.seller: return HttpResponseForbidden()
 
     ordered_filter_options = order.filter_options_snapshot.select_related('filter').order_by('filter__order')
@@ -606,6 +655,7 @@ def order_detail(request, pk):
     message_manager = conversation.messages
     message_count = message_manager.count()
     messages = message_manager.order_by('timestamp')[max(0, message_count - 50):]
+    has_more_messages = message_count > 50
     
     existing_review = Review.objects.filter(order=order).first()
     review_form = ReviewForm()
@@ -627,17 +677,17 @@ def order_detail(request, pk):
         else:
             return JsonResponse({'status': 'error', 'message': 'Invalid form data.', 'errors': form.errors}, status=400)
 
-    all_reviews = Review.objects.filter(seller=order.seller).select_related('buyer__profile', 'order__product__game', 'order__product__category').order_by('-created_at')
+    all_reviews = Review.objects.filter(seller=order.seller).select_related('buyer__profile', 'order__product__game', 'order__product__category').prefetch_related('reply').order_by('-created_at')
     rating_filter = request.GET.get('rating')
     if rating_filter and rating_filter.isdigit() and 1 <= int(rating_filter) <= 5:
         reviews_to_display = all_reviews.filter(rating=int(rating_filter))
     else:
         reviews_to_display = all_reviews
-    paginator = Paginator(reviews_to_display, 25)
+    paginator = Paginator(reviews_to_display, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     review_stats = all_reviews.aggregate(average_rating=Avg('rating'), review_count=Count('id'))
-    context = { 'order': order, 'other_user': other_user, 'messages': messages, 'active_conversation': conversation, 'review_form': review_form, 'existing_review': existing_review, 'reviews': page_obj, 'average_rating': review_stats['average_rating'], 'review_count': review_stats['review_count'], 'current_rating_filter': rating_filter, 'profile_user': order.seller, 'ordered_filter_options': ordered_filter_options, }
+    context = { 'order': order, 'other_user': other_user, 'messages': messages, 'active_conversation': conversation, 'review_form': review_form, 'existing_review': existing_review, 'reviews': page_obj, 'average_rating': review_stats['average_rating'], 'review_count': review_stats['review_count'], 'current_rating_filter': rating_filter, 'profile_user': order.seller, 'ordered_filter_options': ordered_filter_options, 'has_more_messages': has_more_messages, }
     return render(request, 'marketplace/order_detail.html', context)
 
 @login_required
@@ -705,18 +755,100 @@ def delete_review(request, pk):
     return HttpResponseForbidden()
 
 @login_required
+def create_review_reply(request, review_pk):
+    """Allow sellers to reply to reviews on their products"""
+    review = get_object_or_404(Review, pk=review_pk, seller=request.user)
+    
+    # Check if reply already exists
+    if hasattr(review, 'reply'):
+        return JsonResponse({'status': 'error', 'message': 'You have already replied to this review.'}, status=400)
+    
+    if request.method == 'POST':
+        form = ReviewReplyForm(request.POST)
+        if form.is_valid():
+            reply = form.save(commit=False)
+            reply.review = review
+            reply.seller = request.user
+            reply.save()
+            
+            # Render the reply HTML for immediate display
+            reply_html = render_to_string('marketplace/partials/_review_reply.html', {
+                'reply': reply,
+                'request': request
+            })
+            
+            return JsonResponse({
+                'status': 'success', 
+                'reply_html': reply_html,
+                'message': 'Your reply has been posted successfully.'
+            })
+        else:
+            return JsonResponse({
+                'status': 'error', 
+                'message': 'Please check your reply and try again.',
+                'errors': form.errors
+            }, status=400)
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
+@login_required
+def edit_review_reply(request, reply_pk):
+    """Allow sellers to edit their review replies"""
+    reply = get_object_or_404(ReviewReply, pk=reply_pk, seller=request.user)
+    
+    if request.method == 'POST':
+        form = ReviewReplyForm(request.POST, instance=reply)
+        if form.is_valid():
+            updated_reply = form.save()
+            
+            # Render the updated reply HTML
+            reply_html = render_to_string('marketplace/partials/_review_reply.html', {
+                'reply': updated_reply,
+                'request': request
+            })
+            
+            return JsonResponse({
+                'status': 'success', 
+                'reply_html': reply_html,
+                'message': 'Your reply has been updated successfully.'
+            })
+        else:
+            return JsonResponse({
+                'status': 'error', 
+                'message': 'Please check your reply and try again.',
+                'errors': form.errors
+            }, status=400)
+    
+    # Return current reply data for editing
+    return JsonResponse({
+        'status': 'success',
+        'reply_text': reply.reply_text
+    })
+
+@login_required
+def delete_review_reply(request, reply_pk):
+    """Allow sellers to delete their review replies"""
+    reply = get_object_or_404(ReviewReply, pk=reply_pk, seller=request.user)
+    
+    if request.method == 'POST':
+        reply.delete()
+        return JsonResponse({
+            'status': 'success', 
+            'message': 'Your reply has been deleted successfully.'
+        })
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
+@login_required
 def my_purchases(request):
-    orders_list = Order.objects.filter(buyer=request.user).select_related(
-        'product__game', 'product__category', 'seller__profile', 
-        'game_snapshot', 'category_snapshot'
-    ).order_by('-created_at')
+    orders_list = Order.objects.with_full_details().filter(buyer=request.user).recent_first()
     order_number_query = request.GET.get('order_number', '').strip()
     seller_name_query = request.GET.get('seller_name', '').strip()
     status_query = request.GET.get('status', '').strip()
     if order_number_query and order_number_query.isdigit(): orders_list = orders_list.filter(id=order_number_query)
     if seller_name_query: orders_list = orders_list.filter(seller__username__icontains=seller_name_query)
     if status_query: orders_list = orders_list.filter(status=status_query)
-    paginator = Paginator(orders_list, 100)
+    paginator = Paginator(orders_list, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     context = { 'orders': page_obj, 'statuses_for_filter': Order.STATUS_CHOICES, 'filter_values': request.GET, }
@@ -742,17 +874,14 @@ def load_more_purchases(request):
 
 @login_required
 def my_sales(request):
-    orders_list = Order.objects.filter(seller=request.user).select_related(
-        'product__game', 'product__category', 'buyer__profile', 
-        'game_snapshot', 'category_snapshot'
-    ).order_by('-created_at')
+    orders_list = Order.objects.with_full_details().filter(seller=request.user).recent_first()
     order_number_query = request.GET.get('order_number', '').strip()
     buyer_name_query = request.GET.get('buyer_name', '').strip()
     status_query = request.GET.get('status', '').strip()
     if order_number_query and order_number_query.isdigit(): orders_list = orders_list.filter(id=order_number_query)
     if buyer_name_query: orders_list = orders_list.filter(buyer__username__icontains=buyer_name_query)
     if status_query: orders_list = orders_list.filter(status=status_query)
-    paginator = Paginator(orders_list, 100)
+    paginator = Paginator(orders_list, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     context = { 'orders': page_obj, 'statuses_for_filter': Order.STATUS_CHOICES, 'filter_values': request.GET, }
@@ -791,10 +920,11 @@ def messages_view(request, username=None):
                 message_manager = active_conversation.messages
                 message_count = message_manager.count()
                 messages = message_manager.order_by('timestamp')[max(0, message_count - 50):]
+                has_more_messages = message_count > 50
                 active_conversation.messages.exclude(sender=request.user).update(is_read=True)
                 if active_conversation.id in unread_conversation_ids: unread_conversation_ids.remove(active_conversation.id)
         except User.DoesNotExist: pass
-    context = { 'conversations': conversations, 'active_conversation': active_conversation, 'other_user_profile': other_user, 'messages': messages, 'unread_conversation_ids': unread_conversation_ids, }
+    context = { 'conversations': conversations, 'active_conversation': active_conversation, 'other_user_profile': other_user, 'messages': messages, 'unread_conversation_ids': unread_conversation_ids, 'has_more_messages': has_more_messages if 'has_more_messages' in locals() else False, }
     return render(request, 'marketplace/my_messages.html', context)
 
 @login_required
@@ -807,7 +937,7 @@ def funds_view(request):
     elif filter_by == 'withdrawals': transactions_list = transactions_list.filter(transaction_type='WITHDRAWAL')
     elif filter_by == 'orders': transactions_list = transactions_list.filter(transaction_type__in=['ORDER_PURCHASE', 'ORDER_SALE'])
     elif filter_by == 'miscellaneous': transactions_list = transactions_list.filter(transaction_type='MISCELLANEOUS')
-    paginator = Paginator(transactions_list, 100)
+    paginator = Paginator(transactions_list, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     if request.method == 'POST':
@@ -872,11 +1002,11 @@ def support_center_view(request):
 
 def load_more_reviews(request, username):
     profile_user = get_object_or_404(User, username=username)
-    all_reviews = Review.objects.filter(seller=profile_user).select_related('buyer__profile', 'order__product__game', 'order__product__category').order_by('-created_at')
+    all_reviews = Review.objects.filter(seller=profile_user).select_related('buyer__profile', 'order__product__game', 'order__product__category').prefetch_related('reply').order_by('-created_at')
     rating_filter = request.GET.get('rating')
     if rating_filter and rating_filter.isdigit() and 1 <= int(rating_filter) <= 5: reviews_to_display = all_reviews.filter(rating=int(rating_filter))
     else: reviews_to_display = all_reviews
-    paginator = Paginator(reviews_to_display, 25)
+    paginator = Paginator(reviews_to_display, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     template_to_render = 'marketplace/partials/_profile_review_item.html' if request.user.is_authenticated and request.user == profile_user else 'marketplace/partials/_public_review_item.html'
@@ -897,6 +1027,64 @@ def send_chat_message(request, username):
         Message.objects.create(conversation=conversation, sender=request.user, content=message_content, image=image_file)
         return JsonResponse({'status': 'success'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
+@login_required
+def load_older_messages(request, username):
+    """Load older messages for infinite scroll in chat"""
+    if request.method != 'GET':
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+    
+    other_user = get_object_or_404(User, username=username)
+    
+    # Get the conversation
+    if request.user.id < other_user.id:
+        p1, p2 = request.user, other_user
+    else:
+        p1, p2 = other_user, request.user
+    
+    try:
+        conversation = Conversation.objects.get(participant1=p1, participant2=p2)
+    except Conversation.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Conversation not found.'}, status=404)
+    
+    # Get offset and limit from request with validation
+    try:
+        offset = max(0, int(request.GET.get('offset', 0)))
+        limit = min(50, max(1, int(request.GET.get('limit', 20))))  # Limit between 1-50
+    except (ValueError, TypeError):
+        offset = 0
+        limit = 20
+    
+    # Get total message count first
+    total_messages = conversation.messages.count()
+    
+    # Calculate the actual position for older messages
+    # If we've loaded 50 messages initially, we want messages before those
+    start_index = max(0, total_messages - 50 - offset)
+    end_index = max(0, total_messages - 50 - offset - limit)
+    
+    # Fetch older messages in chronological order
+    if start_index > end_index:
+        messages = conversation.messages.with_sender_info().by_timestamp()[end_index:start_index]
+        messages_list = list(messages)
+    else:
+        messages_list = []
+    
+    # Render messages HTML
+    messages_html = []
+    for message in messages_list:
+        message_html = render_to_string('marketplace/partials/message.html', {
+            'message': message,
+            'request': request
+        })
+        messages_html.append(message_html)
+    
+    return JsonResponse({
+        'status': 'success',
+        'messages_html': messages_html,
+        'has_more': start_index > 0,  # More messages exist if start_index > 0
+        'new_offset': offset + len(messages_list)
+    })
 
 @login_required
 def ajax_update_profile_picture(request):
@@ -1024,3 +1212,37 @@ def payment_failed_view(request):
 def order_confirmation_view(request, order_id):
     order = get_object_or_404(Order, id=order_id, buyer=request.user)
     return render(request, 'marketplace/order_confirmation.html', {'order': order})
+
+@login_required
+def report_dispute(request, conversation_id):
+    """Allow users to report a conversation as disputed"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'})
+    
+    try:
+        conversation = Conversation.objects.get(id=conversation_id)
+        
+        # Check if user is a participant
+        if not conversation.is_participant(request.user):
+            return JsonResponse({'success': False, 'error': 'You are not a participant in this conversation'})
+        
+        if conversation.is_disputed:
+            return JsonResponse({'success': False, 'error': 'This conversation is already reported as disputed'})
+        
+        # Mark as disputed
+        conversation.is_disputed = True
+        conversation.save()
+        
+        # Send system message
+        Message.objects.create(
+            conversation=conversation,
+            sender=request.user,
+            content=f"{request.user.username} has reported this conversation as a dispute. An admin will review the conversation shortly.",
+            is_system_message=True
+        )
+        
+        return JsonResponse({'success': True})
+        
+    except Conversation.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Conversation not found'})
+

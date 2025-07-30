@@ -29,8 +29,13 @@
             </div>
         </div>
         
-        <p class="review-comment mb-0">
+        <p class="review-comment mb-2">
             {{ review.comment|linebreaksbr }}
         </p>
+        
+        {# Show existing reply if it exists #}
+        {% if review.reply %}
+            {% include 'marketplace/partials/_review_reply.html' with reply=review.reply %}
+        {% endif %}
     </div>
 </div>
