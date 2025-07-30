@@ -10,7 +10,7 @@ def get_jazzcash_payment_params(amount, order_id):
     now = datetime.now()
     pp_TxnDateTime = now.strftime('%Y%m%d%H%M%S')
     pp_TxnExpiryDateTime = (now + timedelta(hours=1)).strftime('%Y%m%d%H%M%S')
-    pp_TxnRefNo = 'TXN' + now.strftime('%Y%m%d%H%M%S') + str(order_id).zfill(4)[-4:]
+    pp_TxnRefNo = 'T' + now.strftime('%Y%m%d%H%M%S')
 
     params = {
         'pp_Version': '1.1',
@@ -49,15 +49,18 @@ def verify_jazzcash_response(response_data):
 
     received_hash = response_data.get('pp_SecureHash', '')
     
-    # Create a list of values for hashing, sorted alphabetically by key
-    # Exclude pp_SecureHash from the hash calculation itself
-    sorted_params_list = [str(response_data[key]) for key in sorted(response_data) if key != 'pp_SecureHash' and response_data[key]]
+    # Try excluding empty parameters from hash calculation
+    sorted_params_list = []
+    for key in sorted(response_data.keys()):
+        if key != 'pp_SecureHash' and response_data[key]:  # Only include non-empty values
+            sorted_params_list.append(str(response_data[key]))
 
     # Prepend the Integrity Salt
     hash_string = settings.JAZZCASH_INTEGERITY_SALT + '&' + '&'.join(sorted_params_list)
     
     # Generate the hash
     generated_hash = hashlib.sha256(hash_string.encode()).hexdigest()
+
 
     # Compare the generated hash with the one received from Jazzcash
     return generated_hash.lower() == received_hash.lower()

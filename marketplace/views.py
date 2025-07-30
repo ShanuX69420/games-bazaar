@@ -39,7 +39,7 @@ from .forms import (
 
 def live_search(request):
     query = request.GET.get('q', '').strip()
-    if not query or len(query) < 2:  # Minimum 2 characters to reduce load
+    if not query or len(query) < 1:  # Minimum 1 character to reduce load
         return JsonResponse([], safe=False)
         
     # Cache search results for 2 minutes
@@ -1173,6 +1173,8 @@ def jazzcash_payment(request, product_id):
 def jazzcash_callback(request):
     if request.method == 'POST':
         response_data = request.POST.dict()
+        
+        
         if verify_jazzcash_response(response_data):
             pp_ResponseCode = response_data.get('pp_ResponseCode')
 

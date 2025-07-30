@@ -170,7 +170,8 @@ SOCIALACCOUNT_PROVIDERS = {
 JAZZCASH_MERCHANT_ID = config('JAZZCASH_MERCHANT_ID', default='')
 JAZZCASH_PASSWORD = config('JAZZCASH_PASSWORD', default='')
 JAZZCASH_INTEGERITY_SALT = config('JAZZCASH_INTEGERITY_SALT', default='')
-JAZZCASH_TRANSACTION_URL = config('JAZZCASH_TRANSACTION_URL', default='https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform')
+# Force the correct URL - use sandbox for testing
+JAZZCASH_TRANSACTION_URL = 'https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform'
 JAZZCASH_RETURN_URL = config('JAZZCASH_RETURN_URL', default='http://127.0.0.1:8000/jazzcash/callback/')
 
 # reCAPTCHA Settings (using environment variables for security)
