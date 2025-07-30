@@ -54,3 +54,24 @@ htmlcov/
 # Custom ignores
 .last_sync_commit
 nul
+
+# Cache and temporary files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.log
+*.sqlite3
+
+# Development files
+venv/
+.env
+logs/
+media/
+.cache/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
