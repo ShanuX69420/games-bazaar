@@ -3,13 +3,14 @@
 import hashlib
 from datetime import datetime, timedelta
 from django.conf import settings
+from django.utils.html import escape
 
 def get_jazzcash_payment_params(amount, order_id):
     pp_Amount = int(amount * 100)
     now = datetime.now()
     pp_TxnDateTime = now.strftime('%Y%m%d%H%M%S')
     pp_TxnExpiryDateTime = (now + timedelta(hours=1)).strftime('%Y%m%d%H%M%S')
-    pp_TxnRefNo = 'TXN' + now.strftime('%Y%m%d%H%M%S')
+    pp_TxnRefNo = 'TXN' + now.strftime('%Y%m%d%H%M%S') + str(order_id).zfill(4)[-4:]
 
     params = {
         'pp_Version': '1.1',
@@ -23,7 +24,7 @@ def get_jazzcash_payment_params(amount, order_id):
         'pp_TxnDateTime': pp_TxnDateTime,
         'pp_TxnExpiryDateTime': pp_TxnExpiryDateTime,
         'pp_BillReference': str(order_id),
-        'pp_Description': f'Payment for Order ID: {order_id}',
+        'pp_Description': f'Payment for Order ID: {escape(str(order_id))}',
         'pp_ReturnURL': settings.JAZZCASH_RETURN_URL,
         'pp_SecureHash': '',
         'ppmpf_1': '1',
