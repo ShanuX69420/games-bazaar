@@ -36,35 +36,39 @@ from .forms import (
 
 def live_search(request):
     query = request.GET.get('q', '').strip()
-    if not query or len(query) < 1:  # Minimum 1 character to reduce load
+    if not query or len(query) < 1:
         return JsonResponse([], safe=False)
 
-    # Cache search results for 2 minutes
     cache_key = f'search_{query.lower()}'
     cached_results = cache.get(cache_key)
 
     if cached_results is not None:
         return JsonResponse(cached_results, safe=False)
 
-    games = Game.objects.filter(title__istartswith=query).select_related().prefetch_related('categories')[:6]
+    # DEV NOTE: For a more scalable solution at a larger scale,
+    # a dedicated search index (e.g., Elasticsearch or PostgreSQL's trigram index)
+    # on the 'title' field of the Game model is recommended.
+    games = Game.objects.filter(title__istartswith=query).prefetch_related('categories')[:6]
+    
     results = []
     for game in games:
         try:
             game_url = reverse_lazy('game_detail', kwargs={'pk': game.pk})
+            categories_data = []
+            for cat in game.categories.all():
+                try:
+                    cat_url = reverse_lazy('listing_page', kwargs={'game_pk': game.pk, 'category_pk': cat.pk})
+                    categories_data.append({'name': cat.name, 'url': cat_url})
+                except Exception:
+                    continue
+            
+            results.append({
+                'name': game.title,
+                'url': game_url,
+                'categories': categories_data
+            })
         except Exception:
-            game_url = '#'
-        categories_data = []
-        for cat in game.categories.all():
-            try:
-                cat_url = reverse_lazy('listing_page', kwargs={'game_pk': game.pk, 'category_pk': cat.pk})
-                categories_data.append({'name': cat.name, 'url': cat_url})
-            except Exception:
-                continue
-        results.append({
-            'name': game.title,
-            'url': game_url,
-            'categories': categories_data
-        })
+            continue
 
     cache.set(cache_key, results, 120)  # Cache for 2 minutes
     return JsonResponse(results, safe=False)

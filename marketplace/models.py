@@ -8,6 +8,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from model_utils import FieldTracker
 from decimal import Decimal # Import Decimal
+from django.core.exceptions import ValidationError
 
 # Custom QuerySet classes for optimized queries
 class ProductQuerySet(models.QuerySet):
@@ -204,6 +205,32 @@ class Product(models.Model):
             else:
                 self._stock_count = self.stock
         return self._stock_count
+
+    def clean(self):
+        """
+        Ensures that stock and stock_details are not populated simultaneously and
+        are correctly set based on the automatic_delivery flag.
+        """
+        super().clean()
+        if self.automatic_delivery:
+            if self.stock is not None:
+                raise ValidationError(
+                    "For automatic delivery, 'In Stock' must be empty. Use 'Products for Automatic Delivery' instead."
+                )
+            if not self.stock_details.strip():
+                raise ValidationError(
+                    "For automatic delivery, 'Products for Automatic Delivery' cannot be empty."
+                )
+        else:
+            if self.stock_details.strip():
+                raise ValidationError(
+                    "For manual delivery, 'Products for Automatic Delivery' must be empty. Use 'In Stock' instead."
+                )
+            # For manual delivery, stock is optional. If provided, it cannot be negative.
+            if self.stock is not None and self.stock < 0:
+                raise ValidationError(
+                    "'In Stock' must not be a negative number."
+                )
 
     def __str__(self): return f'{self.game.title} - {self.listing_title}'
 
