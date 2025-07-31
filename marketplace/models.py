@@ -13,31 +13,31 @@ from decimal import Decimal # Import Decimal
 class ProductQuerySet(models.QuerySet):
     def active(self):
         return self.filter(is_active=True)
-    
+
     def with_seller_info(self):
         return self.select_related('seller__profile', 'game', 'category')
-    
+
     def with_full_details(self):
         return self.select_related(
             'seller__profile', 'game', 'category'
         ).prefetch_related('filter_options__filter', 'images')
-    
+
     def by_game_category(self, game, category):
         return self.filter(game=game, category=category, is_active=True)
-    
+
     def recent_first(self):
         return self.order_by('-created_at')
 
 class OrderQuerySet(models.QuerySet):
     def with_full_details(self):
         return self.select_related(
-            'buyer__profile', 'seller__profile', 'product__game', 
+            'buyer__profile', 'seller__profile', 'product__game',
             'product__category', 'game_snapshot', 'category_snapshot'
         ).prefetch_related('filter_options_snapshot__filter')
-    
+
     def by_status(self, status):
         return self.filter(status=status)
-    
+
     def recent_first(self):
         return self.order_by('-created_at')
 
@@ -46,23 +46,23 @@ class ReviewQuerySet(models.QuerySet):
         return self.select_related(
             'buyer__profile', 'order__product__game', 'order__product__category'
         ).prefetch_related('reply')
-    
+
     def by_seller(self, seller):
         return self.filter(seller=seller)
-    
+
     def by_rating(self, rating):
         return self.filter(rating=rating)
-    
+
     def recent_first(self):
         return self.order_by('-created_at')
 
 class MessageQuerySet(models.QuerySet):
     def with_sender_info(self):
         return self.select_related('sender__profile', 'conversation')
-    
+
     def unread(self):
         return self.filter(is_read=False)
-    
+
     def by_timestamp(self):
         return self.order_by('timestamp')
 
@@ -70,31 +70,31 @@ class MessageQuerySet(models.QuerySet):
 class ProductManager(models.Manager):
     def get_queryset(self):
         return ProductQuerySet(self.model, using=self._db)
-    
+
     def active(self):
         return self.get_queryset().active()
-    
+
     def with_full_details(self):
         return self.get_queryset().with_full_details()
 
 class OrderManager(models.Manager):
     def get_queryset(self):
         return OrderQuerySet(self.model, using=self._db)
-    
+
     def with_full_details(self):
         return self.get_queryset().with_full_details()
 
 class ReviewManager(models.Manager):
     def get_queryset(self):
         return ReviewQuerySet(self.model, using=self._db)
-    
+
     def with_full_details(self):
         return self.get_queryset().with_full_details()
 
 class MessageManager(models.Manager):
     def get_queryset(self):
         return MessageQuerySet(self.model, using=self._db)
-    
+
     def with_sender_info(self):
         return self.get_queryset().with_sender_info()
 
@@ -159,16 +159,16 @@ class Profile(models.Model):
         else: return '/static/images/default.jpg'
     @property
     def is_online(self):
-        if self.last_seen: 
+        if self.last_seen:
             # More accurate online window - 10 seconds for better precision
             return timezone.now() < self.last_seen + datetime.timedelta(seconds=10)
         return False
-    
+
     @property
     def can_moderate(self):
         """Check if user can moderate conversations (admin or moderator)"""
         return self.user.is_staff or self.user.is_superuser or self.is_moderator
-    
+
     def __str__(self): return f'{self.user.username} Profile'
 
 @receiver(post_save, sender=User)
@@ -191,15 +191,22 @@ class Product(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     is_active = models.BooleanField(default=True, db_index=True)
     filter_options = models.ManyToManyField('FilterOption', blank=True)
-    
+
     # Custom manager
     objects = ProductManager()
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._stock_count = None
+
     @property
     def stock_count(self):
-        if self.automatic_delivery:
-            return len([line for line in self.stock_details.splitlines() if line.strip()])
-        return self.stock
+        if self._stock_count is None:
+            if self.automatic_delivery:
+                self._stock_count = len([line for line in self.stock_details.splitlines() if line.strip()])
+            else:
+                self._stock_count = self.stock
+        return self._stock_count
 
     def __str__(self): return f'{self.game.title} - {self.listing_title}'
 
@@ -220,7 +227,7 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True, db_index=True)
     commission_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    
+
     # Snapshot fields to preserve data after product deletion
     listing_title_snapshot = models.CharField(max_length=255, null=True, blank=True)
     description_snapshot = models.TextField(null=True, blank=True)
@@ -229,11 +236,11 @@ class Order(models.Model):
     filter_options_snapshot = models.ManyToManyField('FilterOption', blank=True, related_name='order_filter_options_snapshots')
 
     tracker = FieldTracker()
-    
+
     # Custom manager
     objects = OrderManager()
-    
-    def __str__(self): 
+
+    def __str__(self):
         title = self.listing_title_snapshot or (self.product.listing_title if self.product else 'a deleted product')
         return f"Order #{self.id} for {title}"
 
@@ -263,10 +270,10 @@ class Review(models.Model):
     rating = models.PositiveSmallIntegerField(db_index=True)
     comment = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    
+
     # Custom manager
     objects = ReviewManager()
-    
+
     def __str__(self): return f"Review by {self.buyer.username} for Order #{self.order.id}"
 
 class ReviewReply(models.Model):
@@ -275,12 +282,12 @@ class ReviewReply(models.Model):
     reply_text = models.TextField(max_length=1000, help_text="Seller's response to the review")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         verbose_name = "Review Reply"
         verbose_name_plural = "Review Replies"
-    
-    def __str__(self): 
+
+    def __str__(self):
         return f"Reply by {self.seller.username} to review #{self.review.id}"
 
 class Conversation(models.Model):
@@ -290,21 +297,21 @@ class Conversation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_disputed = models.BooleanField(default=False, help_text="Whether this conversation has dispute resolution active")
-    
+
     class Meta: unique_together = ('participant1', 'participant2')
-    
-    def __str__(self): 
+
+    def __str__(self):
         if self.moderator:
             return f"Conversation between {self.participant1.username} and {self.participant2.username} (Moderator: {self.moderator.username})"
         return f"Conversation between {self.participant1.username} and {self.participant2.username}"
-    
+
     def get_participants(self):
         """Returns all participants including moderator"""
         participants = [self.participant1, self.participant2]
         if self.moderator:
             participants.append(self.moderator)
         return participants
-    
+
     def is_participant(self, user):
         """Check if user is a participant (including moderator)"""
         return user in [self.participant1, self.participant2, self.moderator]
@@ -317,10 +324,10 @@ class Message(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
     is_read = models.BooleanField(default=False, db_index=True)
     is_system_message = models.BooleanField(default=False)
-    
+
     # Custom manager
     objects = MessageManager()
-    
+
     def __str__(self): return f"Message from {self.sender.username} at {self.timestamp}"
 
 class WithdrawalRequest(models.Model):

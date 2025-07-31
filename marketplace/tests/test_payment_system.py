@@ -307,16 +307,15 @@ class PaymentSecurityTest(TestCase):
         # Test with potentially malicious input
         malicious_order_id = "1'; DROP TABLE orders; --"
         
-        try:
-            params = get_jazzcash_payment_params(
-                amount=Decimal('100.00'),
-                order_id=malicious_order_id
-            )
-            # Should handle malicious input safely
-            self.assertEqual(params['pp_BillReference'], str(malicious_order_id))
-        except Exception:
-            # If it fails, that's also acceptable for security
-            pass
+        # The function should handle malicious input safely without raising an error.
+        # The Django ORM parameterizes inputs, so this is not a direct DB risk,
+        # but we ensure the function processes it as a string without crashing.
+        params = get_jazzcash_payment_params(
+            amount=Decimal('100.00'),
+            order_id=malicious_order_id
+        )
+        
+        self.assertEqual(params['pp_BillReference'], str(malicious_order_id))
 
     def test_xss_prevention_in_payment_description(self):
         """Test XSS prevention in payment descriptions"""

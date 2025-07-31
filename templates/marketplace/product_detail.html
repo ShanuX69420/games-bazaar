@@ -270,6 +270,7 @@
                     <form id="payment-form" method="post">
                         {% csrf_token %}
                         <button type="submit" id="buy-now-btn" class="btn btn-secondary btn-lg w-100" disabled>Buy Now</button>
+                        <small id="payment-helper-text" class="form-text text-muted d-block text-center mt-1">Please select a payment method to continue.</small>
                     </form>
                     <p class="text-muted text-center small mt-2">
                         Your payment is held securely. The seller will not receive the funds until you have confirmed successful delivery of your order.
@@ -493,10 +494,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 optionsContainer.style.display = 'none';
                 dropdownContainer.classList.remove('open');
                 
-                // Enable buy button when payment method is selected
+                // Enable buy button and hide helper text
                 buyNowBtn.disabled = false;
                 buyNowBtn.classList.remove('btn-secondary');
                 buyNowBtn.classList.add('btn-success');
+                const paymentHelperText = document.getElementById('payment-helper-text');
+                if (paymentHelperText) {
+                    paymentHelperText.classList.remove('d-block');
+                    paymentHelperText.classList.add('d-none');
+                }
                 
                 updateTotalPrice();
             });

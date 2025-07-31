@@ -11,7 +11,7 @@ from django.views import generic
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseForbidden
 from django.db import transaction
-from django.db.models import Sum, Q, Count, Avg, F
+from django.db.models import Sum, Q, Count, Avg, F, OuterRef, Subquery
 from django.db.models.functions import Lower
 from django.contrib.auth.models import User
 import string
@@ -41,14 +41,14 @@ def live_search(request):
     query = request.GET.get('q', '').strip()
     if not query or len(query) < 1:  # Minimum 1 character to reduce load
         return JsonResponse([], safe=False)
-        
+
     # Cache search results for 2 minutes
     cache_key = f'search_{query.lower()}'
     cached_results = cache.get(cache_key)
-    
+
     if cached_results is not None:
         return JsonResponse(cached_results, safe=False)
-    
+
     games = Game.objects.filter(title__istartswith=query).select_related().prefetch_related('categories')[:6]
     results = []
     for game in games:
@@ -68,7 +68,7 @@ def live_search(request):
             'url': game_url,
             'categories': categories_data
         })
-    
+
     cache.set(cache_key, results, 120)  # Cache for 2 minutes
     return JsonResponse(results, safe=False)
 
@@ -101,11 +101,11 @@ def home(request):
     # Cache games for 10 minutes since they don't change frequently
     cache_key = 'home_games_list'
     all_games = cache.get(cache_key)
-    
+
     if all_games is None:
         all_games = list(Game.objects.prefetch_related('categories').order_by(Lower('title')))
         cache.set(cache_key, all_games, 600)  # 10 minutes
-    
+
     letters = list(string.ascii_uppercase)
     context = {'games': all_games, 'letters': letters}
     return render(request, 'marketplace/home.html', context)
@@ -169,13 +169,13 @@ def game_detail_view(request, pk):
     # Cache game details for 5 minutes
     cache_key = f'game_detail_{pk}'
     cached_data = cache.get(cache_key)
-    
+
     if cached_data is None:
         game = get_object_or_404(Game, pk=pk)
         categories = list(game.categories.all())
         cached_data = {'game': game, 'categories': categories}
         cache.set(cache_key, cached_data, 300)  # 5 minutes
-    
+
     context = cached_data
     return render(request, 'marketplace/game_detail.html', context)
 
@@ -302,7 +302,7 @@ def load_more_listings(request, game_pk, category_pk):
         seller__profile__show_listings_on_site=True
     ).select_related('seller__profile', 'game', 'category').prefetch_related(
         'filter_options__filter',
-        'images'  
+        'images'
     ).annotate(
         seller_avg_rating=Avg('seller__reviews__rating'),
         seller_review_count=Count('seller__reviews__id'),
@@ -403,6 +403,15 @@ def public_profile_view(request, username):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     review_stats = all_reviews.aggregate(average_rating=Avg('rating'), review_count=Count('id'))
+
+    # Calculate rating breakdown for the bar chart
+    rating_breakdown = all_reviews.values('rating').annotate(count=Count('rating')).order_by('-rating')
+    ratings = {item['rating']: item['count'] for item in rating_breakdown}
+    total_reviews = review_stats['review_count']
+    rating_percentages = {
+        star: (ratings.get(star, 0) / total_reviews * 100) if total_reviews > 0 else 0
+        for star in range(5, 0, -1)
+    }
     
     other_user = profile_user
     chat_messages = []
@@ -419,7 +428,9 @@ def public_profile_view(request, username):
         'profile_user': profile_user,
         'reviews': page_obj,
         'average_rating': review_stats['average_rating'],
-        'review_count': review_stats['review_count'],
+        'review_count': total_reviews,
+        'ratings': ratings,
+        'rating_percentages': rating_percentages,
         'other_user': other_user,
         'messages': chat_messages,
         'p_form': p_form,
@@ -522,7 +533,7 @@ def edit_product(request, pk):
             for name, value in form.cleaned_data.items():
                 if name.startswith('filter_'):
                     filter_options_to_add.append(value)
-            
+
             if filter_options_to_add:
                 updated_product.filter_options.set(filter_options_to_add)
 
@@ -647,16 +658,16 @@ def order_detail(request, pk):
     if request.user != order.buyer and request.user != order.seller: return HttpResponseForbidden()
 
     ordered_filter_options = order.filter_options_snapshot.select_related('filter').order_by('filter__order')
-    
+
     other_user = order.seller if request.user == order.buyer else order.buyer
     p1, p2 = sorted((request.user.id, other_user.id))
     conversation, created = Conversation.objects.get_or_create(participant1_id=p1, participant2_id=p2)
-    
+
     message_manager = conversation.messages
     message_count = message_manager.count()
     messages = message_manager.order_by('timestamp')[max(0, message_count - 50):]
     has_more_messages = message_count > 50
-    
+
     existing_review = Review.objects.filter(order=order).first()
     review_form = ReviewForm()
 
@@ -758,11 +769,11 @@ def delete_review(request, pk):
 def create_review_reply(request, review_pk):
     """Allow sellers to reply to reviews on their products"""
     review = get_object_or_404(Review, pk=review_pk, seller=request.user)
-    
+
     # Check if reply already exists
     if hasattr(review, 'reply'):
         return JsonResponse({'status': 'error', 'message': 'You have already replied to this review.'}, status=400)
-    
+
     if request.method == 'POST':
         form = ReviewReplyForm(request.POST)
         if form.is_valid():
@@ -770,55 +781,55 @@ def create_review_reply(request, review_pk):
             reply.review = review
             reply.seller = request.user
             reply.save()
-            
+
             # Render the reply HTML for immediate display
             reply_html = render_to_string('marketplace/partials/_review_reply.html', {
                 'reply': reply,
                 'request': request
             })
-            
+
             return JsonResponse({
-                'status': 'success', 
+                'status': 'success',
                 'reply_html': reply_html,
                 'message': 'Your reply has been posted successfully.'
             })
         else:
             return JsonResponse({
-                'status': 'error', 
+                'status': 'error',
                 'message': 'Please check your reply and try again.',
                 'errors': form.errors
             }, status=400)
-    
+
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
 @login_required
 def edit_review_reply(request, reply_pk):
     """Allow sellers to edit their review replies"""
     reply = get_object_or_404(ReviewReply, pk=reply_pk, seller=request.user)
-    
+
     if request.method == 'POST':
         form = ReviewReplyForm(request.POST, instance=reply)
         if form.is_valid():
             updated_reply = form.save()
-            
+
             # Render the updated reply HTML
             reply_html = render_to_string('marketplace/partials/_review_reply.html', {
                 'reply': updated_reply,
                 'request': request
             })
-            
+
             return JsonResponse({
-                'status': 'success', 
+                'status': 'success',
                 'reply_html': reply_html,
                 'message': 'Your reply has been updated successfully.'
             })
         else:
             return JsonResponse({
-                'status': 'error', 
+                'status': 'error',
                 'message': 'Please check your reply and try again.',
                 'errors': form.errors
             }, status=400)
-    
+
     # Return current reply data for editing
     return JsonResponse({
         'status': 'success',
@@ -829,29 +840,51 @@ def edit_review_reply(request, reply_pk):
 def delete_review_reply(request, reply_pk):
     """Allow sellers to delete their review replies"""
     reply = get_object_or_404(ReviewReply, pk=reply_pk, seller=request.user)
-    
+
     if request.method == 'POST':
         reply.delete()
         return JsonResponse({
-            'status': 'success', 
+            'status': 'success',
             'message': 'Your reply has been deleted successfully.'
         })
-    
+
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
+
+def _filter_orders(request, queryset):
+    """Helper function to filter orders based on request parameters."""
+    order_number_query = request.GET.get('order_number', '').strip()
+    status_query = request.GET.get('status', '').strip()
+    
+    # Differentiate between buyer and seller name based on the view
+    seller_name_query = request.GET.get('seller_name', '').strip()
+    buyer_name_query = request.GET.get('buyer_name', '').strip()
+
+    if order_number_query and order_number_query.isdigit():
+        queryset = queryset.filter(id=order_number_query)
+    if seller_name_query:
+        queryset = queryset.filter(seller__username__icontains=seller_name_query)
+    if buyer_name_query:
+        queryset = queryset.filter(buyer__username__icontains=buyer_name_query)
+    if status_query:
+        queryset = queryset.filter(status=status_query)
+        
+    return queryset
 
 @login_required
 def my_purchases(request):
     orders_list = Order.objects.with_full_details().filter(buyer=request.user).recent_first()
-    order_number_query = request.GET.get('order_number', '').strip()
-    seller_name_query = request.GET.get('seller_name', '').strip()
-    status_query = request.GET.get('status', '').strip()
-    if order_number_query and order_number_query.isdigit(): orders_list = orders_list.filter(id=order_number_query)
-    if seller_name_query: orders_list = orders_list.filter(seller__username__icontains=seller_name_query)
-    if status_query: orders_list = orders_list.filter(status=status_query)
+    orders_list = _filter_orders(request, orders_list)
+    
     paginator = Paginator(orders_list, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    context = { 'orders': page_obj, 'statuses_for_filter': Order.STATUS_CHOICES, 'filter_values': request.GET, }
+    
+    context = { 
+        'orders': page_obj, 
+        'statuses_for_filter': Order.STATUS_CHOICES, 
+        'filter_values': request.GET, 
+    }
     return render(request, 'marketplace/my_purchases.html', context)
 
 def load_more_purchases(request):
@@ -859,32 +892,31 @@ def load_more_purchases(request):
         'product__game', 'product__category', 'seller__profile', 
         'game_snapshot', 'category_snapshot'
     ).order_by('-created_at')
-    order_number_query = request.GET.get('order_number', '').strip()
-    seller_name_query = request.GET.get('seller_name', '').strip()
-    status_query = request.GET.get('status', '').strip()
-    if order_number_query and order_number_query.isdigit(): orders_list = orders_list.filter(id=order_number_query)
-    if seller_name_query: orders_list = orders_list.filter(seller__username__icontains=seller_name_query)
-    if status_query: orders_list = orders_list.filter(status=status_query)
+    orders_list = _filter_orders(request, orders_list)
+    
     paginator = Paginator(orders_list, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+    
     html_list = [render_to_string('marketplace/partials/purchase_row.html', {'order': order}) for order in page_obj]
     html = "".join(html_list)
+    
     return JsonResponse({'html': html, 'has_next': page_obj.has_next()})
 
 @login_required
 def my_sales(request):
     orders_list = Order.objects.with_full_details().filter(seller=request.user).recent_first()
-    order_number_query = request.GET.get('order_number', '').strip()
-    buyer_name_query = request.GET.get('buyer_name', '').strip()
-    status_query = request.GET.get('status', '').strip()
-    if order_number_query and order_number_query.isdigit(): orders_list = orders_list.filter(id=order_number_query)
-    if buyer_name_query: orders_list = orders_list.filter(buyer__username__icontains=buyer_name_query)
-    if status_query: orders_list = orders_list.filter(status=status_query)
+    orders_list = _filter_orders(request, orders_list)
+
     paginator = Paginator(orders_list, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    context = { 'orders': page_obj, 'statuses_for_filter': Order.STATUS_CHOICES, 'filter_values': request.GET, }
+
+    context = { 
+        'orders': page_obj, 
+        'statuses_for_filter': Order.STATUS_CHOICES, 
+        'filter_values': request.GET, 
+    }
     return render(request, 'marketplace/my_sales.html', context)
 
 def load_more_sales(request):
@@ -892,22 +924,22 @@ def load_more_sales(request):
         'product__game', 'product__category', 'buyer__profile', 
         'game_snapshot', 'category_snapshot'
     ).order_by('-created_at')
-    order_number_query = request.GET.get('order_number', '').strip()
-    buyer_name_query = request.GET.get('buyer_name', '').strip()
-    status_query = request.GET.get('status', '').strip()
-    if order_number_query and order_number_query.isdigit(): orders_list = orders_list.filter(id=order_number_query)
-    if buyer_name_query: orders_list = orders_list.filter(buyer__username__icontains=buyer_name_query)
-    if status_query: orders_list = orders_list.filter(status=status_query)
+    orders_list = _filter_orders(request, orders_list)
+
     paginator = Paginator(orders_list, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+
     html_list = [render_to_string('marketplace/partials/sale_row.html', {'order': order}) for order in page_obj]
     html = "".join(html_list)
+    
     return JsonResponse({'html': html, 'has_next': page_obj.has_next()})
+
 
 @login_required
 def messages_view(request, username=None):
-    if username and username.lower() == request.user.username.lower(): return redirect('my_messages')
+    if username and username.lower() == request.user.username.lower():
+        return redirect('my_messages')
     conversations = Conversation.objects.filter(Q(participant1=request.user) | Q(participant2=request.user)).annotate(message_count=Count('messages')).filter(message_count__gt=0).exclude(participant1=F('participant2')).order_by('-updated_at')
     unread_conversation_ids = set(Message.objects.filter(conversation__in=conversations, is_read=False).exclude(sender=request.user).values_list('conversation_id', flat=True))
     active_conversation, messages, other_user = None, [], None
@@ -926,6 +958,7 @@ def messages_view(request, username=None):
         except User.DoesNotExist: pass
     context = { 'conversations': conversations, 'active_conversation': active_conversation, 'other_user_profile': other_user, 'messages': messages, 'unread_conversation_ids': unread_conversation_ids, 'has_more_messages': has_more_messages if 'has_more_messages' in locals() else False, }
     return render(request, 'marketplace/my_messages.html', context)
+
 
 @login_required
 def funds_view(request):
@@ -1033,20 +1066,20 @@ def load_older_messages(request, username):
     """Load older messages for infinite scroll in chat"""
     if request.method != 'GET':
         return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
-    
+
     other_user = get_object_or_404(User, username=username)
-    
+
     # Get the conversation
     if request.user.id < other_user.id:
         p1, p2 = request.user, other_user
     else:
         p1, p2 = other_user, request.user
-    
+
     try:
         conversation = Conversation.objects.get(participant1=p1, participant2=p2)
     except Conversation.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Conversation not found.'}, status=404)
-    
+
     # Get offset and limit from request with validation
     try:
         offset = max(0, int(request.GET.get('offset', 0)))
@@ -1054,22 +1087,22 @@ def load_older_messages(request, username):
     except (ValueError, TypeError):
         offset = 0
         limit = 20
-    
+
     # Get total message count first
     total_messages = conversation.messages.count()
-    
+
     # Calculate the actual position for older messages
     # If we've loaded 50 messages initially, we want messages before those
     start_index = max(0, total_messages - 50 - offset)
     end_index = max(0, total_messages - 50 - offset - limit)
-    
+
     # Fetch older messages in chronological order
     if start_index > end_index:
         messages = conversation.messages.with_sender_info().by_timestamp()[end_index:start_index]
         messages_list = list(messages)
     else:
         messages_list = []
-    
+
     # Render messages HTML
     messages_html = []
     for message in messages_list:
@@ -1078,7 +1111,7 @@ def load_older_messages(request, username):
             'request': request
         })
         messages_html.append(message_html)
-    
+
     return JsonResponse({
         'status': 'success',
         'messages_html': messages_html,
@@ -1141,7 +1174,7 @@ def boost_listings(request, game_pk):
 @transaction.atomic
 def jazzcash_payment(request, product_id):
     product = get_object_or_404(Product, pk=product_id)
-    
+
     if request.method == 'POST':
         # Create an order
         order = Order.objects.create(
@@ -1158,13 +1191,13 @@ def jazzcash_payment(request, product_id):
         order.filter_options_snapshot.set(product.filter_options.all())
 
         jazzcash_params = get_jazzcash_payment_params(order.total_price, order.id)
-        
+
         context = {
             'jazzcash_params': jazzcash_params,
             'JAZZCASH_TRANSACTION_URL': settings.JAZZCASH_TRANSACTION_URL
         }
         return render(request, 'marketplace/jazzcash_payment_form.html', context)
-    
+
     # Redirect if it's a GET request or something else
     return redirect('product_detail', pk=product.pk)
 
@@ -1173,8 +1206,8 @@ def jazzcash_payment(request, product_id):
 def jazzcash_callback(request):
     if request.method == 'POST':
         response_data = request.POST.dict()
-        
-        
+
+
         if verify_jazzcash_response(response_data):
             pp_ResponseCode = response_data.get('pp_ResponseCode')
 
@@ -1220,21 +1253,21 @@ def report_dispute(request, conversation_id):
     """Allow users to report a conversation as disputed"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid request method'})
-    
+
     try:
         conversation = Conversation.objects.get(id=conversation_id)
-        
+
         # Check if user is a participant
         if not conversation.is_participant(request.user):
             return JsonResponse({'success': False, 'error': 'You are not a participant in this conversation'})
-        
+
         if conversation.is_disputed:
             return JsonResponse({'success': False, 'error': 'This conversation is already reported as disputed'})
-        
+
         # Mark as disputed
         conversation.is_disputed = True
         conversation.save()
-        
+
         # Send system message
         Message.objects.create(
             conversation=conversation,
@@ -1242,9 +1275,8 @@ def report_dispute(request, conversation_id):
             content=f"{request.user.username} has reported this conversation as a dispute. An admin will review the conversation shortly.",
             is_system_message=True
         )
-        
+
         return JsonResponse({'success': True})
-        
+
     except Conversation.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Conversation not found'})
-

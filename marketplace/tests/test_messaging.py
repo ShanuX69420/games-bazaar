@@ -272,7 +272,7 @@ class MessagingViewTest(TestCase):
 
 class ChatWebSocketTest(TransactionTestCase):
     """Test WebSocket functionality for real-time chat"""
-    
+
     def setUp(self):
         self.user1 = User.objects.create_user(
             username='user1',
@@ -292,52 +292,44 @@ class ChatWebSocketTest(TransactionTestCase):
 
     async def test_websocket_connection(self):
         """Test WebSocket connection for chat"""
-        try:
-            communicator = WebsocketCommunicator(
-                ChatConsumer.as_asgi(),
-                f"/ws/chat/{self.conversation.id}/"
-            )
-            
-            # Mock authentication
-            communicator.scope["user"] = self.user1
-            
-            connected, subprotocol = await communicator.connect()
-            self.assertTrue(connected)
-            
-            await communicator.disconnect()
-        except Exception:
-            # WebSocket testing might not be fully configured
-            # This is acceptable for basic test setup
-            pass
+        communicator = WebsocketCommunicator(
+            ChatConsumer.as_asgi(),
+            f"/ws/chat/{self.conversation.id}/"
+        )
+        
+        # Mock authentication
+        communicator.scope["user"] = self.user1
+        
+        connected, subprotocol = await communicator.connect()
+        self.assertTrue(connected)
+        
+        await communicator.disconnect()
 
     async def test_websocket_message_sending(self):
         """Test sending messages via WebSocket"""
-        try:
-            communicator = WebsocketCommunicator(
-                ChatConsumer.as_asgi(),
-                f"/ws/chat/{self.conversation.id}/"
-            )
-            
-            # Mock authentication
-            communicator.scope["user"] = self.user1
-            
-            connected, subprotocol = await communicator.connect()
-            if connected:
-                # Send a message
-                await communicator.send_json_to({
-                    'message': 'Hello via WebSocket',
-                    'type': 'chat_message'
-                })
-                
-                # Receive the message
-                response = await communicator.receive_json_from()
-                
-                self.assertEqual(response['message'], 'Hello via WebSocket')
-                
-                await communicator.disconnect()
-        except Exception:
-            # WebSocket testing might not be fully configured
-            pass
+        communicator = WebsocketCommunicator(
+            ChatConsumer.as_asgi(),
+            f"/ws/chat/{self.conversation.id}/"
+        )
+        
+        # Mock authentication
+        communicator.scope["user"] = self.user1
+        
+        connected, subprotocol = await communicator.connect()
+        self.assertTrue(connected)
+        
+        # Send a message
+        await communicator.send_json_to({
+            'message': 'Hello via WebSocket',
+            'type': 'chat_message'
+        })
+        
+        # Receive the message
+        response = await communicator.receive_json_from()
+        
+        self.assertEqual(response['message'], 'Hello via WebSocket')
+        
+        await communicator.disconnect()
 
 
 class MessageNotificationTest(TestCase):

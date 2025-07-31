@@ -295,7 +295,7 @@
             
             <div class="chat-form-container">
                 <form id="chat-form" class="chat-form-js" enctype="multipart/form-data">
-                    {% csrf_token %} {# <-- THIS LINE WAS MISSING #}
+                    {% csrf_token %}
                     <div class="input-group">
                         <input id="chat-message-input" name="message" type="text" class="form-control chat-message-input-js" placeholder="Type a message..." autocomplete="off">
 

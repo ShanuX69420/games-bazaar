@@ -61,34 +61,37 @@ def mark_message_as_read_in_db(message_id, user):
 async def broadcast_presence(user, status_data, channel_layer):
     """
     Broadcasts a user's online status to all their conversation partners.
+    This version is optimized to avoid instantiating Conversation objects.
     """
-    # This must be an async function to get conversations
     @database_sync_to_async
-    def get_conversations(u):
-        return list(Conversation.objects.filter(
-            Q(participant1=u) | Q(participant2=u) | Q(moderator=u)
-        ).select_related('participant1', 'participant2', 'moderator').only(
-            'id', 'participant1__username', 'participant2__username', 'moderator__username'
-        ))
-
-    conversations = await get_conversations(user)
-
-    for conv in conversations:
-        # Send presence updates to all participants except the current user
-        participants = [conv.participant1, conv.participant2]
-        if conv.moderator:
-            participants.append(conv.moderator)
+    def get_participant_usernames(u):
+        # Get conversations where the user is participant1
+        p1_convs = Conversation.objects.filter(participant1=u).values_list('participant2__username', flat=True)
+        # Get conversations where the user is participant2
+        p2_convs = Conversation.objects.filter(participant2=u).values_list('participant1__username', flat=True)
+        # Get conversations where the user is a moderator
+        mod_convs_p1 = Conversation.objects.filter(moderator=u).values_list('participant1__username', flat=True)
+        mod_convs_p2 = Conversation.objects.filter(moderator=u).values_list('participant2__username', flat=True)
         
-        for participant in participants:
-            if participant != user:
-                await channel_layer.group_send(
-                    f"notifications_{participant.username}",
-                    {
-                        'type': 'send_notification',
-                        'notification_type': 'presence_update',
-                        'data': status_data
-                    }
-                )
+        # Combine all unique usernames into a set
+        all_participants = set(p1_convs) | set(p2_convs) | set(mod_convs_p1) | set(mod_convs_p2)
+        
+        return all_participants
+
+    # Get the unique set of usernames to notify
+    participant_usernames = await get_participant_usernames(user)
+
+    # Broadcast the presence update to each unique participant
+    for username in participant_usernames:
+        if username != user.username: # Ensure we don't notify the user themselves
+            await channel_layer.group_send(
+                f"notifications_{username}",
+                {
+                    'type': 'send_notification',
+                    'notification_type': 'presence_update',
+                    'data': status_data
+                }
+            )
 
 async def notify_read_receipt(message, user, channel_layer):
     """
