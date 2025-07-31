@@ -4,19 +4,16 @@ from django.http import JsonResponse, HttpResponseForbidden, HttpResponse
 from datetime import timedelta
 from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.forms import UserCreationForm
 from django.urls import reverse_lazy
 from django.contrib.auth import forms as auth_forms
 from django.views import generic
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponseForbidden
 from django.db import transaction
 from django.db.models import Sum, Q, Count, Avg, F, OuterRef, Subquery
 from django.db.models.functions import Lower
 from django.contrib.auth.models import User
 import string
 from django.contrib import messages
-from collections import defaultdict
 from itertools import groupby
 from operator import attrgetter
 from django.core.paginator import Paginator
@@ -393,11 +390,18 @@ def public_profile_view(request, username):
                 'game_category_link': game_category_link
             })
 
-    all_reviews = Review.objects.filter(seller=profile_user).select_related('buyer__profile', 'order__product__game', 'order__product__category').prefetch_related('reply').order_by('-created_at')
+    all_reviews = Review.objects.filter(seller=profile_user).select_related(
+        'buyer__profile', 
+        'order__product__game', 
+        'order__game_snapshot', 
+        'order__category_snapshot'
+    ).prefetch_related('reply').order_by('-created_at')
+
     rating_filter = request.GET.get('rating')
     if rating_filter and rating_filter.isdigit() and 1 <= int(rating_filter) <= 5:
         reviews_to_display = all_reviews.filter(rating=int(rating_filter))
-    else: reviews_to_display = all_reviews
+    else: 
+        reviews_to_display = all_reviews
     
     paginator = Paginator(reviews_to_display, 20)
     page_number = request.GET.get('page')
@@ -415,9 +419,12 @@ def public_profile_view(request, username):
     
     other_user = profile_user
     chat_messages = []
+    has_more_messages = False
     if request.user.is_authenticated and request.user != other_user:
-        if request.user.id < other_user.id: p1, p2 = request.user, other_user
-        else: p1, p2 = other_user, request.user
+        if request.user.id < other_user.id: 
+            p1, p2 = request.user, other_user
+        else: 
+            p1, p2 = other_user, request.user
         conversation, created = Conversation.objects.get_or_create(participant1=p1, participant2=p2)
         message_manager = conversation.messages
         message_count = message_manager.count()
@@ -436,7 +443,7 @@ def public_profile_view(request, username):
         'p_form': p_form,
         'grouped_listings': grouped_listings,
         'current_rating_filter': rating_filter,
-        'has_more_messages': has_more_messages if 'has_more_messages' in locals() else False,
+        'has_more_messages': has_more_messages,
     }
     return render(request, 'marketplace/public_profile.html', context)
 

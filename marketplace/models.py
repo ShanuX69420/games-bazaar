@@ -14,9 +14,6 @@ class ProductQuerySet(models.QuerySet):
     def active(self):
         return self.filter(is_active=True)
 
-    def with_seller_info(self):
-        return self.select_related('seller__profile', 'game', 'category')
-
     def with_full_details(self):
         return self.select_related(
             'seller__profile', 'game', 'category'
