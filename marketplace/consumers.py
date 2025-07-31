@@ -169,7 +169,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'sender': event.get('sender'),
             'timestamp': event.get('timestamp'),
             'is_system_message': event.get('is_system_message', False),
-            'image_url': event.get('image_url')
+            'image_url': event.get('image_url'),
+            'can_moderate': event.get('can_moderate', False)
         }))
 
     # --- Helper Methods for ChatConsumer ---

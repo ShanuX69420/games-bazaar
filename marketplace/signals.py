@@ -66,8 +66,9 @@ def new_message_handler(sender, instance, created, **kwargs):
                 'sender': instance.sender.username,
                 'timestamp': str(instance.timestamp.isoformat()),
                 'is_system_message': instance.is_system_message,
+                'image_url': instance.image.url if instance.image else None,
                 # --- NEW ---
-                'image_url': instance.image.url if instance.image else None
+                'can_moderate': instance.sender.profile.can_moderate
             }
         )
 
