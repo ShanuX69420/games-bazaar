@@ -27,12 +27,16 @@ def smart_time(value):
     if not isinstance(value, datetime.datetime):
         return value
 
-    now = timezone.now()
+    # Convert the database UTC time to the active local time zone (e.g., 'Asia/Karachi')
+    local_time = timezone.localtime(value)
+    now = timezone.localtime(timezone.now())
 
-    if value.date() == now.date():
-        return value.strftime("%I:%M %p").lower() # e.g., 10:30 pm
+    if local_time.date() == now.date():
+        # It's today, show the time
+        return local_time.strftime("%I:%M %p").lower()
     else:
-        return value.strftime("%d.%m.%Y") # e.g., 12.07.2025
+        # It's a different day, show the date
+        return local_time.strftime("%d.%m.%Y")
 
 @register.filter
 def simple_time_since(value):
