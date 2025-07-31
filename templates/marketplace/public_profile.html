@@ -543,19 +543,6 @@
         </div>
     </div>
 </main>
-{% endblock main_content_wrapper %}
-
-{% block content %}
-{# This block is now empty because its content has been moved into the main_content_wrapper block above #}
-{% endblock %}
-
-{% block extra_js %}
-{% if user.is_authenticated and user != profile_user %}
-    {{ profile_user.username|json_script:"other-user-username" }}
-    {{ request.user.username|json_script:"current-user-username" }}
-    {% include 'marketplace/partials/unified_chat_script.html' %}
-{% endif %}
-
 <div class="modal fade" id="profilePictureModal" tabindex="-1" aria-labelledby="profilePictureModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -578,6 +565,18 @@
         </div>
     </div>
 </div>
+{% endblock main_content_wrapper %}
+
+{% block content %}
+{# This block is now empty because its content has been moved into the main_content_wrapper block above #}
+{% endblock %}
+
+{% block extra_js %}
+{% if user.is_authenticated and user != profile_user %}
+    {{ profile_user.username|json_script:"other-user-username" }}
+    {{ request.user.username|json_script:"current-user-username" }}
+    {% include 'marketplace/partials/unified_chat_script.html' %}
+{% endif %}
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
