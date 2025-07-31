@@ -10,7 +10,7 @@ def get_jazzcash_payment_params(amount, order_id):
     now = datetime.now()
     pp_TxnDateTime = now.strftime('%Y%m%d%H%M%S')
     pp_TxnExpiryDateTime = (now + timedelta(hours=1)).strftime('%Y%m%d%H%M%S')
-    pp_TxnRefNo = 'T' + now.strftime('%Y%m%d%H%M%S')
+    pp_TxnRefNo = 'TXN' + now.strftime('%Y%m%d%H%M%S') + str(order_id).zfill(4)
 
     params = {
         'pp_Version': '1.1',

@@ -356,23 +356,33 @@
                                 <div class="rating-number-subtext">out of 5</div>
                             </div>
                             <div class="rating-breakdown">
-                            <div class="rating-breakdown-bars">
-                                {% for star, percentage in rating_percentages.items %}
-                                <div class="rating-breakdown-row">
-                                    {% for i in "12345" %}
-                                        <i class="fa-star {% if i|add:0 <= star %}fas{% else %}far{% endif %}"></i>
-                                    {% endfor %}
-                                    <div class="rating-bar-container">
-                                        <div class="rating-bar" style="width: {{ percentage|floatformat:2 }}%;"></div>
+                                <div class="rating-breakdown-bars">
+                                    <div class="rating-breakdown-row">
+                                        <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+                                        <div class="rating-bar-container"><div class="rating-bar" style="width: 85%;"></div></div>
+                                    </div>
+                                    <div class="rating-breakdown-row">
+                                        <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i>
+                                        <div class="rating-bar-container"><div class="rating-bar" style="width: 10%;"></div></div>
+                                    </div>
+                                    <div class="rating-breakdown-row">
+                                        <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i><i class="far fa-star"></i>
+                                        <div class="rating-bar-container"><div class="rating-bar" style="width: 2%;"></div></div>
+                                    </div>
+                                    <div class="rating-breakdown-row">
+                                        <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i><i class="far fa-star"></i><i class="far fa-star"></i>
+                                        <div class="rating-bar-container"><div class="rating-bar" style="width: 1%;"></div></div>
+                                    </div>
+                                    <div class="rating-breakdown-row">
+                                        <i class="fas fa-star"></i><i class="far fa-star"></i><i class="far fa-star"></i><i class="far fa-star"></i><i class="far fa-star"></i>
+                                        <div class="rating-bar-container"><div class="rating-bar" style="width: 2%;"></div></div>
                                     </div>
                                 </div>
-                                {% endfor %}
+                                <a href="#reviews-section" class="rating-breakdown-total">
+                                    {{ review_count }} reviews
+                                    <span>total</span>
+                                </a>
                             </div>
-                            <a href="#reviews-section" class="rating-breakdown-total">
-                                {{ review_count }} reviews
-                                <span>total</span>
-                            </a>
-                        </div>
                         </div>
 
                         {# Mobile Rating View #}

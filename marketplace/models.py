@@ -232,6 +232,11 @@ class Product(models.Model):
                     "'In Stock' must not be a negative number."
                 )
 
+    def save(self, *args, **kwargs):
+        # Clear stock_count cache when saving
+        self._stock_count = None
+        super().save(*args, **kwargs)
+
     def __str__(self): return f'{self.game.title} - {self.listing_title}'
 
 class ProductImage(models.Model):
