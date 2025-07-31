@@ -54,21 +54,23 @@ def new_message_handler(sender, instance, created, **kwargs):
         # This is the key to sorting your conversations correctly on refresh.
         conversation.save()
 
+        # --- MODIFICATION START ---
+        # Render the message HTML on the server side
+        message_html = render_to_string(
+            'marketplace/partials/message.html', 
+            {'message': instance}
+        )
+        # --- MODIFICATION END ---
+
         room_group_name = f'chat_{conversation.id}'
 
-        # 1. Broadcast the full message to the active chat window
+        # 1. Broadcast the pre-rendered HTML to the active chat window
         async_to_sync(channel_layer.group_send)(
             room_group_name,
             {
                 'type': 'chat_message',
-                'message_id': instance.id,
-                'message': instance.content,
-                'sender': instance.sender.username,
-                'timestamp': str(instance.timestamp.isoformat()),
-                'is_system_message': instance.is_system_message,
-                'image_url': instance.image.url if instance.image else None,
-                # --- NEW ---
-                'can_moderate': instance.sender.profile.can_moderate
+                # --- MODIFIED ---
+                'message_html': message_html, 
             }
         )
 

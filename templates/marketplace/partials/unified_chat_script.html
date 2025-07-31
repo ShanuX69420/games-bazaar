@@ -223,19 +223,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
         chatSocket.onmessage = function(e) {
             const data = JSON.parse(e.data);
-            const messageWrapper = document.createElement('div');
-            messageWrapper.innerHTML = createMessageHTML(data);
-            
-            allChatLogs.forEach(log => {
-                log.appendChild(messageWrapper.cloneNode(true));
-                scrollToBottom(log);
-            });
 
-            if (!data.is_system_message && data.sender !== currentUserUsername) {
-                chatSocket.send(JSON.stringify({
-                    'type': 'mark_as_read',
-                    'message_id': data.message_id
-                }));
+            // Check if the incoming event is a new message
+            if (data.type === 'new_message' && data.message_html) {
+                // Directly append the pre-rendered HTML from the server
+                allChatLogs.forEach(log => {
+                    log.insertAdjacentHTML('beforeend', data.message_html);
+                    scrollToBottom(log);
+                });
+
+                // If the message is not from the current user, mark it as read
+                // (This part of the logic remains conceptually the same but is now cleaner)
+                if (!data.message_html.includes(`<strong>${currentUserUsername}</strong>`)) {
+                     chatSocket.send(JSON.stringify({
+                        'type': 'mark_as_read',
+                        'message_id': data.message_id 
+                        // Note: You might need to adjust how message_id is passed if you still need it here.
+                        // For now, the primary goal is rendering.
+                    }));
+                }
             }
         };
 

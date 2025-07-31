@@ -163,14 +163,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         Receives a message from a channel layer group (sent by a signal)
         and forwards it to the client's WebSocket.
         """
+        # The event now contains the pre-rendered HTML, which we forward directly.
         await self.send(text_data=json.dumps({
-            'message_id': event.get('message_id'),
-            'message': event.get('message'),
-            'sender': event.get('sender'),
-            'timestamp': event.get('timestamp'),
-            'is_system_message': event.get('is_system_message', False),
-            'image_url': event.get('image_url'),
-            'can_moderate': event.get('can_moderate', False)
+            'type': 'new_message',
+            'message_html': event.get('message_html')
         }))
 
     # --- Helper Methods for ChatConsumer ---
