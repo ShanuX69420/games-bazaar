@@ -483,6 +483,12 @@ def flat_page_view(request, slug):
     page = get_object_or_404(FlatPage, slug=slug)
     return render(request, 'marketplace/flat_page.html', {'page': page})
 
+def privacy_policy_view(request):
+    return render(request, 'marketplace/privacy_policy.html')
+
+def cookie_policy_view(request):
+    return render(request, 'marketplace/cookie_policy.html')
+
 @login_required
 def select_game_for_listing(request):
     games = Game.objects.all().order_by('title')

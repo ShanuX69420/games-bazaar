@@ -71,6 +71,10 @@ urlpatterns = [
     # Dispute reporting
     path('ajax/report-dispute/<int:conversation_id>/', views.report_dispute, name='report_dispute'),
 
+    # Policy pages (must come before generic slug URL)
+    path('privacy-policy/', views.privacy_policy_view, name='privacy_policy'),
+    path('cookie-policy/', views.cookie_policy_view, name='cookie_policy'),
+
     # The generic slug URL MUST BE LAST.
     path('<slug:slug>/', views.flat_page_view, name='flat_page'),
 ]

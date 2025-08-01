@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+    .policy-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+        line-height: 1.8;
+        color: #333;
+    }
+    
+    .policy-header {
+        text-align: center;
+        margin-bottom: 3rem;
+        padding-bottom: 2rem;
+        border-bottom: 3px solid #2ABF64;
+    }
+    
+    .policy-title {
+        color: #2ABF64;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+    
+    .last-updated {
+        font-style: italic;
+        color: #6c757d;
+        font-size: 1.1rem;
+        background-color: #f8f9fa;
+        padding: 0.75rem 1.5rem;
+        border-radius: 25px;
+        display: inline-block;
+    }
+    
+    .policy-intro {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2.5rem;
+        border-left: 5px solid #f39c12;
+    }
+    
+    .policy-intro p {
+        font-size: 1.1rem;
+        margin: 0;
+        font-weight: 500;
+    }
+    
+    .cookie-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .section {
+        margin-bottom: 3rem;
+    }
+    
+    .section-title {
+        color: #2ABF64;
+        font-size: 1.8rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .section-number {
+        background-color: #2ABF64;
+        color: white;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    
+    .cookie-types {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin: 2rem 0;
+    }
+    
+    .cookie-type-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        border-left: 5px solid #2ABF64;
+        transition: all 0.3s ease;
+    }
+    
+    .cookie-type-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(42, 191, 100, 0.1);
+    }
+    
+    .cookie-type-title {
+        color: #2ABF64;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .cookie-type-icon {
+        background-color: #2ABF64;
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+    }
+    
+    .policy-content p {
+        margin-bottom: 1.2rem;
+        text-align: justify;
+    }
+    
+    .highlight-text {
+        color: #2ABF64;
+        font-weight: 600;
+    }
+    
+    .what-are-cookies {
+        background: linear-gradient(135deg, #e7f3ff 0%, #cce7ff 100%);
+        border: 1px solid #b8daff;
+        border-radius: 12px;
+        padding: 2rem;
+        margin: 2rem 0;
+        text-align: center;
+    }
+    
+    .what-are-cookies h3 {
+        color: #0066cc;
+        margin-bottom: 1rem;
+        font-size: 1.5rem;
+    }
+    
+    .control-section {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        border: 1px solid #f39c12;
+        border-radius: 12px;
+        padding: 2rem;
+        margin: 2rem 0;
+    }
+    
+    .control-section h3 {
+        color: #e67e22;
+        margin-bottom: 1rem;
+        font-size: 1.5rem;
+        text-align: center;
+    }
+    
+    .browser-instructions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .browser-card {
+        background-color: white;
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+    
+    .browser-card:hover {
+        border-color: #2ABF64;
+        transform: translateY(-2px);
+    }
+    
+    .browser-name {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+    
+    @media (max-width: 768px) {
+        .policy-container {
+            padding: 1rem 0.5rem;
+        }
+        
+        .policy-title {
+            font-size: 2rem;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            flex-direction: column;
+            text-align: center;
+            gap: 0.5rem;
+        }
+        
+        .cookie-types {
+            grid-template-columns: 1fr;
+        }
+        
+        .cookie-type-card:hover {
+            transform: none;
+        }
+    }
+</style>
+
+<div class="policy-container">
+    <div class="policy-header">
+        <div class="cookie-icon">🍪</div>
+        <h1 class="policy-title">Cookies Policy</h1>
+        <div class="last-updated">Last Updated: August 1, 2025</div>
+    </div>
+
+    <div class="policy-intro">
+        <p>This Cookies Policy explains how <span class="highlight-text">Games Bazaar</span> uses cookies and similar technologies to recognize you when you visit our website.</p>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">1</span>
+            What are cookies?
+        </h2>
+        <div class="what-are-cookies">
+            <h3>🍪 Understanding Cookies</h3>
+            <p>Cookies are <span class="highlight-text">small data files</span> that are placed on your computer or mobile device when you visit a website. Cookies are widely used by website owners in order to make their websites work, or to work more efficiently, as well as to provide reporting information.</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">2</span>
+            How we use cookies
+        </h2>
+        <div class="policy-content">
+            <p>We use cookies for several reasons. Some cookies are required for technical reasons in order for our website to operate, and we refer to these as <span class="highlight-text">"essential"</span> or <span class="highlight-text">"strictly necessary"</span> cookies. Other cookies also enable us to track and target the interests of our users to enhance the experience on our website.</p>
+            
+            <p>The specific types of first and third-party cookies served through our website and the purposes they perform are described below:</p>
+
+            <div class="cookie-types">
+                <div class="cookie-type-card">
+                    <h3 class="cookie-type-title">
+                        <span class="cookie-type-icon">⚡</span>
+                        Essential Cookies
+                    </h3>
+                    <p>These cookies are <span class="highlight-text">strictly necessary</span> to provide you with services available through our website and to use some of its features, such as access to secure areas.</p>
+                </div>
+
+                <div class="cookie-type-card">
+                    <h3 class="cookie-type-title">
+                        <span class="cookie-type-icon">🚀</span>
+                        Performance & Functionality
+                    </h3>
+                    <p>These cookies are used to <span class="highlight-text">enhance the performance and functionality</span> of our website but are non-essential to their use. However, without these cookies, certain functionality may become unavailable.</p>
+                </div>
+
+                <div class="cookie-type-card">
+                    <h3 class="cookie-type-title">
+                        <span class="cookie-type-icon">📊</span>
+                        Analytics & Customization
+                    </h3>
+                    <p>These cookies collect information that is used either in aggregate form to help us understand how our website is being used or how effective our marketing campaigns are, or to help us <span class="highlight-text">customize our website</span> for you.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">3</span>
+            How can I control cookies?
+        </h2>
+        <div class="control-section">
+            <h3>🎛️ Cookie Control Options</h3>
+            <p>You have the <span class="highlight-text">right to decide</span> whether to accept or reject cookies. You can exercise your cookie preferences by setting or amending your web browser controls to accept or refuse cookies.</p>
+            
+            <p><strong>Important Note:</strong> If you choose to reject cookies, you may still use our website though your access to some functionality and areas of our website may be restricted.</p>
+
+            <div class="browser-instructions">
+                <div class="browser-card">
+                    <div class="browser-name">🌐 Chrome</div>
+                    <p>Settings → Privacy & Security → Cookies</p>
+                </div>
+                <div class="browser-card">
+                    <div class="browser-name">🦊 Firefox</div>
+                    <p>Options → Privacy & Security → Cookies</p>
+                </div>
+                <div class="browser-card">
+                    <div class="browser-name">🧭 Safari</div>
+                    <p>Preferences → Privacy → Cookies</p>
+                </div>
+                <div class="browser-card">
+                    <div class="browser-name">📘 Edge</div>
+                    <p>Settings → Privacy → Cookies</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="background: linear-gradient(135deg, #2ABF64 0%, #229a50 100%); color: white; border-radius: 12px; padding: 2.5rem; margin-top: 3rem; text-align: center;">
+        <h3 style="color: white; margin-bottom: 1rem; font-size: 1.8rem;">🍪 Questions about Cookies?</h3>
+        <p style="font-size: 1.1rem; margin: 0;">If you have any questions about our use of cookies or this Cookies Policy, please contact us at:</p>
+        <div style="background-color: rgba(255, 255, 255, 0.2); padding: 0.5rem 1rem; border-radius: 25px; display: inline-block; margin-top: 1rem; font-weight: 600;">[Your Contact Email Address]</div>
+    </div>
+</div>
+{% endblock %}
