@@ -1,0 +1,24 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+<!-- Support Dashboard Quick Access -->
+<div class="module" style="margin-bottom: 20px;">
+    <table>
+        <caption style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px;">
+            🎫 Support Management
+        </caption>
+        <tr>
+            <td style="padding: 15px;">
+                <a href="/admin/chat/support-dashboard/" style="text-decoration: none;">
+                    <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; padding: 15px; border-radius: 8px; text-align: center;">
+                        <h3 style="margin: 0; font-size: 1.2em;">📊 Support Dashboard</h3>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9;">View all support tickets, urgent items, and statistics</p>
+                    </div>
+                </a>
+            </td>
+        </tr>
+    </table>
+</div>
+
+{{ block.super }}
+{% endblock %}

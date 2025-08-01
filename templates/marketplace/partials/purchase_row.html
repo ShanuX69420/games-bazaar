@@ -8,7 +8,7 @@
         <small class="text-muted">{{ order.created_at|timesince }} ago</small>
     </div>
     {# Order #}
-    <div data-label="Order">#{{ order.id }}</div>
+    <div data-label="Order">{{ order.order_id }}</div>
     {# Description #}
     <div data-label="Description">
         {% if order.product %}
@@ -69,7 +69,7 @@
             <span class="text-muted">{{ order.created_at|timesince }} ago</span>
         </div>
         <div class="mobile-order-info">
-            Order #{{ order.id }}
+            Order {{ order.order_id }}
         </div>
         {% if order.product %}
             <div class="mobile-listing-title">

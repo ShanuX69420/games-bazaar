@@ -267,10 +267,16 @@
         <div class="mt-4">
             {% if user.is_authenticated %}
                 {% if user != product.seller %}
-                    <form id="payment-form" method="post">
+                    <form id="payment-form" method="post" action="{% url 'create_order' pk=product.pk %}">
                         {% csrf_token %}
-                        <button type="submit" id="buy-now-btn" class="btn btn-secondary btn-lg w-100" disabled>Buy Now</button>
-                        <small id="payment-helper-text" class="form-text text-muted d-block text-center mt-1">Please select a payment method to continue.</small>
+                        <button type="submit" id="buy-now-btn" class="btn btn-success btn-lg w-100">Buy Now</button>
+                        <small id="payment-helper-text" class="form-text text-muted d-block text-center mt-1">
+                            {% if user.profile.balance >= product.price %}
+                                Will be paid from your balance (Rs {{ user.profile.balance|floatformat:2 }} available)
+                            {% else %}
+                                Balance: Rs {{ user.profile.balance|floatformat:2 }} | Need: Rs {{ product.price|sub:user.profile.balance|floatformat:2 }} via payment method
+                            {% endif %}
+                        </small>
                     </form>
                     <p class="text-muted text-center small mt-2">
                         Your payment is held securely. The seller will not receive the funds until you have confirmed successful delivery of your order.
@@ -494,14 +500,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 optionsContainer.style.display = 'none';
                 dropdownContainer.classList.remove('open');
                 
-                // Enable buy button and hide helper text
-                buyNowBtn.disabled = false;
-                buyNowBtn.classList.remove('btn-secondary');
-                buyNowBtn.classList.add('btn-success');
+                // Update helper text to show selected payment method
                 const paymentHelperText = document.getElementById('payment-helper-text');
                 if (paymentHelperText) {
-                    paymentHelperText.classList.remove('d-block');
-                    paymentHelperText.classList.add('d-none');
+                    paymentHelperText.innerHTML = `Payment method selected: ${value}`;
                 }
                 
                 updateTotalPrice();
@@ -535,28 +537,63 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Handle form submission based on selected payment method
+    // Handle form submission - hybrid payment system
     if (paymentForm) {
         paymentForm.addEventListener('submit', function(e) {
             e.preventDefault();
             
-            if (!selectedPaymentMethod) {
-                dropdownContainer.classList.add('is-invalid');
-                alert('Please select a payment method first.');
-                return;
+            // Get quantity for multiple purchase
+            let quantity = 1;
+            if (multiplePurchaseSection.style.display !== 'none') {
+                quantity = parseInt(quantityInput.value, 10) || 1;
             }
             
-            // Set form action based on selected payment method
-            if (selectedPaymentMethod === 'Jazzcash') {
-                this.action = "{% url 'jazzcash_payment' product_id=product.pk %}";
-            } else if (selectedPaymentMethod === 'Easypaisa') {
-                // For now, redirect to jazzcash (you can create easypaisa handler later)
-                alert('Easypaisa payment is coming soon! Using JazzCash for now.');
-                this.action = "{% url 'jazzcash_payment' product_id=product.pk %}";
-            }
+            // Disable button to prevent double submission
+            buyNowBtn.disabled = true;
+            buyNowBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
             
-            // Submit the form
-            this.submit();
+            // Create order via AJAX to handle hybrid payment
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            formData.append('quantity', quantity);
+            
+            fetch("{% url 'create_order' pk=product.pk %}", {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Order completed using balance - redirect to order page
+                    window.location.href = data.order_url;
+                } else if (data.status === 'payment_required') {
+                    // Need external payment - check if payment method selected
+                    if (!selectedPaymentMethod) {
+                        alert(`Your balance (Rs ${data.paid_from_balance.toFixed(2)}) covers part of the cost. Please select a payment method for the remaining Rs ${data.remaining_amount.toFixed(2)}.`);
+                        buyNowBtn.disabled = false;
+                        buyNowBtn.innerHTML = 'Buy Now';
+                        return;
+                    }
+                    
+                    // Redirect to payment method
+                    if (selectedPaymentMethod === 'Jazzcash') {
+                        window.location.href = "{% url 'jazzcash_payment' product_id=product.pk %}";
+                    } else if (selectedPaymentMethod === 'Easypaisa') {
+                        alert('Easypaisa payment is coming soon! Using JazzCash for now.');
+                        window.location.href = "{% url 'jazzcash_payment' product_id=product.pk %}";
+                    }
+                } else {
+                    alert(data.message || 'An error occurred');
+                    buyNowBtn.disabled = false;
+                    buyNowBtn.innerHTML = 'Buy Now';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while processing your order');
+                buyNowBtn.disabled = false;
+                buyNowBtn.innerHTML = 'Buy Now';
+            });
         });
     }
 

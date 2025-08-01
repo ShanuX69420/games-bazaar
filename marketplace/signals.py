@@ -149,9 +149,9 @@ def order_status_change_handler(sender, instance, created, **kwargs):
         seller_context = get_user_context(seller)
         
         if created:
-            message_for_ui = f"New order #{instance.id} from {buyer.username}."
+            message_for_ui = f"New order {instance.order_id} from {buyer.username}."
         else:
-            message_for_ui = f"Order #{instance.id} status updated to {instance.get_status_display()}."
+            message_for_ui = f"Order {instance.order_id} status updated to {instance.get_status_display()}."
 
         async_to_sync(channel_layer.group_send)(
             f'notifications_{buyer.username}',

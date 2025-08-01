@@ -1,0 +1,259 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .chat-widget {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-top: 20px;
+        overflow: hidden;
+    }
+    
+    .chat-header {
+        background: linear-gradient(135deg, #6f42c1, #5a2d91);
+        color: white;
+        padding: 12px 15px;
+        font-weight: bold;
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .chat-content {
+        max-height: 400px;
+        overflow-y: auto;
+        display: none;
+    }
+    
+    .chat-content.expanded {
+        display: block;
+    }
+    
+    .conversation-item {
+        border-bottom: 1px solid #e9ecef;
+        padding: 10px 15px;
+        background: white;
+        margin-bottom: 2px;
+    }
+    
+    .conversation-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+    
+    .other-participant {
+        font-weight: bold;
+        color: #495057;
+    }
+    
+    .conversation-meta {
+        font-size: 0.85em;
+        color: #6c757d;
+    }
+    
+    .dispute-badge {
+        background: #dc3545;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.75em;
+        font-weight: bold;
+    }
+    
+    .chat-actions {
+        margin-top: 8px;
+    }
+    
+    .chat-btn {
+        background: #6f42c1;
+        color: white;
+        border: none;
+        padding: 4px 12px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 0.85em;
+        margin-right: 5px;
+        display: inline-block;
+    }
+    
+    .chat-btn:hover {
+        background: #5a2d91;
+        color: white;
+        text-decoration: none;
+    }
+    
+    .recent-messages {
+        background: #f8f9fa;
+        padding: 8px 15px;
+        font-size: 0.85em;
+        color: #6c757d;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .no-chats {
+        padding: 20px;
+        text-align: center;
+        color: #6c757d;
+        font-style: italic;
+    }
+    
+    .order-widget {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        margin-top: 15px;
+        padding: 15px;
+    }
+    
+    .order-header {
+        font-weight: bold;
+        color: #856404;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .order-details {
+        background: white;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 10px;
+    }
+    
+    .expand-icon {
+        float: right;
+        transition: transform 0.3s ease;
+    }
+    
+    .expanded .expand-icon {
+        transform: rotate(180deg);
+    }
+</style>
+{% endblock %}
+
+{% block after_related_objects %}
+{{ block.super }}
+
+<!-- Order Information Widget -->
+{% if original.order_number %}
+<div class="order-widget">
+    <div class="order-header">
+        📦 Related Order Information
+    </div>
+    {% if related_order %}
+    <div class="order-details">
+        <p><strong>Order #{{ original.order_number }}</strong></p>
+        <p><strong>Product:</strong> {{ related_order.listing_title_snapshot }}</p>
+        {% if related_order.description_snapshot %}
+        <p><strong>Description:</strong> 
+            <span style="background: #f8f9fa; padding: 5px 10px; border-radius: 5px; display: inline-block; margin-top: 5px; font-size: 0.9em; color: #495057;">
+                {{ related_order.description_snapshot|truncatechars:150 }}
+            </span>
+        </p>
+        {% endif %}
+        <p><strong>Buyer:</strong> {{ related_order.buyer.username }}</p>
+        <p><strong>Seller:</strong> {{ related_order.seller.username }}</p>
+        <p><strong>Price:</strong> Rs{{ related_order.total_price }}</p>
+        <p><strong>Status:</strong> 
+            <span class="badge" style="background: 
+                {% if related_order.status == 'COMPLETED' %}#28a745
+                {% elif related_order.status == 'PENDING' %}#ffc107; color: black
+                {% elif related_order.status == 'CANCELLED' %}#dc3545
+                {% else %}#6c757d{% endif %}; color: white; padding: 3px 8px; border-radius: 12px;">
+                {{ related_order.get_status_display }}
+            </span>
+        </p>
+        <p><strong>Created:</strong> {{ related_order.created_at|date:"M d, Y H:i" }}</p>
+        <a href="/admin/marketplace/order/{{ related_order.id }}/change/" target="_blank" class="chat-btn">
+            View Full Order Details
+        </a>
+    </div>
+    {% else %}
+    <div class="order-details">
+        <p style="color: #dc3545;">⚠️ Order #{{ original.order_number }} not found in database</p>
+        <p><small>This might be a manually entered order number or the order may have been deleted.</small></p>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Chat Widget -->
+<div class="chat-widget">
+    <div class="chat-header" onclick="toggleChat()">
+        💬 User Conversations
+        <span class="expand-icon">▼</span>
+    </div>
+    <div class="chat-content" id="chatContent">
+        {% if conversations %}
+            {% for conversation in conversations %}
+            <div class="conversation-item">
+                <div class="conversation-header">
+                    <span class="other-participant">
+                        {% if conversation.participant1.id == original.user.id %}
+                            {{ conversation.participant2.username }}
+                        {% else %}
+                            {{ conversation.participant1.username }}
+                        {% endif %}
+                    </span>
+                    <div>
+                        {% if conversation.is_disputed %}
+                            <span class="dispute-badge">DISPUTED</span>
+                        {% endif %}
+                        <span class="conversation-meta">{{ conversation.updated_at|timesince }} ago</span>
+                    </div>
+                </div>
+                
+                {% if conversation.recent_message %}
+                <div class="recent-messages">
+                    <strong>Recent:</strong> {{ conversation.recent_message|truncatechars:100 }}
+                </div>
+                {% endif %}
+                
+                <div class="chat-actions">
+                    <a href="/admin/chat/conversation/{{ conversation.id }}/chat/" target="_blank" class="chat-btn">
+                        View Full Chat
+                    </a>
+                    {% if conversation.is_disputed %}
+                    <a href="/admin/marketplace/conversation/{{ conversation.id }}/change/" target="_blank" class="chat-btn" style="background: #dc3545;">
+                        Manage Dispute
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+        <div class="no-chats">
+            <p>No conversations found for this user.</p>
+            <p><small>The user hasn't started any chats yet or all conversations have been deleted.</small></p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function toggleChat() {
+    const content = document.getElementById('chatContent');
+    const header = document.querySelector('.chat-header');
+    
+    if (content.classList.contains('expanded')) {
+        content.classList.remove('expanded');
+        header.classList.remove('expanded');
+    } else {
+        content.classList.add('expanded');
+        header.classList.add('expanded');
+    }
+}
+
+// Auto-expand if there are disputed conversations
+document.addEventListener('DOMContentLoaded', function() {
+    const disputedConversations = document.querySelectorAll('.dispute-badge');
+    if (disputedConversations.length > 0) {
+        toggleChat();
+    }
+});
+</script>
+{% endblock %}

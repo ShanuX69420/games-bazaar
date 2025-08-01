@@ -599,7 +599,25 @@ def create_order(request, pk):
         quantity = 1
 
     total_price = product.price * quantity
-    order_status = 'PROCESSING'
+    
+    # Get user's current balance
+    user_balance = request.user.profile.balance
+    
+    # Ensure both values are Decimal for proper comparison
+    from decimal import Decimal
+    user_balance = Decimal(str(user_balance))
+    total_price = Decimal(str(total_price))
+    
+    # Calculate payment split
+    amount_from_balance = min(user_balance, total_price)
+    remaining_amount = total_price - amount_from_balance
+    
+    # Determine order status based on payment requirements
+    if remaining_amount > Decimal('0.00'):
+        order_status = 'PENDING_PAYMENT'  # Need external payment
+    else:
+        order_status = 'PROCESSING'  # Fully paid from balance
+    
     item_to_deliver = None
 
     if product.automatic_delivery:
@@ -626,13 +644,14 @@ def create_order(request, pk):
                 return JsonResponse({'status': 'error', 'message': 'Not enough stock available.'}, status=400)
         # If product.stock is None, proceed without stock check
 
-
     order = Order.objects.create(
         buyer=request.user,
         seller=product.seller,
         product=product,
         total_price=total_price,
         status=order_status,
+        amount_paid_from_balance=amount_from_balance,
+        amount_paid_via_payment_method=Decimal('0.00'),
         # Snapshot fields
         listing_title_snapshot=product.listing_title,
         description_snapshot=product.description,
@@ -640,6 +659,17 @@ def create_order(request, pk):
         category_snapshot=product.category
     )
     order.filter_options_snapshot.set(product.filter_options.all())
+    
+    # If using balance, create deduction transaction
+    if amount_from_balance > 0:
+        Transaction.objects.create(
+            user=request.user,
+            amount=-amount_from_balance,
+            transaction_type='ORDER_PURCHASE',
+            status='COMPLETED',
+            description=f'Balance payment for order {order.order_id}',
+            order=order
+        )
 
 
     p1, p2 = sorted((order.buyer.id, order.seller.id))
@@ -647,7 +677,7 @@ def create_order(request, pk):
 
     if product.automatic_delivery and item_to_deliver:
         message_content = (
-            f"Order #{order.id}: Your automatically delivered item{'s are' if quantity > 1 else ' is'} available below.\n\n"
+            f"Order {order.order_id}: Your automatically delivered item{'s are' if quantity > 1 else ' is'} available below.\n\n"
             f"---\n{item_to_deliver}\n---"
         )
         Message.objects.create(
@@ -666,8 +696,21 @@ def create_order(request, pk):
             is_system_message=False # This is a message from the seller, not the system
         )
 
-    order_url = reverse_lazy('order_detail', kwargs={'pk': order.pk})
-    return JsonResponse({'status': 'success', 'order_url': order_url})
+    # Return appropriate response based on payment status
+    if remaining_amount > Decimal('0.00'):
+        # Need external payment - redirect to payment page
+        return JsonResponse({
+            'status': 'payment_required',
+            'order_id': order.id,
+            'total_price': float(total_price),
+            'paid_from_balance': float(amount_from_balance),
+            'remaining_amount': float(remaining_amount),
+            'payment_url': reverse_lazy('jazzcash_payment', kwargs={'product_id': product.id})
+        })
+    else:
+        # Fully paid from balance
+        order_url = reverse_lazy('order_detail', kwargs={'pk': order.pk})
+        return JsonResponse({'status': 'success', 'order_url': order_url})
 
 @login_required
 def order_detail(request, pk):
@@ -751,7 +794,7 @@ def refund_order(request, pk):
     order.status = 'REFUNDED'
     order.save()
 
-    messages.success(request, f'Order #{order.id} has been successfully refunded to the buyer.')
+    messages.success(request, f'Order {order.order_id} has been successfully refunded to the buyer.')
     return redirect('order_detail', pk=order.pk)
 
 @login_required
@@ -1193,25 +1236,59 @@ def jazzcash_payment(request, product_id):
     product = get_object_or_404(Product, pk=product_id)
 
     if request.method == 'POST':
-        # Create an order
-        order = Order.objects.create(
+        # Check if there's a pending order for this user and product
+        pending_order = Order.objects.filter(
             buyer=request.user,
-            seller=product.seller,
             product=product,
-            total_price=product.price,
-            status='PENDING_PAYMENT',
-            listing_title_snapshot=product.listing_title,
-            description_snapshot=product.description,
-            game_snapshot=product.game,
-            category_snapshot=product.category,
-        )
-        order.filter_options_snapshot.set(product.filter_options.all())
+            status='PENDING_PAYMENT'
+        ).first()
+        
+        if pending_order:
+            # Use existing order with remaining amount
+            payment_amount = pending_order.total_price - pending_order.amount_paid_from_balance
+            order = pending_order
+        else:
+            # Create a new order (fallback for direct payment)
+            user_balance = request.user.profile.balance
+            total_price = product.price
+            amount_from_balance = min(user_balance, total_price)
+            remaining_amount = total_price - amount_from_balance
+            
+            order = Order.objects.create(
+                buyer=request.user,
+                seller=product.seller,
+                product=product,
+                total_price=total_price,
+                status='PENDING_PAYMENT',
+                amount_paid_from_balance=amount_from_balance,
+                amount_paid_via_payment_method=Decimal('0.00'),
+                listing_title_snapshot=product.listing_title,
+                description_snapshot=product.description,
+                game_snapshot=product.game,
+                category_snapshot=product.category,
+            )
+            order.filter_options_snapshot.set(product.filter_options.all())
+            
+            # Create balance deduction transaction if applicable
+            if amount_from_balance > 0:
+                Transaction.objects.create(
+                    user=request.user,
+                    amount=-amount_from_balance,
+                    transaction_type='ORDER_PURCHASE',
+                    status='COMPLETED',
+                    description=f'Balance payment for order {order.order_id}',
+                    order=order
+                )
+            
+            payment_amount = remaining_amount
 
-        jazzcash_params = get_jazzcash_payment_params(order.total_price, order.id)
+        jazzcash_params = get_jazzcash_payment_params(payment_amount, order.id)
 
         context = {
             'jazzcash_params': jazzcash_params,
-            'JAZZCASH_TRANSACTION_URL': settings.JAZZCASH_TRANSACTION_URL
+            'JAZZCASH_TRANSACTION_URL': settings.JAZZCASH_TRANSACTION_URL,
+            'order': order,
+            'payment_amount': payment_amount
         }
         return render(request, 'marketplace/jazzcash_payment_form.html', context)
 
@@ -1239,8 +1316,21 @@ def jazzcash_callback(request):
             if pp_ResponseCode == '000':
                 # Only update status if it's still pending
                 if order.status == 'PENDING_PAYMENT':
+                    # Update payment tracking - amount paid via payment method
+                    remaining_amount = order.total_price - order.amount_paid_from_balance
+                    order.amount_paid_via_payment_method = remaining_amount
                     order.status = 'PROCESSING'
-                    order.save() # The post_save signal will handle transaction creation
+                    order.save()
+                    
+                    # Create transaction for payment method amount
+                    Transaction.objects.create(
+                        user=order.buyer,
+                        amount=-remaining_amount,
+                        transaction_type='ORDER_PURCHASE',
+                        status='COMPLETED',
+                        description=f'Payment method payment for order {order.order_id}',
+                        order=order
+                    )
                 messages.success(request, "Payment successful!")
                 return redirect('order_confirmation', order_id=order.id)
             else:

@@ -5,7 +5,10 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
-from .models import Conversation, Message, User
+from django.db.models import Count, Q
+from django.utils import timezone
+from datetime import timedelta
+from .models import Conversation, Message, User, SupportTicket, Order
 import json
 
 def test_view(request):
@@ -133,3 +136,64 @@ def admin_send_message(request, conversation_id):
         
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+@staff_member_required
+def support_dashboard(request):
+    """Enhanced support ticket dashboard for admins"""
+    
+    # Get ticket statistics
+    today = timezone.now().date()
+    week_ago = today - timedelta(days=7)
+    
+    stats = {
+        'total_open': SupportTicket.objects.filter(status='OPEN').count(),
+        'total_in_progress': SupportTicket.objects.filter(status='IN_PROGRESS').count(),
+        'total_closed_today': SupportTicket.objects.filter(status='CLOSED', updated_at__date=today).count(),
+        'total_this_week': SupportTicket.objects.filter(created_at__date__gte=week_ago).count(),
+    }
+    
+    # Get category breakdown
+    category_stats = SupportTicket.objects.filter(status__in=['OPEN', 'IN_PROGRESS']).values('issue_category').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    # Get user type breakdown for pending tickets
+    user_type_stats = SupportTicket.objects.filter(status__in=['OPEN', 'IN_PROGRESS']).values('user_type').annotate(
+        count=Count('id')
+    )
+    
+    # Recent urgent tickets (open > 24 hours)
+    urgent_cutoff = timezone.now() - timedelta(hours=24)
+    urgent_tickets = SupportTicket.objects.filter(
+        status='OPEN', 
+        created_at__lt=urgent_cutoff
+    ).select_related('user').order_by('created_at')[:10]
+    
+    # Recent tickets for quick overview
+    recent_tickets = SupportTicket.objects.select_related('user').order_by('-created_at')[:20]
+    
+    # Get order details for tickets with order numbers
+    for ticket in recent_tickets:
+        if ticket.order_number:
+            try:
+                # Clean the order number - ensure it has # prefix
+                clean_order_id = ticket.order_number.strip()
+                if not clean_order_id.startswith('#'):
+                    clean_order_id = '#' + clean_order_id
+                
+                ticket.related_order = Order.objects.filter(order_id=clean_order_id).first()
+            except:
+                ticket.related_order = None
+        else:
+            ticket.related_order = None
+    
+    context = {
+        'stats': stats,
+        'category_stats': category_stats,
+        'user_type_stats': user_type_stats,
+        'urgent_tickets': urgent_tickets,
+        'recent_tickets': recent_tickets,
+        'title': 'Support Dashboard',
+    }
+    
+    return render(request, 'admin/support_dashboard.html', context)

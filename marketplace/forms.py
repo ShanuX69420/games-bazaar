@@ -103,8 +103,21 @@ class WithdrawalRequestForm(forms.ModelForm):
 class SupportTicketForm(forms.ModelForm):
     class Meta:
         model = SupportTicket
-        fields = ['subject', 'message']
+        fields = ['user_type', 'issue_category', 'order_number', 'subject', 'message']
         widgets = {
+            'user_type': forms.Select(attrs={
+                'class': 'form-control',
+                'id': 'id_user_type'
+            }),
+            'issue_category': forms.Select(attrs={
+                'class': 'form-control',
+                'id': 'id_issue_category'
+            }),
+            'order_number': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'e.g., ORD-123456',
+                'id': 'id_order_number'
+            }),
             'subject': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Brief description of your issue'
@@ -116,6 +129,9 @@ class SupportTicketForm(forms.ModelForm):
             })
         }
         labels = {
+            'user_type': 'I am contacting as a',
+            'issue_category': 'Issue Category',
+            'order_number': 'Order Number (if applicable)',
             'subject': 'Subject',
             'message': 'Detailed Message'
         }

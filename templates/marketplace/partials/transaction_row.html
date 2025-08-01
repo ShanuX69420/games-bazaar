@@ -9,7 +9,7 @@
      data-tx-total="{% if tx.status == 'REFUNDED' %}{% if tx.amount > 0 %}-Rs{{ tx.amount|floatformat:2 }}{% else %}+Rs{{ tx.amount|floatformat:2|cut:'-' }}{% endif %}{% else %}{% if tx.amount > 0 %}+Rs{{ tx.amount|floatformat:2 }}{% else %}-Rs{{ tx.amount|floatformat:2|cut:'-' }}{% endif %}{% endif %}"
      data-tx-status="{{ tx.get_status_display }}"
      data-tx-type="{{ tx.transaction_type }}"
-     {% if tx.order %}data-order-id="{{ tx.order.id }}" data-order-url="{% url 'order_detail' tx.order.pk %}"{% endif %}
+     {% if tx.order %}data-order-id="{{ tx.order.order_id }}" data-order-url="{% url 'order_detail' tx.order.pk %}"{% endif %}
      {% if tx.withdrawal %}data-withdrawal-id="{{ tx.withdrawal.id }}"{% endif %}
      {% if tx.transaction_type == 'DEPOSIT' %}data-deposit-id="{{ tx.id }}"{% endif %}
 >
@@ -42,14 +42,14 @@
      data-tx-total="{% if tx.status == 'REFUNDED' %}{% if tx.amount > 0 %}-Rs{{ tx.amount|floatformat:2 }}{% else %}+Rs{{ tx.amount|floatformat:2|cut:'-' }}{% endif %}{% else %}{% if tx.amount > 0 %}+Rs{{ tx.amount|floatformat:2 }}{% else %}-Rs{{ tx.amount|floatformat:2|cut:'-' }}{% endif %}{% endif %}"
      data-tx-status="{{ tx.get_status_display }}"
      data-tx-type="{{ tx.transaction_type }}"
-     {% if tx.order %}data-order-id="{{ tx.order.id }}" data-order-url="{% url 'order_detail' tx.order.pk %}"{% endif %}
+     {% if tx.order %}data-order-id="{{ tx.order.order_id }}" data-order-url="{% url 'order_detail' tx.order.pk %}"{% endif %}
      {% if tx.withdrawal %}data-withdrawal-id="{{ tx.withdrawal.id }}"{% endif %}
      {% if tx.transaction_type == 'DEPOSIT' %}data-deposit-id="{{ tx.id }}"{% endif %}
 >
     <div class="mobile-left-col">
         <div class="mobile-tx-description">
             {% if tx.order %}
-                Order #{{ tx.order.id }}
+                Order {{ tx.order.order_id }}
             {% else %}
                 {{ tx.description }}
             {% endif %}

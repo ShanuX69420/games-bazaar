@@ -9,6 +9,8 @@ from django.dispatch import receiver
 from model_utils import FieldTracker
 from decimal import Decimal # Import Decimal
 from django.core.exceptions import ValidationError
+import string
+import random
 
 # Custom QuerySet classes for optimized queries
 class ProductQuerySet(models.QuerySet):
@@ -167,6 +169,13 @@ class Profile(models.Model):
         """Check if user can moderate conversations (admin or moderator)"""
         return self.user.is_staff or self.user.is_superuser or self.is_moderator
 
+    @property
+    def balance(self):
+        """Calculate user's current balance from completed transactions"""
+        from django.db.models import Sum
+        balance_data = Transaction.objects.filter(user=self.user, status='COMPLETED').aggregate(balance=Sum('amount'))
+        return balance_data.get('balance') or Decimal('0.00')
+
     def __str__(self): return f'{self.user.username} Profile'
 
 @receiver(post_save, sender=User)
@@ -246,8 +255,22 @@ class ProductImage(models.Model):
     def __str__(self):
         return f"Image for {self.product.listing_title}"
 
+def generate_unique_order_id():
+    """Generate a unique order ID with format: #AU482ZZ (7 characters: 2 letters + 3 numbers + 2 letters)"""
+    while True:
+        # Generate 2 letters + 3 numbers + 2 letters for more letters than numbers
+        letters1 = ''.join(random.choices(string.ascii_uppercase, k=2))
+        numbers = ''.join(random.choices(string.digits, k=3))
+        letters2 = ''.join(random.choices(string.ascii_uppercase, k=2))
+        order_id = f"#{letters1}{numbers}{letters2}"
+        
+        # Check if this ID already exists
+        if not Order.objects.filter(order_id=order_id).exists():
+            return order_id
+
 class Order(models.Model):
     STATUS_CHOICES = [('PENDING_PAYMENT', 'Pending Payment'), ('PROCESSING', 'Processing'), ('DELIVERED', 'Delivered'), ('COMPLETED', 'Completed'), ('DISPUTED', 'Disputed'), ('REFUNDED', 'Refunded'), ('CANCELLED', 'Cancelled')]
+    order_id = models.CharField(max_length=20, unique=True, db_index=True, help_text="Unique order identifier")
     buyer = models.ForeignKey(User, related_name='purchases', on_delete=models.CASCADE)
     seller = models.ForeignKey(User, related_name='sales', on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
@@ -256,6 +279,10 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True, db_index=True)
     commission_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    
+    # Payment split tracking
+    amount_paid_from_balance = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), help_text="Amount paid from user balance")
+    amount_paid_via_payment_method = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), help_text="Amount paid via external payment method")
 
     # Snapshot fields to preserve data after product deletion
     listing_title_snapshot = models.CharField(max_length=255, null=True, blank=True)
@@ -269,9 +296,14 @@ class Order(models.Model):
     # Custom manager
     objects = OrderManager()
 
+    def save(self, *args, **kwargs):
+        if not self.order_id:
+            self.order_id = generate_unique_order_id()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         title = self.listing_title_snapshot or (self.product.listing_title if self.product else 'a deleted product')
-        return f"Order #{self.id} for {title}"
+        return f"Order {self.order_id} for {title}"
 
     def calculate_commission(self):
         rate = None
@@ -303,7 +335,7 @@ class Review(models.Model):
     # Custom manager
     objects = ReviewManager()
 
-    def __str__(self): return f"Review by {self.buyer.username} for Order #{self.order.id}"
+    def __str__(self): return f"Review by {self.buyer.username} for Order {self.order.order_id}"
 
 class ReviewReply(models.Model):
     review = models.OneToOneField(Review, on_delete=models.CASCADE, related_name='reply')
@@ -371,14 +403,38 @@ class WithdrawalRequest(models.Model):
 
 class SupportTicket(models.Model):
     STATUS_CHOICES = [('OPEN', 'Open'), ('IN_PROGRESS', 'In Progress'), ('CLOSED', 'Closed')]
+    
+    USER_TYPE_CHOICES = [
+        ('BUYER', 'Buyer'),
+        ('SELLER', 'Seller')
+    ]
+    
+    ISSUE_CATEGORY_CHOICES = [
+        ('ORDER', 'Issue with an Order'),
+        ('ACCOUNT', 'Account Related Issue'),
+        ('PAYMENT', 'Payment & Billing'),
+        ('TECHNICAL', 'Technical Support'),
+        ('GENERAL', 'General Inquiry'),
+        ('BUG_REPORT', 'Bug Report'),
+        ('FEATURE_REQUEST', 'Feature Request')
+    ]
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='support_tickets')
+    user_type = models.CharField(max_length=10, choices=USER_TYPE_CHOICES, default='BUYER', help_text="Are you contacting us as a buyer or seller?")
+    issue_category = models.CharField(max_length=20, choices=ISSUE_CATEGORY_CHOICES, default='GENERAL', help_text="What type of issue are you experiencing?")
+    order_number = models.CharField(max_length=50, blank=True, null=True, help_text="If this is about a specific order, please provide the order number")
     subject = models.CharField(max_length=255)
     message = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='OPEN')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     admin_response = models.TextField(blank=True, null=True)
-    def __str__(self): return f"Ticket #{self.id} by {self.user.username} - {self.subject}"
+    
+    def __str__(self): 
+        return f"Ticket #{self.id} by {self.user.username} ({self.get_user_type_display()}) - {self.subject}"
+    
+    class Meta:
+        ordering = ['-created_at']
 
 class Transaction(models.Model):
     TRANSACTION_TYPE_CHOICES = [('DEPOSIT', 'Deposit'), ('WITHDRAWAL', 'Withdrawal'), ('ORDER_PURCHASE', 'Order Purchase'), ('ORDER_SALE', 'Order Sale'), ('MISCELLANEOUS', 'Miscellaneous')]

@@ -150,7 +150,7 @@
 
     <div class="col-lg-5 col-md-7">
         <div class="mb-4">
-            <h2 class="mb-1">Order #{{ order.id }}</h2>
+            <h2 class="mb-1">Order {{ order.order_id }}</h2>
             {% if order.status == 'COMPLETED' %}
                 <div class="fs-4 fw-bold text-success">Closed</div>
             {% elif order.status == 'REFUNDED' %}

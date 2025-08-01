@@ -131,21 +131,21 @@ class CompleteUserJourneyTest(TestCase):
             user=buyer,
             amount=order.total_price,
             transaction_type='purchase',
-            description=f"Purchase of {product.listing_title} - Order #{order.id}"
+            description=f"Purchase of {product.listing_title} - Order {order.order_id}"
         )
         
         sale_transaction = Transaction.objects.create(
             user=seller,
             amount=order.total_price * Decimal('0.95'),  # 95% after 5% commission
             transaction_type='sale',
-            description=f"Sale of {product.listing_title} - Order #{order.id}"
+            description=f"Sale of {product.listing_title} - Order {order.order_id}"
         )
         
         commission_transaction = Transaction.objects.create(
             user=seller,  # Commission taken from seller's earning
             amount=order.total_price * Decimal('0.05'),  # 5% commission
             transaction_type='commission',
-            description=f"Commission for Order #{order.id}"
+            description=f"Commission for Order {order.order_id}"
         )
         
         # Step 7: Order completion
@@ -264,7 +264,7 @@ class CompleteUserJourneyTest(TestCase):
             user=buyer,
             amount=order.total_price,
             transaction_type='refund',
-            description=f"Refund for disputed Order #{order.id}"
+            description=f"Refund for disputed Order {order.order_id}"
         )
         
         self.assertEqual(order.status, 'REFUNDED')
