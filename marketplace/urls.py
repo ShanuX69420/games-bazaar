@@ -71,6 +71,11 @@ urlpatterns = [
     # Dispute reporting
     path('ajax/report-dispute/<int:conversation_id>/', views.report_dispute, name='report_dispute'),
 
+    # User blocking functionality
+    path('ajax/block-user/<int:user_id>/', views.block_user, name='block_user'),
+    path('ajax/unblock-user/<int:user_id>/', views.unblock_user, name='unblock_user'),
+    path('ajax/check-blocked/<int:user_id>/', views.check_user_blocked_status, name='check_blocked_status'),
+
     # Policy pages (must come before generic slug URL)
     path('privacy-policy/', views.privacy_policy_view, name='privacy_policy'),
     path('cookie-policy/', views.cookie_policy_view, name='cookie_policy'),

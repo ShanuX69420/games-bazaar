@@ -251,6 +251,175 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     connect();
+    
+    // Define helper functions in the correct scope
+    function updateBlockButton(isBlocked, buttonElement = null) {
+        const targetBtn = buttonElement || document.querySelector('.block-user-btn');
+        
+        if (targetBtn) {
+            const actionText = targetBtn.querySelector('.block-action-text');
+            if (actionText) {
+                const newText = isBlocked ? 'Unblock User' : 'Block User';
+                actionText.textContent = newText;
+            }
+        }
+    }
+    
+    function updateBlockedIndicator(isBlocked) {
+        const blockedIndicator = document.querySelector('.blocked-user-indicator');
+        
+        if (blockedIndicator) {
+            blockedIndicator.style.display = isBlocked ? 'inline-block' : 'none';
+        }
+    }
+    
+    function updateChatForm(isBlocked, blockData) {
+        const chatForm = document.querySelector('.chat-form-js');
+        const blockedMessage = document.querySelector('.blocked-chat-message');
+        const blockedMessageText = document.querySelector('.blocked-message-text');
+        const blockedHelpText = document.querySelector('.blocked-help-text');
+        const messageInput = document.querySelector('.chat-message-input-js');
+        const imageInput = document.querySelector('.chat-image-input-js');
+        const imageLabel = document.querySelector('.chat-image-label-js');
+        const sendBtn = document.querySelector('.chat-send-btn');
+        
+        if (isBlocked) {
+            // Hide chat form and show blocked message
+            if (chatForm) chatForm.style.display = 'none';
+            if (blockedMessage) blockedMessage.style.display = 'block';
+            
+            // Update message text based on block status
+            if (blockData && blockedMessageText) {
+                if (blockData.mutual_block) {
+                    blockedMessageText.textContent = 'You cannot message this user. You have both blocked each other.';
+                } else if (blockData.i_blocked_them) {
+                    blockedMessageText.textContent = 'You cannot message this user. You have blocked them.';
+                } else if (blockData.they_blocked_me) {
+                    blockedMessageText.textContent = 'You cannot message this user. They have blocked you.';
+                }
+            }
+            
+            // Update help text
+            if (blockedHelpText) {
+                if (blockData && blockData.they_blocked_me && !blockData.i_blocked_them) {
+                    blockedHelpText.textContent = 'You cannot unblock this restriction as they have blocked you.';
+                } else if (blockData && blockData.i_blocked_them) {
+                    blockedHelpText.textContent = 'You can unblock them using the menu above to resume messaging.';
+                }
+            }
+        } else {
+            // Show chat form and hide blocked message
+            if (chatForm) chatForm.style.display = 'block';
+            if (blockedMessage) blockedMessage.style.display = 'none';
+            
+            // Enable form elements
+            if (messageInput) messageInput.disabled = false;
+            if (imageInput) imageInput.disabled = false;
+            if (imageLabel) imageLabel.classList.remove('disabled');
+            if (sendBtn) sendBtn.disabled = false;
+        }
+    }
+
+    // Block/Unblock functionality using event delegation
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.block-user-btn')) {
+            e.preventDefault();
+            
+            const blockUserBtn = e.target.closest('.block-user-btn');
+            const userId = blockUserBtn.dataset.userId;
+            const username = blockUserBtn.dataset.username;
+            
+            if (!userId) {
+                return;
+            }
+            
+            const isCurrentlyBlocked = blockUserBtn.querySelector('.block-action-text').textContent.trim() === 'Unblock User';
+            const action = isCurrentlyBlocked ? 'unblock' : 'block';
+            const url = `/ajax/${action}-user/${userId}/`;
+            
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateBlockButton(data.is_blocked, blockUserBtn);
+                    updateBlockedIndicator(data.is_blocked || data.they_blocked_me);
+                    updateChatForm(data.is_blocked || data.they_blocked_me, data);
+                    
+                    // Show feedback message
+                    const chatHeader = document.querySelector('.chat-panel-header');
+                    if (chatHeader) {
+                        const alertDiv = document.createElement('div');
+                        alertDiv.className = 'alert alert-success alert-dismissible fade show mt-2';
+                        alertDiv.innerHTML = `
+                            ${data.message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        `;
+                        chatHeader.appendChild(alertDiv);
+                        
+                        // Auto-dismiss after 3 seconds
+                        setTimeout(() => {
+                            if (alertDiv.parentNode) {
+                                alertDiv.remove();
+                            }
+                        }, 3000);
+                    }
+                } else {
+                    console.error('Block/Unblock error:', data.error);
+                    // Show error message
+                    const chatHeader = document.querySelector('.chat-panel-header');
+                    if (chatHeader) {
+                        const alertDiv = document.createElement('div');
+                        alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-2';
+                        alertDiv.innerHTML = `
+                            ${data.error || 'An error occurred'}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        `;
+                        chatHeader.appendChild(alertDiv);
+                        
+                        setTimeout(() => {
+                            if (alertDiv.parentNode) {
+                                alertDiv.remove();
+                            }
+                        }, 5000);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Network error:', error);
+            });
+        }
+    });
+    
+    // Check block status on page load
+    setTimeout(() => {
+        const blockUserBtn = document.querySelector('.block-user-btn');
+        
+        if (blockUserBtn) {
+            const userId = blockUserBtn.dataset.userId;
+            
+            if (userId) {
+                fetch(`/ajax/check-blocked/${userId}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateBlockButton(data.is_blocked, blockUserBtn);
+                            updateBlockedIndicator(data.is_blocked || data.they_blocked_me);
+                            updateChatForm(data.is_blocked || data.they_blocked_me, data);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking block status:', error);
+                    });
+            }
+        }
+    }, 500); // 500ms delay to ensure everything is loaded
+    
     {% endif %}
 });
 </script>

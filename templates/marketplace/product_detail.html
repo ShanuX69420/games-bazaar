@@ -296,102 +296,103 @@
                 </p>
             {% endif %}
         </div>
-        
-        {# --- Block D: Chat Panel (Mobile/Tablet View ONLY) --- #}
-        <div class="d-lg-none my-4">
-            {% if user.is_authenticated and user != product.seller %}
-                {% include 'marketplace/partials/unified_chat_panel.html' with other_user=product.seller product=product %}
-            {% elif not user.is_authenticated %}
-                <div class="border p-3 rounded text-center">
-                    <p>Please <a href="{% url 'login' %}?next={{ request.path }}">log in</a> or <a href="{% url 'register' %}?next={{ request.path }}">register</a> to send a message to the seller.</p>
-                </div>
-            {% endif %}
-        </div>
-        
-        {# --- Block C: Seller's Reviews --- #}
-        <h3 id="reviews-section" class="mt-5 mb-4">Seller's Reviews</h3>
-        <div class="reviews-section-card">
-            <div class="review-summary-box">
-                <div class="d-flex align-items-center" style="gap: 1.5rem;">
-                    <div>
-                        <div class="avg-rating">{{ average_rating|default:0|floatformat:1 }}</div>
-                        <div class="text-muted">out of 5</div>
-                    </div>
-                    <div>
-                        <div class="rating-stars">
-                            {% for i in "12345" %}
-                                <i class="fa-star {% if i|add:0 <= average_rating|default:0 %}fas text-warning{% else %}far text-muted{% endif %}"></i>
-                            {% endfor %}
-                        </div>
-                        <div class="review-count">
-                            Based on {{ review_count }} review{{ review_count|pluralize }}
-                        </div>
-                    </div>
-                </div>
-
-                <div class="dropdown">
-                    <button class="btn btn-light border dropdown-toggle" type="button" id="reviewFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                        {% if current_rating_filter %}
-                            {% with rating_int=current_rating_filter|add:0 %}
-                            <span class="text-warning">
-                                {% for j in "12345" %}<i class="fa-star {% if j|add:0 <= rating_int %}fas{% else %}far{% endif %}"></i>{% endfor %}
-                            </span>
-                            {% endwith %}
-                        {% else %}
-                            All reviews
-                        {% endif %}
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="reviewFilterDropdown">
-                        <li><a class="dropdown-item {% if not current_rating_filter %}active{% endif %}" href="{% url 'product_detail' pk=product.pk %}#reviews-section">All reviews</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        {% for i in "54321" %}
-                        <li>
-                            <a class="dropdown-item {% if current_rating_filter == i %}active{% endif %}" href="?rating={{ i }}#reviews-section">
-                                <span class="text-warning">
-                                    {% with rating_int=i|add:0 %}{% for j in "12345" %}<i class="fa-star {% if j|add:0 <= rating_int %}fas{% else %}far{% endif %}"></i>{% endfor %}{% endwith %}
-                                </span>
-                            </a>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-
-            <div id="reviews-container">
-                {% for review in reviews %}
-                    {% if user == product.seller %}
-                        {% include 'marketplace/partials/_profile_review_item.html' with review=review %}
-                    {% else %}
-                        {% include 'marketplace/partials/_public_review_item.html' with review=review %}
-                    {% endif %}
-                {% empty %}
-                    <div class="alert alert-light m-0">
-                        {% if current_rating_filter %}
-                            No {{ current_rating_filter }}-star reviews found for this seller.
-                        {% else %}
-                            This seller has no reviews yet.
-                        {% endif %}
-                    </div>
-                {% endfor %}
-            </div>
-            {% if reviews.has_next %}
-                <div class="load-more-reviews-container">
-                    <button id="load-more-reviews" class="btn btn-outline-primary" data-page="{{ reviews.next_page_number }}">Show More Reviews</button>
-                </div>
-            {% endif %}
-        </div>
     </div>
 
-    {# --- CHAT PANEL COLUMN (Desktop View Only) --- #}
-    <div class="col-lg-5 col-md-5 d-none d-lg-block">
+    {# --- CHAT PANEL COLUMN (Desktop Sidebar) --- #}
+    <div class="col-lg-5 col-md-5">
         <div class="sidebar-sticky">
              {% if user.is_authenticated and user != product.seller %}
-                 {% include 'marketplace/partials/unified_chat_panel.html' with other_user=product.seller product=product %}
+                 {% include 'marketplace/partials/unified_chat_panel.html' with other_user=product.seller product=product is_blocked=is_blocked %}
              {% elif not user.is_authenticated %}
                  <div class="border p-3 rounded text-center mt-4">
                      <p>Please <a href="{% url 'login' %}?next={{ request.path }}">log in</a> or <a href="{% url 'register' %}?next={{ request.path }}">register</a> to send a message to the seller.</p>
                  </div>
              {% endif %}
+        </div>
+    </div>
+</div>
+
+{# --- Block C: Seller's Reviews (Aligned with ordering section on desktop, full width on mobile) --- #}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-2 d-none d-lg-block">
+            {# Empty column to match the sidebar spacing #}
+        </div>
+        <div class="col-lg-5 col-md-7 col-12">
+            <h3 id="reviews-section" class="mt-1 mb-4">Seller's Reviews</h3>
+            <div class="reviews-section-card">
+                <div class="review-summary-box">
+                    <div class="d-flex align-items-center" style="gap: 1.5rem;">
+                        <div>
+                            <div class="avg-rating">{{ average_rating|default:0|floatformat:1 }}</div>
+                            <div class="text-muted">out of 5</div>
+                        </div>
+                        <div>
+                            <div class="rating-stars">
+                                {% for i in "12345" %}
+                                    <i class="fa-star {% if i|add:0 <= average_rating|default:0 %}fas text-warning{% else %}far text-muted{% endif %}"></i>
+                                {% endfor %}
+                            </div>
+                            <div class="review-count">
+                                Based on {{ review_count }} review{{ review_count|pluralize }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dropdown">
+                        <button class="btn btn-light border dropdown-toggle" type="button" id="reviewFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            {% if current_rating_filter %}
+                                {% with rating_int=current_rating_filter|add:0 %}
+                                <span class="text-warning">
+                                    {% for j in "12345" %}<i class="fa-star {% if j|add:0 <= rating_int %}fas{% else %}far{% endif %}"></i>{% endfor %}
+                                </span>
+                                {% endwith %}
+                            {% else %}
+                                All reviews
+                            {% endif %}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="reviewFilterDropdown">
+                            <li><a class="dropdown-item {% if not current_rating_filter %}active{% endif %}" href="{% url 'product_detail' pk=product.pk %}#reviews-section">All reviews</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% for i in "54321" %}
+                            <li>
+                                <a class="dropdown-item {% if current_rating_filter == i %}active{% endif %}" href="?rating={{ i }}#reviews-section">
+                                    <span class="text-warning">
+                                        {% with rating_int=i|add:0 %}{% for j in "12345" %}<i class="fa-star {% if j|add:0 <= rating_int %}fas{% else %}far{% endif %}"></i>{% endfor %}{% endwith %}
+                                    </span>
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+
+                <div id="reviews-container">
+                    {% for review in reviews %}
+                        {% if user == product.seller %}
+                            {% include 'marketplace/partials/_profile_review_item.html' with review=review %}
+                        {% else %}
+                            {% include 'marketplace/partials/_public_review_item.html' with review=review %}
+                        {% endif %}
+                    {% empty %}
+                        <div class="alert alert-light m-0">
+                            {% if current_rating_filter %}
+                                No {{ current_rating_filter }}-star reviews found for this seller.
+                            {% else %}
+                                This seller has no reviews yet.
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                {% if reviews.has_next %}
+                    <div class="load-more-reviews-container">
+                        <button id="load-more-reviews" class="btn btn-outline-primary" data-page="{{ reviews.next_page_number }}">Show More Reviews</button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-lg-5 d-none d-lg-block">
+            {# Empty column to match the chat panel spacing #}
         </div>
     </div>
 </div>

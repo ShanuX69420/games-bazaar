@@ -487,3 +487,16 @@ class UserGameBoost(models.Model):
 
     def __str__(self):
         return f'{self.user.username} boosted {self.game.title} at {self.boosted_at}'
+
+class BlockedUser(models.Model):
+    """Model to track blocked users - prevents chat and purchases between blocked users"""
+    blocker = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocked_users')
+    blocked = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocked_by_users')
+    blocked_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('blocker', 'blocked')
+        ordering = ['-blocked_at']
+    
+    def __str__(self):
+        return f'{self.blocker.username} blocked {self.blocked.username}'

@@ -23,6 +23,26 @@
             {% if other_user.profile.can_moderate %}
                 <span class="badge bg-warning text-dark ms-2">Support</span>
             {% endif %}
+            <span class="blocked-user-indicator badge bg-danger ms-2" style="display: none;">Blocked</span>
         </small>
+    </div>
+    
+    <!-- Three dots dropdown menu -->
+    <div class="dropdown">
+        <button class="btn btn-link text-muted p-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border: none; background: none;">
+            <i class="fas fa-ellipsis-v"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+                <a class="dropdown-item" href="{% url 'support_center' %}?report_user={{ other_user.username }}">
+                    Report User
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item block-user-btn" href="#" data-user-id="{{ other_user.id }}" data-username="{{ other_user.username }}">
+                    <span class="block-action-text">Block User</span>
+                </a>
+            </li>
+        </ul>
     </div>
 </div>

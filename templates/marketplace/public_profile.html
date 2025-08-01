@@ -534,7 +534,7 @@
         <div class="col-lg-5 sticky-chat-panel">
             
             {% if user.is_authenticated and user != profile_user %}
-                {% include 'marketplace/partials/unified_chat_panel.html' %}
+                {% include 'marketplace/partials/unified_chat_panel.html' with other_user=profile_user is_blocked=is_blocked %}
             {% elif not user.is_authenticated %}
                 <div class="border p-3 rounded text-center mt-4">
                     <p>Please <a href="{% url 'login' %}?next={{ request.path }}">log in</a> or <a href="{% url 'register' %}?next={{ request.path }}">register</a> to send a message.</p>

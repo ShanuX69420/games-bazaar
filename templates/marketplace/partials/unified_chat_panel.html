@@ -69,19 +69,40 @@
     <div class="chat-panel-footer">
         {% if request.user.is_authenticated %}
             {% if request.user != other_user %}
-                <form class="chat-form-js" enctype="multipart/form-data" action="#" onsubmit="return false;">
-                    {% csrf_token %}
-                    <div class="input-group">
-                        <input name="message" type="text" class="form-control chat-message-input-js" placeholder="Type a message..." autocomplete="off">
-
-                        <input type="file" name="image" class="chat-image-input-js" accept="image/*" style="display: none;">
-                        <label class="btn btn-outline-secondary chat-image-label-js" style="border: none; padding-top: 0.75rem; padding-bottom: 0.75rem;">
-                            <i class="fas fa-paperclip"></i>
-                        </label>
-                        
-                        <button type="submit" class="btn btn-primary">Send</button>
+                {% if is_blocked %}
+                    <!-- Blocked user message - shown when users are blocked -->
+                    <div class="blocked-chat-message text-center py-3">
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-ban text-warning me-2"></i>
+                            <span class="blocked-message-text">You cannot message this user.</span>
+                        </p>
+                        <small class="text-muted blocked-help-text">Use the menu above to manage blocking settings.</small>
                     </div>
-                </form>
+                {% else %}
+                    <!-- Message form - shown when users are not blocked -->
+                    <form class="chat-form-js" enctype="multipart/form-data" action="#" onsubmit="return false;">
+                        {% csrf_token %}
+                        <div class="input-group">
+                            <input name="message" type="text" class="form-control chat-message-input-js" placeholder="Type a message..." autocomplete="off">
+
+                            <input type="file" name="image" class="chat-image-input-js" accept="image/*" style="display: none;">
+                            <label class="btn btn-outline-secondary chat-image-label-js" style="border: none; padding-top: 0.75rem; padding-bottom: 0.75rem;">
+                                <i class="fas fa-paperclip"></i>
+                            </label>
+                            
+                            <button type="submit" class="btn btn-primary chat-send-btn">Send</button>
+                        </div>
+                    </form>
+                    
+                    <!-- Hidden blocked message (will be shown by JavaScript when blocking status changes) -->
+                    <div class="blocked-chat-message text-center py-3" style="display: none;">
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-ban text-warning me-2"></i>
+                            <span class="blocked-message-text">You cannot message this user.</span>
+                        </p>
+                        <small class="text-muted blocked-help-text">Use the menu above to manage blocking settings.</small>
+                    </div>
+                {% endif %}
             {% else %}
                 <p class="text-muted text-center small mb-0">This is your own profile. You cannot chat with yourself.</p>
             {% endif %}

@@ -26,7 +26,7 @@ from django.conf import settings
 
 from .models import (
     Game, Category, Product, Order, Review, ReviewReply, FlatPage,
-    Conversation, Message, WithdrawalRequest, SupportTicket, SiteConfiguration, Profile, Transaction, GameCategory, UserGameBoost, ProductImage
+    Conversation, Message, WithdrawalRequest, SupportTicket, SiteConfiguration, Profile, Transaction, GameCategory, UserGameBoost, ProductImage, BlockedUser
 )
 from .forms import (
     ProductForm, ReviewForm, ReviewReplyForm, WithdrawalRequestForm, SupportTicketForm,
@@ -125,18 +125,25 @@ def product_detail(request, pk):
     seller = product.seller
     messages = []
     active_conversation = None
+    is_blocked = False
+    
     if request.user.is_authenticated and request.user != seller:
+        # Check if users have blocked each other
+        is_blocked = BlockedUser.objects.filter(
+            Q(blocker=request.user, blocked=seller) | 
+            Q(blocker=seller, blocked=request.user)
+        ).exists()
         if request.user.id < seller.id:
             p1, p2 = request.user, seller
         else:
             p1, p2 = seller, request.user
         conversation, created = Conversation.objects.get_or_create(participant1=p1, participant2=p2)
         active_conversation = conversation
-        # MODIFIED: Fetch the last 50 messages in a template-safe way.
+        # MODIFIED: Fetch the last 20 messages initially for better infinite scroll
         message_manager = conversation.messages
         message_count = message_manager.count()
-        messages = message_manager.order_by('timestamp')[max(0, message_count - 50):]
-        has_more_messages = message_count > 50
+        messages = message_manager.order_by('timestamp')[max(0, message_count - 20):]
+        has_more_messages = message_count > 20
     all_reviews = Review.objects.with_full_details().by_seller(seller).recent_first()
     rating_filter = request.GET.get('rating')
     if rating_filter and rating_filter.isdigit() and 1 <= int(rating_filter) <= 5:
@@ -163,6 +170,7 @@ def product_detail(request, pk):
         'profile_user': seller,
         'ordered_filter_options': ordered_filter_options,
         'has_more_messages': has_more_messages if 'has_more_messages' in locals() else False,
+        'is_blocked': is_blocked,
     }
     return render(request, 'marketplace/product_detail.html', context)
 
@@ -424,7 +432,14 @@ def public_profile_view(request, username):
     other_user = profile_user
     chat_messages = []
     has_more_messages = False
+    is_blocked = False
+    
     if request.user.is_authenticated and request.user != other_user:
+        # Check if users have blocked each other
+        is_blocked = BlockedUser.objects.filter(
+            Q(blocker=request.user, blocked=other_user) | 
+            Q(blocker=other_user, blocked=request.user)
+        ).exists()
         if request.user.id < other_user.id: 
             p1, p2 = request.user, other_user
         else: 
@@ -432,8 +447,8 @@ def public_profile_view(request, username):
         conversation, created = Conversation.objects.get_or_create(participant1=p1, participant2=p2)
         message_manager = conversation.messages
         message_count = message_manager.count()
-        chat_messages = message_manager.order_by('timestamp')[max(0, message_count - 50):]
-        has_more_messages = message_count > 50
+        chat_messages = message_manager.order_by('timestamp')[max(0, message_count - 20):]
+        has_more_messages = message_count > 20
 
     context = {
         'profile_user': profile_user,
@@ -448,6 +463,7 @@ def public_profile_view(request, username):
         'grouped_listings': grouped_listings,
         'current_rating_filter': rating_filter,
         'has_more_messages': has_more_messages,
+        'is_blocked': is_blocked,
     }
     return render(request, 'marketplace/public_profile.html', context)
 
@@ -590,6 +606,13 @@ def create_order(request, pk):
 
     if product.seller == request.user:
         return JsonResponse({'status': 'error', 'message': 'You cannot purchase your own listing.'}, status=403)
+
+    # Check if users have blocked each other
+    if BlockedUser.objects.filter(
+        Q(blocker=request.user, blocked=product.seller) | 
+        Q(blocker=product.seller, blocked=request.user)
+    ).exists():
+        return JsonResponse({'status': 'error', 'message': 'You cannot purchase from this seller.'}, status=403)
 
     try:
         quantity = int(request.POST.get('quantity', 1))
@@ -1000,6 +1023,7 @@ def load_more_sales(request):
 def messages_view(request, username=None):
     if username and username.lower() == request.user.username.lower():
         return redirect('my_messages')
+    
     conversations = Conversation.objects.filter(Q(participant1=request.user) | Q(participant2=request.user)).annotate(message_count=Count('messages')).filter(message_count__gt=0).exclude(participant1=F('participant2')).order_by('-updated_at')
     unread_conversation_ids = set(Message.objects.filter(conversation__in=conversations, is_read=False).exclude(sender=request.user).values_list('conversation_id', flat=True))
     active_conversation, messages, other_user = None, [], None
@@ -1088,7 +1112,17 @@ def support_center_view(request):
             ticket.user = request.user
             ticket.save()
             return redirect('support_center')
-    else: form = SupportTicketForm()
+    else: 
+        # Check if reporting a user
+        report_user = request.GET.get('report_user')
+        initial_data = {}
+        if report_user:
+            initial_data = {
+                'subject': f'Report User: {report_user}',
+                'message': f'I would like to report user "{report_user}" for the following reason:\n\n[Please describe the issue in detail]',
+                'issue_category': 'GENERAL'
+            }
+        form = SupportTicketForm(initial=initial_data)
     tickets = SupportTicket.objects.filter(user=request.user).order_by('-created_at')
     context = {'form': form, 'tickets': tickets}
     return render(request, 'marketplace/support_center.html', context)
@@ -1111,6 +1145,14 @@ def load_more_reviews(request, username):
 def send_chat_message(request, username):
     if request.method == 'POST':
         other_user = get_object_or_404(User, username=username)
+        
+        # Check if users have blocked each other
+        if BlockedUser.objects.filter(
+            Q(blocker=request.user, blocked=other_user) | 
+            Q(blocker=other_user, blocked=request.user)
+        ).exists():
+            return JsonResponse({'status': 'error', 'message': 'You cannot send messages to this user.'}, status=403)
+        
         message_content = request.POST.get('message', '').strip()
         image_file = request.FILES.get('image')
         if not message_content and not image_file: return JsonResponse({'status': 'error', 'message': 'Cannot send an empty message.'}, status=400)
@@ -1152,9 +1194,10 @@ def load_older_messages(request, username):
     total_messages = conversation.messages.count()
 
     # Calculate the actual position for older messages
-    # If we've loaded 50 messages initially, we want messages before those
-    start_index = max(0, total_messages - 50 - offset)
-    end_index = max(0, total_messages - 50 - offset - limit)
+    # We initially load the last 20 messages, then load 20 more each time
+    # offset represents how many older messages we've already loaded beyond the initial 20
+    start_index = max(0, total_messages - 20 - offset)
+    end_index = max(0, start_index - limit)
 
     # Fetch older messages in chronological order
     if start_index > end_index:
@@ -1175,7 +1218,7 @@ def load_older_messages(request, username):
     return JsonResponse({
         'status': 'success',
         'messages_html': messages_html,
-        'has_more': start_index > 0,  # More messages exist if start_index > 0
+        'has_more': end_index > 0,  # More messages exist if end_index > 0
         'new_offset': offset + len(messages_list)
     })
 
@@ -1387,3 +1430,92 @@ def report_dispute(request, conversation_id):
 
     except Conversation.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Conversation not found'})
+
+@login_required
+def block_user(request, user_id):
+    """Block a user - prevents chat and purchases"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'})
+    
+    try:
+        user_to_block = User.objects.get(id=user_id)
+        
+        # Can't block yourself
+        if user_to_block == request.user:
+            return JsonResponse({'success': False, 'error': 'You cannot block yourself'})
+        
+        # Check if already blocked
+        if BlockedUser.objects.filter(blocker=request.user, blocked=user_to_block).exists():
+            return JsonResponse({'success': False, 'error': 'User is already blocked'})
+        
+        # Create block relationship
+        BlockedUser.objects.create(blocker=request.user, blocked=user_to_block)
+        
+        # Get updated status
+        i_blocked_them = True
+        they_blocked_me = BlockedUser.objects.filter(blocker=user_to_block, blocked=request.user).exists()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'You have blocked {user_to_block.username}',
+            'is_blocked': True,
+            'i_blocked_them': i_blocked_them,
+            'they_blocked_me': they_blocked_me,
+            'mutual_block': i_blocked_them and they_blocked_me
+        })
+        
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'User not found'})
+
+@login_required
+def unblock_user(request, user_id):
+    """Unblock a user - allows chat and purchases again"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'})
+    
+    try:
+        user_to_unblock = User.objects.get(id=user_id)
+        
+        # Find and delete block relationship
+        blocked_user = BlockedUser.objects.filter(blocker=request.user, blocked=user_to_unblock).first()
+        
+        if not blocked_user:
+            return JsonResponse({'success': False, 'error': 'User is not blocked'})
+        
+        blocked_user.delete()
+        
+        # Get updated status
+        i_blocked_them = False
+        they_blocked_me = BlockedUser.objects.filter(blocker=user_to_unblock, blocked=request.user).exists()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'You have unblocked {user_to_unblock.username}',
+            'is_blocked': False,
+            'i_blocked_them': i_blocked_them,
+            'they_blocked_me': they_blocked_me,
+            'mutual_block': i_blocked_them and they_blocked_me
+        })
+        
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'User not found'})
+
+@login_required
+def check_user_blocked_status(request, user_id):
+    """Check if a user is blocked"""
+    try:
+        user_to_check = User.objects.get(id=user_id)
+        i_blocked_them = BlockedUser.objects.filter(blocker=request.user, blocked=user_to_check).exists()
+        they_blocked_me = BlockedUser.objects.filter(blocker=user_to_check, blocked=request.user).exists()
+        
+        return JsonResponse({
+            'success': True,
+            'is_blocked': i_blocked_them,
+            'i_blocked_them': i_blocked_them,
+            'they_blocked_me': they_blocked_me,
+            'mutual_block': i_blocked_them and they_blocked_me,
+            'username': user_to_check.username
+        })
+        
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'User not found'})
