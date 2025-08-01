@@ -150,6 +150,7 @@ class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     commission_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     last_seen = models.DateTimeField(null=True, blank=True, db_index=True)
+    offline_broadcast_at = models.DateTimeField(null=True, blank=True, help_text="Last time offline status was broadcasted")
     image = models.ImageField(upload_to='profile_pics', null=True, blank=True)
     show_listings_on_site = models.BooleanField(default=True, db_index=True)
     is_moderator = models.BooleanField(default=False, help_text="Can join conversations for dispute resolution")
@@ -160,8 +161,8 @@ class Profile(models.Model):
     @property
     def is_online(self):
         if self.last_seen:
-            # More accurate online window - 10 seconds for better precision
-            return timezone.now() < self.last_seen + datetime.timedelta(seconds=10)
+            # 5-minute grace period for better user experience
+            return timezone.now() < self.last_seen + datetime.timedelta(minutes=5)
         return False
 
     @property
