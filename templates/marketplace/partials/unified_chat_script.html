@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     {% if user.is_authenticated %}
     const otherUserUsernameEl = document.getElementById('other-user-username');
     if (!otherUserUsernameEl) {
-        return; 
+        return;
     }
 
     const otherUserUsername = JSON.parse(otherUserUsernameEl.textContent);
@@ -12,15 +12,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const allChatLogs = document.querySelectorAll('.chat-log-js');
     const allChatForms = document.querySelectorAll('.chat-form-js');
 
-    if (allChatLogs.length === 0 || allChatForms.length === 0) {
-        return;
+    if (allChatLogs.length === 0 && allChatForms.length === 0) {
+        // If there are no chat elements, still allow blocking functionality to work
+        // This can happen on pages where only the block button is present
     }
 
     let chatSocket = null;
     let isLoadingOlderMessages = false;
     let hasMoreMessages = {% if has_more_messages %}true{% else %}false{% endif %};
-    let currentOffset = 0; // Start from 0, will be incremented as we load more
-    
+    let currentOffset = 0;
 
     function formatSmartTimeJS(isoString) {
         if (!isoString) return '';
@@ -69,150 +69,88 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    const loadOlderMessages = async () => {
-        if (isLoadingOlderMessages || !hasMoreMessages) {
-            return;
-        }
+    if (allChatLogs.length > 0) {
+        const loadOlderMessages = async () => {
+            if (isLoadingOlderMessages || !hasMoreMessages) return;
+            isLoadingOlderMessages = true;
 
-        isLoadingOlderMessages = true;
-
-        // Show loading indicator
-        allChatLogs.forEach(log => {
-            const loadingIndicator = log.querySelector('.loading-indicator');
-            if (loadingIndicator) {
-                loadingIndicator.style.display = 'block';
-            }
-        });
-
-        try {
-            const response = await fetch(`/ajax/load-older-messages/${otherUserUsername}/?offset=${currentOffset}&limit=20`);
-            const data = await response.json();
-
-            if (data.status === 'success' && data.messages_html.length > 0) {
-                // Store current scroll position
-                const firstChatLog = allChatLogs[0];
-                const scrollHeight = firstChatLog.scrollHeight;
-                const scrollTop = firstChatLog.scrollTop;
-
-                // Add older messages after the debug button but before existing messages
-                data.messages_html.forEach(messageHtml => {
-                    allChatLogs.forEach(log => {
-                        const messageWrapper = document.createElement('div');
-                        messageWrapper.innerHTML = messageHtml;
-                        
-                        // Insert older messages after the indicators but before existing messages
-                        const noMoreIndicator = log.querySelector('.no-more-messages');
-                        const loadingIndicator = log.querySelector('.loading-indicator');
-                        
-                        // Find the last indicator element
-                        const insertAfter = noMoreIndicator || loadingIndicator;
-                        if (insertAfter) {
-                            insertAfter.insertAdjacentElement('afterend', messageWrapper.firstElementChild);
-                        } else {
-                            // Fallback: prepend to the chat log
-                            log.prepend(messageWrapper.firstElementChild);
-                        }
-                    });
-                });
-
-                // Restore scroll position (maintain user's position)
-                const newScrollHeight = firstChatLog.scrollHeight;
-                const heightDifference = newScrollHeight - scrollHeight;
-                allChatLogs.forEach(log => {
-                    log.scrollTop = scrollTop + heightDifference;
-                });
-
-                // Update state
-                currentOffset = data.new_offset;
-                hasMoreMessages = data.has_more;
-
-                // Show "no more messages" indicator if we've reached the end
-                if (!hasMoreMessages) {
-                    allChatLogs.forEach(log => {
-                        const noMoreMessagesIndicator = log.querySelector('.no-more-messages');
-                        if (noMoreMessagesIndicator) {
-                            noMoreMessagesIndicator.style.display = 'block';
-                        }
-                    });
-                }
-            } else {
-                hasMoreMessages = false;
-                // Show "no more messages" indicator
-                allChatLogs.forEach(log => {
-                    const noMoreMessagesIndicator = log.querySelector('.no-more-messages');
-                    if (noMoreMessagesIndicator) {
-                        noMoreMessagesIndicator.style.display = 'block';
-                    }
-                });
-            }
-        } catch (error) {
-            console.error('Error loading older messages:', error);
-        } finally {
-            // Hide loading indicator
             allChatLogs.forEach(log => {
                 const loadingIndicator = log.querySelector('.loading-indicator');
-                if (loadingIndicator) {
-                    loadingIndicator.style.display = 'none';
+                if (loadingIndicator) loadingIndicator.style.display = 'block';
+            });
+
+            try {
+                const response = await fetch(`/ajax/load-older-messages/${otherUserUsername}/?offset=${currentOffset}&limit=20`);
+                const data = await response.json();
+
+                if (data.status === 'success' && data.messages_html.length > 0) {
+                    const firstChatLog = allChatLogs[0];
+                    const scrollHeight = firstChatLog.scrollHeight;
+                    const scrollTop = firstChatLog.scrollTop;
+
+                    data.messages_html.forEach(messageHtml => {
+                        allChatLogs.forEach(log => {
+                            const messageWrapper = document.createElement('div');
+                            messageWrapper.innerHTML = messageHtml;
+                            const insertAfter = log.querySelector('.no-more-messages') || log.querySelector('.loading-indicator');
+                            if (insertAfter) {
+                                insertAfter.insertAdjacentElement('afterend', messageWrapper.firstElementChild);
+                            } else {
+                                log.prepend(messageWrapper.firstElementChild);
+                            }
+                        });
+                    });
+
+                    const newScrollHeight = firstChatLog.scrollHeight;
+                    const heightDifference = newScrollHeight - scrollHeight;
+                    allChatLogs.forEach(log => { log.scrollTop = scrollTop + heightDifference; });
+
+                    currentOffset = data.new_offset;
+                    hasMoreMessages = data.has_more;
+
+                    if (!hasMoreMessages) {
+                        allChatLogs.forEach(log => {
+                            const noMoreMessagesIndicator = log.querySelector('.no-more-messages');
+                            if (noMoreMessagesIndicator) noMoreMessagesIndicator.style.display = 'block';
+                        });
+                    }
+                } else {
+                    hasMoreMessages = false;
+                    allChatLogs.forEach(log => {
+                        const noMoreMessagesIndicator = log.querySelector('.no-more-messages');
+                        if (noMoreMessagesIndicator) noMoreMessagesIndicator.style.display = 'block';
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading older messages:', error);
+            } finally {
+                allChatLogs.forEach(log => {
+                    const loadingIndicator = log.querySelector('.loading-indicator');
+                    if (loadingIndicator) loadingIndicator.style.display = 'none';
+                });
+                isLoadingOlderMessages = false;
+            }
+        };
+
+        allChatLogs.forEach(log => {
+            log.addEventListener('scroll', () => {
+                if (log.scrollTop <= 50 && hasMoreMessages && !isLoadingOlderMessages) {
+                    loadOlderMessages();
                 }
             });
-            isLoadingOlderMessages = false;
-        }
-    };
-
-    // Add scroll event listeners to chat logs for infinite scroll
-    allChatLogs.forEach(log => {
-        log.addEventListener('scroll', () => {
-            // Check if user scrolled to the top (with a small threshold)
-            if (log.scrollTop <= 50 && hasMoreMessages && !isLoadingOlderMessages) {
-                loadOlderMessages();
-            }
+            setTimeout(() => scrollToBottom(log), 150);
         });
-    });
 
-    allChatForms.forEach(form => {
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            sendMessage(form);
+        allChatForms.forEach(form => {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                sendMessage(form);
+            });
         });
-    });
-
-    allChatLogs.forEach(log => {
-        setTimeout(() => scrollToBottom(log), 150);
-    });
-
-    function createMessageHTML(data) {
-    const formattedTime = formatSmartTimeJS(data.timestamp);
-    let imageHtml = '';
-    if (data.image_url) {
-        imageHtml = `
-            <a href="${data.image_url}" target="_blank" title="Open original image">
-                <img src="${data.image_url}" alt="User attachment" style="max-width: 280px; max-height: 250px; border-radius: 8px; margin-top: 5px; cursor: pointer;">
-            </a>
-        `;
     }
-
-    if (data.is_system_message) {
-        return `<div class="mb-3"><div class="d-flex justify-content-between"><div><strong>Gamers Market</strong><span class="badge bg-primary ms-1">notification</span></div><small class="text-muted">${formattedTime}</small></div><div class="p-2 mt-1" style="background-color: #eafaf1; border-left: 3px solid #2ABF64; color: #1a6e3c;"><i class="fas fa-info-circle me-1"></i> ${data.message.replace(/\n/g, '<br>')}</div></div>`;
-    } else {
-        // --- MODIFIED SECTION ---
-        let senderHtml = `<strong>${data.sender}</strong>`;
-        if (data.can_moderate) {
-            senderHtml += ` <span class="badge bg-warning text-dark ms-1">Support</span>`;
-        }
-        
-        return `<div class="mb-3">
-                    <div class="d-flex justify-content-between">
-                        <div>${senderHtml}</div>
-                        <small class="text-muted">${formattedTime}</small>
-                    </div>
-                    <div class="mb-0 text-break mt-1">${data.message.replace(/\n/g, '<br>')}</div>
-                    ${imageHtml}
-                </div>`;
-        // --- END MODIFIED SECTION ---
-    }
-}
 
     function connect() {
+        if (!otherUserUsername) return;
         const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
         const ws_url = protocol + window.location.host + '/ws/chat/' + otherUserUsername + '/';
         chatSocket = new WebSocket(ws_url);
@@ -223,24 +161,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         chatSocket.onmessage = function(e) {
             const data = JSON.parse(e.data);
-
-            // Check if the incoming event is a new message
             if (data.type === 'new_message' && data.message_html) {
-                // Directly append the pre-rendered HTML from the server
                 allChatLogs.forEach(log => {
                     log.insertAdjacentHTML('beforeend', data.message_html);
                     scrollToBottom(log);
                 });
 
-                // If the message is not from the current user, mark it as read
-                // (This part of the logic remains conceptually the same but is now cleaner)
                 if (!data.message_html.includes(`<strong>${currentUserUsername}</strong>`)) {
-                     chatSocket.send(JSON.stringify({
-                        'type': 'mark_as_read',
-                        'message_id': data.message_id 
-                        // Note: You might need to adjust how message_id is passed if you still need it here.
-                        // For now, the primary goal is rendering.
-                    }));
+                     chatSocket.send(JSON.stringify({ 'type': 'mark_as_read', 'message_id': data.message_id }));
                 }
             }
         };
@@ -249,94 +177,64 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => connect(), 2000);
         };
     }
-    
-    connect();
-    
-    // Define helper functions in the correct scope
-    function updateBlockButton(isBlocked, buttonElement = null) {
-        const targetBtn = buttonElement || document.querySelector('.block-user-btn');
-        
-        if (targetBtn) {
-            const actionText = targetBtn.querySelector('.block-action-text');
-            if (actionText) {
-                const newText = isBlocked ? 'Unblock User' : 'Block User';
-                actionText.textContent = newText;
-            }
-        }
-    }
-    
-    function updateBlockedIndicator(isBlocked) {
-        const blockedIndicator = document.querySelector('.blocked-user-indicator');
-        
-        if (blockedIndicator) {
-            blockedIndicator.style.display = isBlocked ? 'inline-block' : 'none';
-        }
-    }
-    
-    function updateChatForm(isBlocked, blockData) {
-        const chatForm = document.querySelector('.chat-form-js');
-        const blockedMessage = document.querySelector('.blocked-chat-message');
-        const blockedMessageText = document.querySelector('.blocked-message-text');
-        const blockedHelpText = document.querySelector('.blocked-help-text');
-        const messageInput = document.querySelector('.chat-message-input-js');
-        const imageInput = document.querySelector('.chat-image-input-js');
-        const imageLabel = document.querySelector('.chat-image-label-js');
-        const sendBtn = document.querySelector('.chat-send-btn');
-        
-        if (isBlocked) {
-            // Hide chat form and show blocked message
-            if (chatForm) chatForm.style.display = 'none';
-            if (blockedMessage) blockedMessage.style.display = 'block';
-            
-            // Update message text based on block status
-            if (blockData && blockedMessageText) {
-                if (blockData.mutual_block) {
-                    blockedMessageText.textContent = 'You cannot message this user. You have both blocked each other.';
-                } else if (blockData.i_blocked_them) {
-                    blockedMessageText.textContent = 'You cannot message this user. You have blocked them.';
-                } else if (blockData.they_blocked_me) {
-                    blockedMessageText.textContent = 'You cannot message this user. They have blocked you.';
-                }
-            }
-            
-            // Update help text
-            if (blockedHelpText) {
-                if (blockData && blockData.they_blocked_me && !blockData.i_blocked_them) {
-                    blockedHelpText.textContent = 'You cannot unblock this restriction as they have blocked you.';
-                } else if (blockData && blockData.i_blocked_them) {
-                    blockedHelpText.textContent = 'You can unblock them using the menu above to resume messaging.';
-                }
-            }
-        } else {
-            // Show chat form and hide blocked message
-            if (chatForm) chatForm.style.display = 'block';
-            if (blockedMessage) blockedMessage.style.display = 'none';
-            
-            // Enable form elements
-            if (messageInput) messageInput.disabled = false;
-            if (imageInput) imageInput.disabled = false;
-            if (imageLabel) imageLabel.classList.remove('disabled');
-            if (sendBtn) sendBtn.disabled = false;
-        }
+
+    if (allChatLogs.length > 0) {
+        connect();
     }
 
-    // Block/Unblock functionality using event delegation
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('.block-user-btn')) {
-            e.preventDefault();
-            
-            const blockUserBtn = e.target.closest('.block-user-btn');
-            const userId = blockUserBtn.dataset.userId;
-            const username = blockUserBtn.dataset.username;
-            
-            if (!userId) {
-                return;
+    // --- REFACTORED BLOCK/UNBLOCK UI FUNCTIONS ---
+    function updateBlockUI(isBlocked, theyBlockedMe, iBlockedThem, mutualBlock) {
+        const newText = isBlocked ? 'Unblock User' : 'Block User';
+        const shouldShowBlockedIndicator = isBlocked || theyBlockedMe;
+        const shouldBlockForm = isBlocked || theyBlockedMe;
+
+        // Update all buttons for this user
+        document.querySelectorAll(`.block-user-btn[data-username="${otherUserUsername}"]`).forEach(btn => {
+            const actionText = btn.querySelector('.block-action-text');
+            if (actionText) actionText.textContent = newText;
+        });
+
+        // Update all indicators for this user
+        document.querySelectorAll(`.blocked-user-indicator`).forEach(indicator => {
+            indicator.style.display = shouldShowBlockedIndicator ? 'inline-block' : 'none';
+        });
+
+        // Update all chat forms
+        document.querySelectorAll('.chat-form-js').forEach(form => {
+            form.style.display = shouldBlockForm ? 'none' : 'block';
+        });
+
+        document.querySelectorAll('.blocked-chat-message').forEach(msg => {
+            msg.style.display = shouldBlockForm ? 'block' : 'none';
+            if (shouldBlockForm) {
+                const msgText = msg.querySelector('.blocked-message-text');
+                const helpText = msg.querySelector('.blocked-help-text');
+                if (msgText) {
+                    if (mutualBlock) msgText.textContent = 'You cannot message this user. You have both blocked each other.';
+                    else if (iBlockedThem) msgText.textContent = 'You cannot message this user. You have blocked them.';
+                    else if (theyBlockedMe) msgText.textContent = 'You cannot message this user. They have blocked you.';
+                }
+                if (helpText) {
+                    if (theyBlockedMe && !iBlockedThem) helpText.textContent = 'You cannot unblock this restriction as they have blocked you.';
+                    else if (iBlockedThem) helpText.textContent = 'You can unblock them using the menu above to resume messaging.';
+                    else helpText.textContent = '';
+                }
             }
-            
+        });
+    }
+
+    // --- Block/Unblock functionality using event delegation ---
+    document.addEventListener('click', function(e) {
+        const blockUserBtn = e.target.closest('.block-user-btn');
+        if (blockUserBtn && blockUserBtn.dataset.username === otherUserUsername) {
+            e.preventDefault();
+            const userId = blockUserBtn.dataset.userId;
+            if (!userId) return;
+
             const isCurrentlyBlocked = blockUserBtn.querySelector('.block-action-text').textContent.trim() === 'Unblock User';
             const action = isCurrentlyBlocked ? 'unblock' : 'block';
             const url = `/ajax/${action}-user/${userId}/`;
-            
+
             fetch(url, {
                 method: 'POST',
                 headers: {
@@ -347,79 +245,36 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    updateBlockButton(data.is_blocked, blockUserBtn);
-                    updateBlockedIndicator(data.is_blocked || data.they_blocked_me);
-                    updateChatForm(data.is_blocked || data.they_blocked_me, data);
-                    
-                    // Show feedback message
-                    const chatHeader = document.querySelector('.chat-panel-header');
-                    if (chatHeader) {
-                        const alertDiv = document.createElement('div');
-                        alertDiv.className = 'alert alert-success alert-dismissible fade show mt-2';
-                        alertDiv.innerHTML = `
-                            ${data.message}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        `;
-                        chatHeader.appendChild(alertDiv);
-                        
-                        // Auto-dismiss after 3 seconds
-                        setTimeout(() => {
-                            if (alertDiv.parentNode) {
-                                alertDiv.remove();
-                            }
-                        }, 3000);
-                    }
+                    updateBlockUI(data.is_blocked, data.they_blocked_me, data.i_blocked_them, data.mutual_block);
                 } else {
                     console.error('Block/Unblock error:', data.error);
-                    // Show error message
-                    const chatHeader = document.querySelector('.chat-panel-header');
-                    if (chatHeader) {
-                        const alertDiv = document.createElement('div');
-                        alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-2';
-                        alertDiv.innerHTML = `
-                            ${data.error || 'An error occurred'}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        `;
-                        chatHeader.appendChild(alertDiv);
-                        
-                        setTimeout(() => {
-                            if (alertDiv.parentNode) {
-                                alertDiv.remove();
-                            }
-                        }, 5000);
-                    }
                 }
             })
-            .catch(error => {
-                console.error('Network error:', error);
-            });
+            .catch(error => console.error('Network error:', error));
         }
     });
-    
-    // Check block status on page load
-    setTimeout(() => {
-        const blockUserBtn = document.querySelector('.block-user-btn');
-        
-        if (blockUserBtn) {
-            const userId = blockUserBtn.dataset.userId;
-            
+
+    // --- Check block status on page load ---
+    function checkInitialBlockStatus() {
+        const anyBlockButton = document.querySelector(`.block-user-btn[data-username="${otherUserUsername}"]`);
+        if (anyBlockButton) {
+            const userId = anyBlockButton.dataset.userId;
             if (userId) {
                 fetch(`/ajax/check-blocked/${userId}/`)
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            updateBlockButton(data.is_blocked, blockUserBtn);
-                            updateBlockedIndicator(data.is_blocked || data.they_blocked_me);
-                            updateChatForm(data.is_blocked || data.they_blocked_me, data);
+                            updateBlockUI(data.is_blocked, data.they_blocked_me, data.i_blocked_them, data.mutual_block);
                         }
                     })
-                    .catch(error => {
-                        console.error('Error checking block status:', error);
-                    });
+                    .catch(error => console.error('Error checking block status:', error));
             }
         }
-    }, 500); // 500ms delay to ensure everything is loaded
+    }
     
+    // Run the check after a short delay to ensure all DOM elements are ready
+    setTimeout(checkInitialBlockStatus, 300);
+
     {% endif %}
 });
 </script>
