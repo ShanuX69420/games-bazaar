@@ -470,8 +470,30 @@ window.showImagePreview = function(imageUrl, showSendButton = false) {
         imageElement.src = imageUrl;
         sendButton.style.display = showSendButton ? 'inline-block' : 'none';
         
-        const bootstrapModal = new bootstrap.Modal(modal);
+        // Ensure any existing modal instance is properly disposed
+        const existingModal = bootstrap.Modal.getInstance(modal);
+        if (existingModal) {
+            existingModal.dispose();
+        }
+        
+        const bootstrapModal = new bootstrap.Modal(modal, {
+            backdrop: true,
+            keyboard: true,
+            focus: true
+        });
         bootstrapModal.show();
+        
+        // Add event listener to ensure proper cleanup on hide
+        modal.addEventListener('hidden.bs.modal', function() {
+            // Force remove any remaining backdrop
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+            
+            // Reset body styles
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        }, { once: true });
     }
 };
 

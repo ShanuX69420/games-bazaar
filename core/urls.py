@@ -17,3 +17,7 @@ urlpatterns = [
 # This handles user-uploaded media files
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    # In production, serve media files through Django (temporary fix)
+    # Note: For high-traffic production, use nginx/Apache to serve media files
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

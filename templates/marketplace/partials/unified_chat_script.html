@@ -1060,10 +1060,21 @@ document.addEventListener('DOMContentLoaded', function() {
             sendImageButton.textContent = 'Sending...';
             
             try {
-                // Hide the modal first
+                // Hide the modal first with proper cleanup
                 const imageModal = bootstrap.Modal.getInstance(modal);
                 if (imageModal) {
                     imageModal.hide();
+                    // Add cleanup after modal is hidden
+                    modal.addEventListener('hidden.bs.modal', function() {
+                        // Force remove any remaining backdrop
+                        const backdrops = document.querySelectorAll('.modal-backdrop');
+                        backdrops.forEach(backdrop => backdrop.remove());
+                        
+                        // Reset body styles
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                        document.body.style.paddingRight = '';
+                    }, { once: true });
                 }
                 
                 // Trigger the form submission
@@ -1116,6 +1127,16 @@ document.addEventListener('DOMContentLoaded', function() {
             if (imagePreviewElement) {
                 imagePreviewElement.src = '#';
             }
+            
+            // Force cleanup of any remaining modal artifacts
+            setTimeout(() => {
+                const backdrops = document.querySelectorAll('.modal-backdrop');
+                backdrops.forEach(backdrop => backdrop.remove());
+                
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+            }, 100);
         });
     }
 
