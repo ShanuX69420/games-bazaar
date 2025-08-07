@@ -2066,3 +2066,41 @@ def check_user_blocked_status(request, user_id):
         
     except User.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'User not found'})
+
+@login_required
+def debug_media_files(request):
+    """Debug endpoint to check media file serving"""
+    import os
+    from django.conf import settings
+    from django.http import JsonResponse
+    
+    debug_info = {
+        'media_url': settings.MEDIA_URL,
+        'media_root': str(settings.MEDIA_ROOT),
+        'debug_mode': settings.DEBUG,
+        'media_root_exists': os.path.exists(settings.MEDIA_ROOT),
+        'chat_images_dir_exists': os.path.exists(os.path.join(settings.MEDIA_ROOT, 'chat_images')),
+    }
+    
+    # Check if chat_images directory exists and list some files
+    chat_images_path = os.path.join(settings.MEDIA_ROOT, 'chat_images')
+    if os.path.exists(chat_images_path):
+        try:
+            files = os.listdir(chat_images_path)[:5]  # List first 5 files
+            debug_info['sample_chat_images'] = files
+        except Exception as e:
+            debug_info['error_listing_files'] = str(e)
+    
+    # Check recent messages with images
+    recent_messages = Message.objects.filter(image__isnull=False).order_by('-timestamp')[:3]
+    debug_info['recent_image_messages'] = []
+    
+    for msg in recent_messages:
+        debug_info['recent_image_messages'].append({
+            'id': msg.id,
+            'image_name': msg.image.name if msg.image else None,
+            'image_url': msg.image.url if msg.image else None,
+            'file_exists': os.path.exists(msg.image.path) if msg.image else False,
+        })
+    
+    return JsonResponse(debug_info)

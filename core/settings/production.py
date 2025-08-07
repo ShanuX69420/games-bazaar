@@ -131,6 +131,14 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_BROWSER_XSS_FILTER = True
 
+# Ensure media files are accessible
+import os
+if not os.path.exists(BASE_DIR / 'media'):
+    os.makedirs(BASE_DIR / 'media', exist_ok=True)
+
+if not os.path.exists(BASE_DIR / 'media' / 'chat_images'):
+    os.makedirs(BASE_DIR / 'media' / 'chat_images', exist_ok=True)
+
 # Add security middleware
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
