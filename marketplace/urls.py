@@ -1,6 +1,7 @@
 # marketplace/urls.py
 from django.urls import path, reverse_lazy
 from django.contrib.auth import views as auth_views
+from django.http import JsonResponse
 from . import views
 
 
@@ -85,6 +86,9 @@ urlpatterns = [
     path('terms-of-service/', views.terms_of_service_view, name='terms_of_service'),
     path('rules/', views.rules_view, name='rules'),
     path('accounts/facebook/data-deletion/', views.facebook_data_deletion, name='facebook_data_deletion'),
+
+    # API 404 handler - must come before the catch-all pattern
+    path('api/', lambda request: JsonResponse({'error': 'API endpoint not found'}, status=404), name='api_404'),
 
     # The generic slug URL MUST BE LAST.
     path('<slug:slug>/', views.flat_page_view, name='flat_page'),
