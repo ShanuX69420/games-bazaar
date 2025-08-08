@@ -1,0 +1,112 @@
+"""
+Simple Google Cloud Storage integration that doesn't break existing functionality
+"""
+from django.core.files.storage import DefaultStorage
+from django.conf import settings
+import os
+
+
+class GoogleCloudChatStorage:
+    """
+    Storage class that saves chat images ONLY to Google Cloud Storage
+    for production use - no local storage
+    """
+    
+    def __init__(self):
+        self.default_storage = DefaultStorage()
+        
+    def save(self, name, content, max_length=None):
+        """Save file directly to Google Cloud Storage"""
+        if not settings.USE_GCS_FOR_NEW_IMAGES:
+            # Fallback to local storage if GCS is disabled
+            return self.default_storage.save(name, content, max_length)
+            
+        try:
+            # Save directly to Google Cloud Storage
+            return self._save_to_gcs(name, content, max_length)
+        except Exception as e:
+            print(f"Error: Failed to upload to GCS: {e}")
+            # Fallback to local storage if GCS fails
+            return self.default_storage.save(name, content, max_length)
+    
+    def _save_to_gcs(self, name, content, max_length=None):
+        """Save file directly to Google Cloud Storage and return the name"""
+        from google.cloud import storage
+        import mimetypes
+        
+        # Generate a clean filename
+        filename = self.get_available_name(name, max_length)
+        blob_name = f"chat_images/{os.path.basename(filename)}"
+        
+        # Determine content type
+        content_type, _ = mimetypes.guess_type(filename)
+        if not content_type:
+            if filename.lower().endswith(('.jpg', '.jpeg')):
+                content_type = 'image/jpeg'
+            elif filename.lower().endswith('.png'):
+                content_type = 'image/png'
+            elif filename.lower().endswith('.gif'):
+                content_type = 'image/gif'
+            elif filename.lower().endswith('.webp'):
+                content_type = 'image/webp'
+            else:
+                content_type = 'image/jpeg'  # Default fallback
+        
+        # Upload to Google Cloud Storage
+        client = storage.Client()
+        bucket = client.bucket(settings.GS_BUCKET_NAME)
+        blob = bucket.blob(blob_name)
+        
+        # Set content type so images display in browser instead of downloading
+        blob.content_type = content_type
+        
+        # Reset content position if possible
+        if hasattr(content, 'seek'):
+            content.seek(0)
+            
+        blob.upload_from_file(content)
+        print(f"Saved to GCS: {blob_name} (Content-Type: {content_type})")
+        
+        # Return the filename (without the chat_images/ prefix for Django)
+        return os.path.basename(filename)
+    
+    def delete(self, name):
+        """Delete from local storage"""
+        return self.default_storage.delete(name)
+    
+    def exists(self, name):
+        """Check if file exists in local storage"""
+        return self.default_storage.exists(name)
+    
+    def url(self, name):
+        """Return Google Cloud Storage URL directly"""
+        if not settings.USE_GCS_FOR_NEW_IMAGES:
+            return self.default_storage.url(name)
+            
+        # Return GCS URL directly
+        blob_name = f"chat_images/{os.path.basename(name)}"
+        return f"{settings.GS_CUSTOM_ENDPOINT}/{blob_name}"
+    
+    def size(self, name):
+        """Get file size from local storage"""
+        return self.default_storage.size(name)
+    
+    def path(self, name):
+        """Get local file path"""
+        return self.default_storage.path(name)
+    
+    def generate_filename(self, filename):
+        """Generate filename using default storage"""
+        return self.default_storage.generate_filename(filename)
+    
+    def get_valid_name(self, name):
+        """Get valid name using default storage"""
+        return self.default_storage.get_valid_name(name)
+    
+    def get_available_name(self, name, max_length=None):
+        """Get available name using default storage"""
+        return self.default_storage.get_available_name(name, max_length)
+
+
+# Create instance
+google_cloud_chat_storage = GoogleCloudChatStorage()

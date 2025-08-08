@@ -41,6 +41,7 @@ logs/
 *.pem
 *.key
 *.crt
+gcs-credentials.json
 
 # Cache
 .cache/

@@ -114,6 +114,23 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Google Cloud Storage Configuration
+GS_BUCKET_NAME = config('GS_BUCKET_NAME', default='')
+GS_PROJECT_ID = config('GS_PROJECT_ID', default='')
+GS_CREDENTIALS = config('GOOGLE_APPLICATION_CREDENTIALS', default='')
+GS_CUSTOM_ENDPOINT = config('GS_CUSTOM_ENDPOINT', default='')  # Your custom DNS domain
+GS_DEFAULT_ACL = 'publicRead'
+GS_FILE_OVERWRITE = False
+GS_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+
+# Set the Google Application Credentials environment variable
+import os
+if GS_CREDENTIALS and os.path.exists(GS_CREDENTIALS):
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = GS_CREDENTIALS
+
+# Enable Google Cloud Storage for new images only
+USE_GCS_FOR_NEW_IMAGES = config('USE_GCS_FOR_NEW_IMAGES', default=False, cast=bool)
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

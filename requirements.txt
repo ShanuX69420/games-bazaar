@@ -64,3 +64,7 @@ websocket-client==1.8.0
 whitenoise==6.9.0
 wsproto==1.2.0
 zope.interface==7.2
+
+# Google Cloud Storage
+django-storages==1.14.6
+google-cloud-storage==2.15.0

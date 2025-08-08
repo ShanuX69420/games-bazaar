@@ -11,6 +11,8 @@ from decimal import Decimal # Import Decimal
 from django.core.exceptions import ValidationError
 import string
 import random
+# Import simple Google Cloud Storage
+from .simple_storage import google_cloud_chat_storage
 
 # Custom QuerySet classes for optimized queries
 class ProductQuerySet(models.QuerySet):
@@ -510,7 +512,7 @@ class Message(models.Model):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
     content = models.TextField(blank=True)
-    image = models.ImageField(upload_to='chat_images/', blank=True, null=True)
+    image = models.ImageField(storage=google_cloud_chat_storage, upload_to='chat_images/', blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
     is_read = models.BooleanField(default=False, db_index=True)
     is_system_message = models.BooleanField(default=False)
