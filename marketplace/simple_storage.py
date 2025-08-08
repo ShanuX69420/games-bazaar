@@ -1,19 +1,20 @@
 """
 Simple Google Cloud Storage integration that doesn't break existing functionality
 """
-from django.core.files.storage import DefaultStorage
+from django.core.files.storage import DefaultStorage, Storage
 from django.conf import settings
 import os
 
 
-class GoogleCloudChatStorage:
+class GoogleCloudUniversalStorage(Storage):
     """
-    Storage class that saves chat images ONLY to Google Cloud Storage
+    Universal storage class that saves ALL images to Google Cloud Storage
     for production use - no local storage
     """
     
-    def __init__(self):
+    def __init__(self, folder_name='images'):
         self.default_storage = DefaultStorage()
+        self.folder_name = folder_name
         
     def save(self, name, content, max_length=None):
         """Save file directly to Google Cloud Storage"""
@@ -36,7 +37,7 @@ class GoogleCloudChatStorage:
         
         # Generate a clean filename
         filename = self.get_available_name(name, max_length)
-        blob_name = f"chat_images/{os.path.basename(filename)}"
+        blob_name = f"{self.folder_name}/{os.path.basename(filename)}"
         
         # Determine content type
         content_type, _ = mimetypes.guess_type(filename)
@@ -67,11 +68,24 @@ class GoogleCloudChatStorage:
         blob.upload_from_file(content)
         print(f"Saved to GCS: {blob_name} (Content-Type: {content_type})")
         
-        # Return the filename (without the chat_images/ prefix for Django)
+        # Return the filename (without the folder prefix for Django)
         return os.path.basename(filename)
     
     def delete(self, name):
-        """Delete from local storage"""
+        """Delete from both GCS and local storage"""
+        if settings.USE_GCS_FOR_NEW_IMAGES:
+            try:
+                from google.cloud import storage
+                client = storage.Client()
+                bucket = client.bucket(settings.GS_BUCKET_NAME)
+                blob_name = f"{self.folder_name}/{os.path.basename(name)}"
+                blob = bucket.blob(blob_name)
+                if blob.exists():
+                    blob.delete()
+                    print(f"Deleted from GCS: {blob_name}")
+            except Exception as e:
+                print(f"Error deleting from GCS: {e}")
+        
         return self.default_storage.delete(name)
     
     def exists(self, name):
@@ -84,7 +98,7 @@ class GoogleCloudChatStorage:
             return self.default_storage.url(name)
             
         # Return GCS URL directly
-        blob_name = f"chat_images/{os.path.basename(name)}"
+        blob_name = f"{self.folder_name}/{os.path.basename(name)}"
         return f"{settings.GS_CUSTOM_ENDPOINT}/{blob_name}"
     
     def size(self, name):
@@ -106,7 +120,41 @@ class GoogleCloudChatStorage:
     def get_available_name(self, name, max_length=None):
         """Get available name using default storage"""
         return self.default_storage.get_available_name(name, max_length)
+    
+    def listdir(self, path):
+        """List directory contents"""
+        return self.default_storage.listdir(path)
 
 
-# Create instance
+class GoogleCloudChatStorage(GoogleCloudUniversalStorage):
+    """
+    Storage class that saves chat images ONLY to Google Cloud Storage
+    for production use - no local storage
+    """
+    
+    def __init__(self):
+        super().__init__(folder_name='chat_images')
+
+
+class GoogleCloudProfileStorage(GoogleCloudUniversalStorage):
+    """
+    Storage class that saves profile images to Google Cloud Storage
+    """
+    
+    def __init__(self):
+        super().__init__(folder_name='profile_pics')
+
+
+class GoogleCloudProductStorage(GoogleCloudUniversalStorage):
+    """
+    Storage class that saves product images to Google Cloud Storage
+    """
+    
+    def __init__(self):
+        super().__init__(folder_name='product_images')
+
+
+# Create storage instances
 google_cloud_chat_storage = GoogleCloudChatStorage()
+google_cloud_profile_storage = GoogleCloudProfileStorage()
+google_cloud_product_storage = GoogleCloudProductStorage()

@@ -9,10 +9,11 @@ from django.dispatch import receiver
 from model_utils import FieldTracker
 from decimal import Decimal # Import Decimal
 from django.core.exceptions import ValidationError
+from django.conf import settings
 import string
 import random
 # Import simple Google Cloud Storage
-from .simple_storage import google_cloud_chat_storage
+from .simple_storage import google_cloud_chat_storage, google_cloud_profile_storage, google_cloud_product_storage
 
 # Custom QuerySet classes for optimized queries
 class ProductQuerySet(models.QuerySet):
@@ -153,14 +154,17 @@ class Profile(models.Model):
     commission_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     last_seen = models.DateTimeField(null=True, blank=True, db_index=True)
     offline_broadcast_at = models.DateTimeField(null=True, blank=True, help_text="Last time offline status was broadcasted")
-    image = models.ImageField(upload_to='profile_pics', null=True, blank=True)
+    image = models.ImageField(storage=google_cloud_profile_storage, upload_to='profile_pics', null=True, blank=True)
     show_listings_on_site = models.BooleanField(default=True, db_index=True)
     is_moderator = models.BooleanField(default=False, help_text="Can join conversations for dispute resolution")
     is_verified_seller = models.BooleanField(default=False, help_text="Verified sellers can withdraw funds immediately")
     @property
     def image_url(self):
-        if self.image and hasattr(self.image, 'url'): return self.image.url
-        else: return '/static/images/default.jpg'
+        if self.image and hasattr(self.image, 'url'): 
+            # The storage backend will handle CDN URL generation
+            return self.image.url
+        else: 
+            return '/static/images/default.jpg'
     @property
     def is_online(self):
         if self.last_seen:
@@ -364,7 +368,15 @@ class Product(models.Model):
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
-    image = models.ImageField(upload_to='product_images/')
+    image = models.ImageField(storage=google_cloud_product_storage, upload_to='product_images/')
+
+    @property
+    def image_url(self):
+        """Return CDN URL - the storage backend handles URL generation"""
+        if self.image and hasattr(self.image, 'url'): 
+            return self.image.url
+        else: 
+            return None
 
     def __str__(self):
         return f"Image for {self.product.listing_title}"
