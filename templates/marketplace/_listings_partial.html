@@ -1,0 +1,69 @@
+{% load time_filters grouping_filters %}
+
+{% for listing in listings %}
+    <a href="{% url 'product_detail' listing.pk %}" class="listing-grid listing-row-item">
+        
+        {% if game_category_link.primary_filter %}
+        <div class="listing-primary-filter">
+            {% with primary_filter_option=listing|get_option_for_filter:game_category_link.primary_filter %}
+                {% if primary_filter_option %}
+                    {{ primary_filter_option.value }}
+                {% else %}
+                    {{ listing.game.title }}
+                {% endif %}
+            {% endwith %}
+        </div>
+        {% endif %}
+        {# Column 2: Description #}
+        <div class="listing-description">
+            {{ listing.listing_title }}
+            {% for option in listing.filter_options.all %}
+                {% if option.filter.append_to_title %}
+                    , {{ option.value }}
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {# Column 3: Seller. This is not a link, as the whole row is clickable. #}
+        <div class="listing-seller">
+            <div class="seller-avatar-container">
+                <img src="{{ listing.seller.profile.image_url }}" alt="{{ listing.seller.username }}" class="seller-avatar">
+                <span class="status-dot {% if listing.seller.profile.is_online %}online{% endif %}"></span>
+            </div>
+            <div class="seller-info">
+                <div class="seller-username {% if listing.seller.profile.is_online %}online{% endif %}">{{ listing.seller.username }}</div>
+                <div class="seller-rating">
+                    {% with rating=listing.seller_avg_rating|default:0 %}
+                        <span class="seller-rating-stars" title="{{ rating|floatformat:2 }} out of 5 stars">
+                        {% for i in "12345" %}
+                            <i class="fa-star {% if i|add:0 <= rating %}fas{% else %}far{% endif %}"></i>
+                        {% endfor %}
+                        </span>
+                        <span class="seller-rating-count">
+                            {{ listing.seller_review_count }}
+                        </span>
+                    {% endwith %}
+                </div>
+                <div class="seller-meta">
+                    {{ listing.seller.date_joined|registration_duration }}
+                </div>
+            </div>
+        </div>
+
+        {# Column 4: Price #}
+        <div class="listing-price-wrapper">
+            <div class="listing-price">
+                Rs{{ listing.price|floatformat:2 }}
+            </div>
+            {% if listing.automatic_delivery %}
+                <div class="auto-delivery-indicator">
+                    <i class="fas fa-bolt" title="Automatic Delivery"></i>
+                </div>
+            {% endif %}
+        </div>
+    </a>
+{% empty %}
+    <div class="list-group-item">
+        <p class="mb-0">There are no listings matching your criteria. Try adjusting your filters!</p>
+    </div>
+{% endfor %}

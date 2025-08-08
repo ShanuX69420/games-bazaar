@@ -1,0 +1,41 @@
+{% load time_filters %}
+
+<div class="review-reply mt-3 p-3" style="border-left: 3px solid #007cba; background-color: #f8f9fa; border-radius: 0 6px 6px 0;">
+    <div class="d-flex justify-content-between align-items-start mb-2">
+        <div class="d-flex align-items-center">
+            <img src="{{ reply.seller.profile.image_url }}" alt="{{ reply.seller.username }}" width="30" height="30" class="rounded-circle me-2">
+            <div>
+                <strong>{{ reply.seller.username }}</strong>
+                <span class="badge bg-primary ms-1">Seller</span>
+                {% if reply.updated_at != reply.created_at %}
+                    <small class="text-muted ms-2">(edited)</small>
+                {% endif %}
+            </div>
+        </div>
+        <div class="text-end">
+            <small class="text-muted">{{ reply.created_at|smart_time }}</small>
+            {% if request.user == reply.seller %}
+                <div class="dropdown ms-2 d-inline-block">
+                    <button class="btn btn-link btn-sm p-0 text-muted" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item edit-reply-btn" href="#" data-reply-id="{{ reply.id }}">
+                                <i class="fas fa-edit me-2"></i>Edit Reply
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item text-danger delete-reply-btn" href="#" data-reply-id="{{ reply.id }}">
+                                <i class="fas fa-trash me-2"></i>Delete Reply
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="reply-content">
+        {{ reply.reply_text|linebreaksbr }}
+    </div>
+</div>

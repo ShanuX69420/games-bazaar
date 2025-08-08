@@ -1,0 +1,15 @@
+<form id="review-form" action="{% url 'order_detail' order.clean_order_id %}" method="post">
+    {% csrf_token %}
+    <div class="mb-3">
+        {{ review_form.comment }}
+    </div>
+    <div class="mb-3">
+        <div class="rating-stars">
+            {% for radio in review_form.rating %}
+                {{ radio.tag }}
+                <label for="{{ radio.id_for_label }}"><i class="fas fa-star"></i></label>
+            {% endfor %}
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Publish</button>
+</form>

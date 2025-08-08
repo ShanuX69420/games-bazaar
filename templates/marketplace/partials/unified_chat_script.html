@@ -1,0 +1,1136 @@
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if user.is_authenticated %}
+    
+    // Setup file input feedback for image uploads (handle multiple panels)
+    const fileInputs = document.querySelectorAll('.chat-image-input-js');
+    fileInputs.forEach(function(fileInput) {
+        // Find the corresponding filename span for this file input
+        const inputId = fileInput.id;
+        const panelId = inputId.replace('chat-image-input-', '');
+        const filenameSpan = document.getElementById('attached-filename-' + panelId);
+        
+        if (filenameSpan) {
+            fileInput.addEventListener('change', function() {
+                if (this.files.length > 0) {
+                    const file = this.files[0];
+                    
+                    // Validate filename for security before processing
+                    const dangerousPatterns = ['..', '/', '\\', '<', '>', ':', '"', '|', '?', '*'];
+                    const haseDangerousChars = dangerousPatterns.some(pattern => file.name.includes(pattern));
+                    
+                    if (haseDangerousChars) {
+                        alert('Error: Filename contains dangerous characters');
+                        this.value = ''; // Clear the file input
+                        return;
+                    }
+                    
+                    // Check file extension
+                    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+                    const fileExt = '.' + file.name.toLowerCase().split('.').pop();
+                    if (!allowedExtensions.includes(fileExt)) {
+                        alert('Error: Only image files (JPG, PNG, GIF, WEBP) are allowed');
+                        this.value = ''; // Clear the file input
+                        return;
+                    }
+                    
+                    // Check file size (3MB limit for chat images)
+                    const maxSize = 3 * 1024 * 1024; // 3MB in bytes
+                    if (file.size > maxSize) {
+                        alert('Error: File size cannot exceed 3MB');
+                        this.value = ''; // Clear the file input
+                        return;
+                    }
+                    
+                    // Check minimum file size
+                    if (file.size < 100) {
+                        alert('Error: File is too small to be a valid image');
+                        this.value = ''; // Clear the file input
+                        return;
+                    }
+                    
+                    // Validate file signature (magic bytes) to detect fake images
+                    const validateImageSignature = (file) => {
+                        return new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                const arr = new Uint8Array(e.target.result);
+                                let header = "";
+                                for (let i = 0; i < Math.min(arr.length, 12); i++) {
+                                    header += arr[i].toString(16).padStart(2, '0');
+                                }
+                                
+                                // Check for valid image signatures
+                                const signatures = {
+                                    'jpeg': ['ffd8ff'],
+                                    'png': ['89504e47'],
+                                    'gif': ['47494638'],
+                                    'webp': ['52494646'] // RIFF header for WEBP
+                                };
+                                
+                                let isValid = false;
+                                for (let format in signatures) {
+                                    for (let sig of signatures[format]) {
+                                        if (header.toLowerCase().startsWith(sig)) {
+                                            isValid = true;
+                                            break;
+                                        }
+                                    }
+                                    if (isValid) break;
+                                }
+                                
+                                resolve(isValid);
+                            };
+                            reader.readAsArrayBuffer(file.slice(0, 12));
+                        });
+                    };
+                    
+                    // Validate file signature before proceeding with proper state management
+                    const currentFileInput = this;
+                    const paperclipIcon = this.parentNode.querySelector('.chat-image-label-js i');
+                    
+                    // Disable input during validation to prevent race conditions
+                    currentFileInput.disabled = true;
+                    
+                    validateImageSignature(file).then((isValidImage) => {
+                        // Re-enable input
+                        currentFileInput.disabled = false;
+                        
+                        if (!isValidImage) {
+                            alert('Error: File content does not match expected image format');
+                            currentFileInput.value = ''; // Clear the file input
+                            if (paperclipIcon) {
+                                paperclipIcon.className = 'fas fa-paperclip';
+                            }
+                            return;
+                        }
+                        
+                        // Continue with original file processing logic
+                        // Show image preview in modal with Send button
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            // Store the current form and file input for later use
+                            const modal = document.getElementById('imagePreviewModal');
+                            const currentForm = currentFileInput.closest('form');
+                            if (modal && currentForm) {
+                                // Clear any previous state
+                                modal.currentForm = null;
+                                modal.removeAttribute('data-current-input-id');
+                                
+                                // Set new state
+                                modal.currentForm = currentForm;
+                                modal.setAttribute('data-current-input-id', currentFileInput.id);
+                            }
+                            
+                            // Show the modal with Send button
+                            if (window.showImagePreview) {
+                                window.showImagePreview(e.target.result, true);
+                            }
+                        };
+                        
+                        reader.onerror = function() {
+                            currentFileInput.value = '';
+                            if (paperclipIcon) {
+                                paperclipIcon.className = 'fas fa-paperclip';
+                            }
+                            alert('Error reading file. Please try again.');
+                        };
+                        
+                        reader.readAsDataURL(file);
+                        
+                        // Change the paperclip icon color to indicate file is selected
+                        if (paperclipIcon) {
+                            paperclipIcon.className = 'fas fa-paperclip text-success';
+                        }
+                    }).catch((error) => {
+                        // Re-enable input on error
+                        currentFileInput.disabled = false;
+                        currentFileInput.value = '';
+                        if (paperclipIcon) {
+                            paperclipIcon.className = 'fas fa-paperclip';
+                        }
+                        console.error('File validation error:', error);
+                        alert('Error validating file. Please try again.');
+                    });
+                } else {
+                    // Reset paperclip icon color
+                    const paperclipIcon = this.parentNode.querySelector('.chat-image-label-js i');
+                    if (paperclipIcon) {
+                        paperclipIcon.className = 'fas fa-paperclip';
+                    }
+                }
+            });
+        }
+    });
+    
+    const otherUserUsernameEl = document.getElementById('other-user-username');
+    if (!otherUserUsernameEl) {
+        return;
+    }
+
+    const otherUserUsername = JSON.parse(otherUserUsernameEl.textContent);
+    const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent);
+
+    const allChatLogs = document.querySelectorAll('.chat-log-js');
+    const allChatForms = document.querySelectorAll('.chat-form-js');
+
+    if (allChatLogs.length === 0 && allChatForms.length === 0) {
+        // If there are no chat elements, still allow blocking functionality to work
+        // This can happen on pages where only the block button is present
+    }
+
+    let chatSocket = null;
+    let isLoadingOlderMessages = false;
+    let hasMoreMessages = {% if has_more_messages %}true{% else %}false{% endif %};
+    let currentOffset = {% if messages %}{{ messages|length }}{% else %}0{% endif %};
+    let reconnectAttempts = 0;
+    let maxReconnectAttempts = 10; // Increased for production
+    let reconnectTimeout = null;
+    let connectionState = 'disconnected'; // disconnected, connecting, connected
+    let heartbeatInterval = null;
+    let lastHeartbeat = null;
+    let isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+    function formatSmartTimeJS(isoString) {
+        if (!isoString) return '';
+        const messageDate = new Date(isoString);
+        const now = new Date();
+        const isToday = messageDate.toDateString() === now.toDateString();
+
+        if (isToday) {
+            return messageDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+        } else {
+            return messageDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+    }
+
+    function formatDateSeparator(dateString) {
+        if (!dateString) return '';
+        const messageDate = new Date(dateString);
+        const now = new Date();
+        
+        // Reset time to compare dates only
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const msgDate = new Date(messageDate.getFullYear(), messageDate.getMonth(), messageDate.getDate());
+        
+        if (msgDate.getTime() === today.getTime()) {
+            return 'Today';
+        } else if (msgDate.getTime() === yesterday.getTime()) {
+            return 'Yesterday';
+        } else {
+            return messageDate.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
+    }
+
+    function createDateSeparator(dateText) {
+        const separator = document.createElement('div');
+        separator.className = 'date-separator text-center my-3';
+        separator.setAttribute('data-date', dateText);
+        separator.innerHTML = `
+            <div class="d-flex align-items-center">
+                <hr class="flex-grow-1" style="border-color: #dee2e6;">
+                <span class="px-3 text-muted small fw-bold" style="background-color: #ffffff;">${dateText}</span>
+                <hr class="flex-grow-1" style="border-color: #dee2e6;">
+            </div>
+        `;
+        return separator;
+    }
+
+    function extractTimestampFromMessage(messageElement) {
+        // Try to find timestamp from data attribute first
+        const timestamp = messageElement.getAttribute('data-timestamp');
+        if (timestamp) return timestamp;
+        
+        // Fallback: extract from the message HTML structure
+        const timeElement = messageElement.querySelector('small.text-muted');
+        if (timeElement) {
+            // This would need server-side modification to include ISO timestamp in data attribute
+            // For now, we'll use a different approach
+            return null;
+        }
+        return null;
+    }
+
+    function getDateFromMessageElement(messageElement) {
+        const timestamp = extractTimestampFromMessage(messageElement);
+        if (timestamp) {
+            const date = new Date(timestamp);
+            return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        }
+        return null;
+    }
+
+    // Debounced function for message grouping
+    let groupingTimeout = null;
+    function applyMessageGrouping(container) {
+        if (groupingTimeout) {
+            clearTimeout(groupingTimeout);
+        }
+        
+        groupingTimeout = setTimeout(() => {
+            const messages = container.querySelectorAll('.message-item');
+            let lastSender = null;
+            let lastTimestamp = null;
+            
+            // Use document fragment for better performance
+            const fragment = document.createDocumentFragment();
+            const messagesToUpdate = [];
+            
+            messages.forEach((message, index) => {
+                const sender = message.getAttribute('data-sender');
+                const timestamp = message.getAttribute('data-timestamp');
+                
+                if (sender && timestamp) {
+                    const messageTime = new Date(timestamp);
+                    const shouldGroup = lastSender === sender && 
+                                      lastTimestamp && 
+                                      (messageTime - lastTimestamp) <= 5 * 60 * 1000; // 5 minutes in milliseconds
+                    
+                    const currentlyGrouped = message.classList.contains('grouped');
+                    const currentlyGroupStart = message.classList.contains('group-start');
+                    
+                    if (shouldGroup) {
+                        // Messages within 5 minutes of same sender should be grouped (hide username)
+                        if (!currentlyGrouped) {
+                            messagesToUpdate.push({ element: message, action: 'grouped' });
+                        }
+                    } else {
+                        // Messages that are first from a sender or after 5+ minutes should show username
+                        if (!currentlyGroupStart) {
+                            messagesToUpdate.push({ element: message, action: 'group-start' });
+                        }
+                    }
+                    
+                    lastSender = sender;
+                    lastTimestamp = messageTime;
+                }
+            });
+            
+            // Batch DOM updates
+            messagesToUpdate.forEach(({ element, action }) => {
+                element.classList.remove('grouped', 'group-start');
+                element.classList.add(action);
+            });
+        }, 50); // 50ms debounce
+    }
+
+    // Optimized date separator insertion with caching
+    let separatorCache = new Map();
+    function insertDateSeparators(container) {
+        // First, remove existing date separators to prevent duplicates
+        const existingSeparators = container.querySelectorAll('.date-separator');
+        existingSeparators.forEach(sep => sep.remove());
+        
+        const messages = container.querySelectorAll('.mb-3:not(.date-separator)');
+        let lastDate = null;
+        const separatorsToInsert = [];
+        
+        messages.forEach((message, index) => {
+            const messageDate = getDateFromMessageElement(message);
+            if (messageDate && (!lastDate || messageDate.getTime() !== lastDate.getTime())) {
+                const dateKey = messageDate.getTime();
+                let separator = separatorCache.get(dateKey);
+                
+                if (!separator) {
+                    separator = createDateSeparator(formatDateSeparator(messageDate));
+                    separatorCache.set(dateKey, separator.cloneNode(true));
+                }
+                
+                separatorsToInsert.push({ separator: separator.cloneNode(true), beforeElement: message });
+                lastDate = messageDate;
+            }
+        });
+        
+        // Batch insert separators
+        separatorsToInsert.forEach(({ separator, beforeElement }) => {
+            beforeElement.parentNode.insertBefore(separator, beforeElement);
+        });
+    }
+
+    function addDateSeparatorIfNeeded(container, newMessageElement) {
+        const messageDate = getDateFromMessageElement(newMessageElement);
+        if (!messageDate) return;
+        
+        // Ensure the new message element is actually in the container
+        if (!container.contains(newMessageElement)) {
+            console.warn('New message element is not in the container, skipping date separator');
+            return;
+        }
+        
+        // Get the last message before this new one
+        const allMessages = container.querySelectorAll('.mb-3:not(.date-separator)');
+        const newMessageIndex = Array.from(allMessages).indexOf(newMessageElement);
+        
+        if (newMessageIndex === -1) {
+            console.warn('Could not find new message in container, skipping date separator');
+            return;
+        }
+        
+        const lastMessage = newMessageIndex > 0 ? allMessages[newMessageIndex - 1] : null;
+        
+        if (!lastMessage) {
+            // First message, add separator
+            try {
+                const separator = createDateSeparator(formatDateSeparator(messageDate));
+                container.insertBefore(separator, newMessageElement);
+            } catch (error) {
+                console.error('Error inserting first date separator:', error);
+            }
+            return;
+        }
+        
+        const lastMessageDate = getDateFromMessageElement(lastMessage);
+        if (!lastMessageDate || lastMessageDate.getTime() !== messageDate.getTime()) {
+            // Different date, add separator
+            try {
+                const separator = createDateSeparator(formatDateSeparator(messageDate));
+                container.insertBefore(separator, newMessageElement);
+            } catch (error) {
+                console.error('Error inserting date separator:', error);
+            }
+        }
+    }
+
+    const sendMessage = (form) => {
+        const formData = new FormData(form);
+        const messageText = formData.get('message').trim();
+        const imageFile = formData.get('image');
+
+        if (!messageText && (!imageFile || imageFile.size === 0)) {
+            return;
+        }
+
+        // Find the filename span for this specific form
+        const fileInput = form.querySelector('.chat-image-input-js');
+        let filenameSpan = null;
+        if (fileInput) {
+            const inputId = fileInput.id;
+            const panelId = inputId.replace('chat-image-input-', '');
+            filenameSpan = document.getElementById('attached-filename-' + panelId);
+        }
+
+
+        const url = `/ajax/send-message/${otherUserUsername}/`;
+        const csrfToken = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+        // Add timeout for production environments
+        const controller = new AbortController();
+        const timeoutId = isProduction ? setTimeout(() => controller.abort(), 10000) : null; // 10 second timeout in production
+        
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': csrfToken },
+            signal: controller.signal
+        })
+        .then(response => {
+            if (timeoutId) clearTimeout(timeoutId);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Message send response:', data); // Debug log
+            if (data.status === 'success') {
+                form.reset();
+                // Reset paperclip icon color for this specific form
+                const paperclipIcon = form.querySelector('.chat-image-label-js i');
+                if (paperclipIcon) {
+                    paperclipIcon.className = 'fas fa-paperclip';
+                }
+                
+                // Scroll to bottom to show the sent message immediately
+                allChatLogs.forEach(log => {
+                    scrollToBottom(log, { smooth: true, newMessage: true });
+                });
+                
+                // Check WebSocket connection status
+                if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
+                    console.warn('WebSocket is not connected. Message sent but may not appear in real-time.');
+                    // Try to reconnect if not connected
+                    if (connectionState === 'disconnected') {
+                        console.log('Attempting to reconnect WebSocket...');
+                        connect();
+                    }
+                }
+                
+                // In production, if WebSocket is problematic, add fallback polling check
+                if (isProduction && (!chatSocket || chatSocket.readyState !== WebSocket.OPEN)) {
+                    setTimeout(() => {
+                        // Check if message appeared, if not, suggest refresh
+                        const lastMessageText = data.message_content;
+                        const hasAppeared = Array.from(allChatLogs).some(log => 
+                            log.textContent.includes(lastMessageText)
+                        );
+                        
+                        if (!hasAppeared) {
+                            console.warn('Message may not have appeared. WebSocket connection issues detected.');
+                            // Show a subtle notification
+                            allChatLogs.forEach(log => {
+                                let notification = log.querySelector('.sync-warning');
+                                if (!notification) {
+                                    notification = document.createElement('div');
+                                    notification.className = 'sync-warning alert alert-info text-center mb-2';
+                                    notification.innerHTML = '<small><i class="fas fa-sync"></i> Message sync may be delayed. <a href="javascript:location.reload()">Refresh</a> if needed.</small>';
+                                    log.appendChild(notification);
+                                    
+                                    // Auto-hide after 10 seconds
+                                    setTimeout(() => {
+                                        notification.style.display = 'none';
+                                    }, 10000);
+                                }
+                            });
+                        }
+                    }, 3000); // Wait 3 seconds to check
+                }
+            } else {
+                console.error('Message send failed:', data);
+                alert('Error: ' + (data.message || 'Unknown error occurred'));
+            }
+        })
+        .catch(error => {
+            if (timeoutId) clearTimeout(timeoutId);
+            
+            if (error.name === 'AbortError') {
+                console.error('Request timed out');
+                alert('Request timed out. Please check your connection and try again.');
+            } else {
+                console.error('Error sending message:', error);
+                alert('Failed to send message. Please check your connection and try again.');
+            }
+            
+            // In production, offer immediate retry
+            if (isProduction) {
+                if (confirm('Would you like to retry sending this message?')) {
+                    setTimeout(() => sendMessage(form), 1000);
+                }
+            }
+        });
+    };
+
+    const scrollToBottom = (log, options = {}) => {
+        if(!log) return;
+        
+        const { smooth = false, force = false, newMessage = false } = options;
+        
+        // Always scroll for new messages, otherwise only if user is near the bottom or force is true
+        let shouldScroll = force || newMessage;
+        if (!shouldScroll) {
+            const isNearBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 100;
+            shouldScroll = isNearBottom;
+        }
+        
+        if (!shouldScroll) return;
+        
+        const doScroll = () => {
+            if (smooth) {
+                log.scrollTo({ top: log.scrollHeight, behavior: 'smooth' });
+            } else {
+                log.scrollTop = log.scrollHeight;
+            }
+        };
+        
+        // Scroll immediately
+        doScroll();
+        
+        // Handle images that might still be loading
+        const images = log.querySelectorAll('img:not([data-loaded])');
+        if (images.length === 0) return;
+        
+        let loadingImages = 0;
+        images.forEach(img => {
+            if (!img.complete) {
+                loadingImages++;
+                img.addEventListener('load', function() {
+                    this.setAttribute('data-loaded', 'true');
+                    loadingImages--;
+                    if (loadingImages === 0) {
+                        requestAnimationFrame(doScroll);
+                    }
+                }, { once: true });
+            } else {
+                img.setAttribute('data-loaded', 'true');
+            }
+        });
+        
+        // Fallback scroll after reasonable delay
+        if (loadingImages > 0) {
+            setTimeout(doScroll, 200);
+        }
+    };
+
+    if (allChatLogs.length > 0) {
+        const loadOlderMessages = async () => {
+            if (isLoadingOlderMessages || !hasMoreMessages) return;
+            isLoadingOlderMessages = true;
+
+            allChatLogs.forEach(log => {
+                const loadingIndicator = log.querySelector('.loading-indicator');
+                if (loadingIndicator) loadingIndicator.style.display = 'block';
+            });
+
+            try {
+                const response = await fetch(`/ajax/load-older-messages/${otherUserUsername}/?offset=${currentOffset}&limit=50`);
+                const data = await response.json();
+
+                if (data.status === 'success' && data.messages_html.length > 0) {
+                    // Store scroll positions for each chat log before inserting messages
+                    const scrollStates = Array.from(allChatLogs).map(log => ({
+                        log: log,
+                        scrollHeight: log.scrollHeight,
+                        scrollTop: log.scrollTop
+                    }));
+
+                    // Insert new messages at the top
+                    data.messages_html.forEach(messageHtml => {
+                        allChatLogs.forEach(log => {
+                            const messageWrapper = document.createElement('div');
+                            // Use DOMParser for safe HTML parsing to prevent XSS
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(messageHtml, 'text/html');
+                            const newMessage = doc.body.firstElementChild;
+                            const insertAfter = log.querySelector('.no-more-messages') || log.querySelector('.loading-indicator');
+                            if (insertAfter) {
+                                insertAfter.insertAdjacentElement('afterend', newMessage);
+                            } else {
+                                log.prepend(newMessage);
+                            }
+                        });
+                    });
+
+                    // Re-insert date separators and apply grouping after loading older messages
+                    // Use requestAnimationFrame to avoid blocking the UI
+                    requestAnimationFrame(() => {
+                        allChatLogs.forEach(log => {
+                            insertDateSeparators(log);
+                            applyMessageGrouping(log);
+                        });
+                    });
+
+                    // Restore scroll positions after DOM updates
+                    requestAnimationFrame(() => {
+                        scrollStates.forEach(({ log, scrollHeight, scrollTop }) => {
+                            const newScrollHeight = log.scrollHeight;
+                            const heightDifference = newScrollHeight - scrollHeight;
+                            const newScrollTop = scrollTop + heightDifference;
+                            log.scrollTop = Math.max(0, newScrollTop);
+                        });
+                    });
+
+                    currentOffset = data.new_offset;
+                    hasMoreMessages = data.has_more;
+
+                    if (!hasMoreMessages) {
+                        allChatLogs.forEach(log => {
+                            const noMoreMessagesIndicator = log.querySelector('.no-more-messages');
+                            if (noMoreMessagesIndicator) noMoreMessagesIndicator.style.display = 'block';
+                        });
+                    }
+                } else {
+                    hasMoreMessages = false;
+                    allChatLogs.forEach(log => {
+                        const noMoreMessagesIndicator = log.querySelector('.no-more-messages');
+                        if (noMoreMessagesIndicator) noMoreMessagesIndicator.style.display = 'block';
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading older messages:', error);
+            } finally {
+                allChatLogs.forEach(log => {
+                    const loadingIndicator = log.querySelector('.loading-indicator');
+                    if (loadingIndicator) loadingIndicator.style.display = 'none';
+                });
+                isLoadingOlderMessages = false;
+            }
+        };
+
+        allChatLogs.forEach(log => {
+            log.addEventListener('scroll', () => {
+                if (log.scrollTop <= 50 && hasMoreMessages && !isLoadingOlderMessages) {
+                    loadOlderMessages();
+                }
+            });
+            
+            // Insert date separators and apply grouping for initial messages
+            // Use requestAnimationFrame to avoid blocking initial render
+            requestAnimationFrame(() => {
+                insertDateSeparators(log);
+                applyMessageGrouping(log);
+                
+                // Unified scroll behavior for all devices
+                setTimeout(() => scrollToBottom(log, { force: true }), 100);
+            });
+        });
+
+        allChatForms.forEach(form => {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                sendMessage(form);
+            });
+        });
+    }
+
+    function connect() {
+        if (!otherUserUsername) return;
+        if (connectionState === 'connecting' || connectionState === 'connected') return;
+        
+        // Clear any existing reconnect timeout
+        if (reconnectTimeout) {
+            clearTimeout(reconnectTimeout);
+            reconnectTimeout = null;
+        }
+        
+        connectionState = 'connecting';
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const ws_url = protocol + window.location.host + '/ws/chat/' + otherUserUsername + '/';
+        
+        // Close existing socket if it exists
+        if (chatSocket) {
+            chatSocket.onclose = null; // Prevent triggering reconnect
+            chatSocket.close();
+        }
+        
+        chatSocket = new WebSocket(ws_url);
+
+        chatSocket.onopen = function(e) {
+            connectionState = 'connected';
+            reconnectAttempts = 0;
+            lastHeartbeat = Date.now();
+            console.log('WebSocket connected successfully');
+            
+            allChatLogs.forEach(log => {
+                scrollToBottom(log, { force: true });
+            });
+            
+            // Hide any connection status warnings
+            document.querySelectorAll('.connection-warning').forEach(warning => {
+                warning.style.display = 'none';
+            });
+            
+            // Start heartbeat for production environments
+            if (isProduction && !heartbeatInterval) {
+                heartbeatInterval = setInterval(() => {
+                    if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+                        try {
+                            chatSocket.send(JSON.stringify({ 'type': 'ping' }));
+                            lastHeartbeat = Date.now();
+                        } catch (error) {
+                            console.error('Heartbeat failed:', error);
+                            clearInterval(heartbeatInterval);
+                            heartbeatInterval = null;
+                        }
+                    } else {
+                        clearInterval(heartbeatInterval);
+                        heartbeatInterval = null;
+                    }
+                }, 30000); // 30 second heartbeat
+            }
+        };
+
+        chatSocket.onmessage = function(e) {
+            try {
+                const data = JSON.parse(e.data);
+                
+                // Handle heartbeat responses
+                if (data.type === 'pong') {
+                    lastHeartbeat = Date.now();
+                    return;
+                }
+                
+                console.log('WebSocket message received:', data.type); // Debug log
+                if (data.type === 'new_message' && data.message_html) {
+                    allChatLogs.forEach(log => {
+                        try {
+                            // Create a temporary container to parse the HTML safely
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(data.message_html, 'text/html');
+                            const newMessageElement = doc.body.firstElementChild;
+                            
+                            if (!newMessageElement) {
+                                console.error('Could not parse message HTML');
+                                return;
+                            }
+                            
+                            // Add the message to the log first
+                            log.appendChild(newMessageElement);
+                            
+                            // Then check if we need to add a date separator before this message
+                            addDateSeparatorIfNeeded(log, newMessageElement);
+                            
+                            // Apply message grouping after adding the new message
+                            requestAnimationFrame(() => {
+                                applyMessageGrouping(log);
+                                scrollToBottom(log, { smooth: true, newMessage: true });
+                            });
+                            
+                        } catch (domError) {
+                            console.error('Error processing message DOM:', domError);
+                            // Fallback: just append the raw HTML
+                            const fallbackDiv = document.createElement('div');
+                            fallbackDiv.innerHTML = data.message_html;
+                            const fallbackMessage = fallbackDiv.firstElementChild;
+                            if (fallbackMessage) {
+                                log.appendChild(fallbackMessage);
+                                scrollToBottom(log, { smooth: true, newMessage: true });
+                            }
+                        }
+                    });
+
+                    // Only auto-mark messages as read if the page is visible and message is from other user
+                    const isPageVisible = !document.hidden;
+                    const isFromOtherUser = !data.message_html.includes(`data-sender="${currentUserUsername}"`);
+                    
+                    if (isPageVisible && isFromOtherUser && data.message_id && chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+                        try {
+                            // Page is visible and user is actively viewing - mark as read immediately
+                            chatSocket.send(JSON.stringify({ 'type': 'mark_as_read', 'message_id': data.message_id }));
+                        } catch (sendError) {
+                            console.error('Error marking message as read:', sendError);
+                        }
+                    }
+                    // If page is not visible, don't mark as read - let notifications show
+                }
+            } catch (error) {
+                console.error('Error processing WebSocket message:', error);
+            }
+        };
+
+        chatSocket.onerror = function(e) {
+            console.error('WebSocket error:', e);
+            connectionState = 'disconnected';
+        };
+
+        chatSocket.onclose = function(e) {
+            connectionState = 'disconnected';
+            console.log('WebSocket connection closed:', e.code, e.reason);
+            
+            // Clear heartbeat interval
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+            }
+            
+            // Show connection warning
+            allChatLogs.forEach(log => {
+                let warning = log.querySelector('.connection-warning');
+                if (!warning) {
+                    warning = document.createElement('div');
+                    warning.className = 'connection-warning alert alert-warning text-center mb-2';
+                    warning.innerHTML = '<small><i class="fas fa-exclamation-triangle"></i> Connection lost. Attempting to reconnect...</small>';
+                    log.appendChild(warning);
+                } else {
+                    warning.style.display = 'block';
+                }
+            });
+            
+            // Production-specific handling
+            const baseDelay = isProduction ? 2000 : 1000; // Longer delays in production
+            const maxDelay = isProduction ? 60000 : 30000; // Longer max delay in production
+            
+            // Only reconnect if we haven't exceeded max attempts
+            if (reconnectAttempts < maxReconnectAttempts) {
+                reconnectAttempts++;
+                const delay = Math.min(baseDelay * Math.pow(2, reconnectAttempts), maxDelay);
+                console.log(`WebSocket closed. Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+                
+                reconnectTimeout = setTimeout(() => {
+                    if (connectionState === 'disconnected') {
+                        connect();
+                    }
+                }, delay);
+            } else {
+                console.error('Max reconnection attempts reached. Please refresh the page.');
+                // Update warning message
+                document.querySelectorAll('.connection-warning').forEach(warning => {
+                    warning.innerHTML = '<small><i class="fas fa-exclamation-triangle"></i> Connection failed. Please refresh the page.</small>';
+                    warning.className = 'connection-warning alert alert-danger text-center mb-2';
+                });
+                
+                // In production, show a more prominent notification
+                if (isProduction) {
+                    setTimeout(() => {
+                        if (confirm('WebSocket connection has failed. Would you like to refresh the page to restore messaging?')) {
+                            location.reload();
+                        }
+                    }, 5000);
+                }
+            }
+        };
+    }
+
+    if (allChatLogs.length > 0) {
+        connect();
+        
+        // Mark messages as read when user returns to the tab/window
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && chatSocket && chatSocket.readyState === WebSocket.OPEN && connectionState === 'connected') {
+                // User returned to the page - mark all unread messages in this conversation as read
+                // This will be handled by the consumer when it gets the connection event
+                try {
+                    chatSocket.send(JSON.stringify({ 'type': 'mark_conversation_as_read' }));
+                } catch (error) {
+                    console.error('Error sending mark_conversation_as_read:', error);
+                }
+            }
+        });
+        
+        // Clean up connections when page is unloaded
+        window.addEventListener('beforeunload', function() {
+            if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+                chatSocket.onclose = null; // Prevent reconnection attempts
+                chatSocket.close();
+            }
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+            }
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+            }
+        });
+        
+        // Production-specific: Handle page visibility changes
+        if (isProduction) {
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) {
+                    // Page became visible - check connection health
+                    if (chatSocket && chatSocket.readyState !== WebSocket.OPEN && connectionState === 'disconnected') {
+                        console.log('Page became visible, attempting to reconnect...');
+                        reconnectAttempts = Math.max(0, reconnectAttempts - 2); // Reduce attempts on visibility return
+                        connect();
+                    }
+                    
+                    // Check if we missed messages (heartbeat check)
+                    if (lastHeartbeat && (Date.now() - lastHeartbeat) > 120000) { // 2 minutes
+                        console.warn('Long time since last heartbeat, connection may be stale');
+                        if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+                            try {
+                                chatSocket.send(JSON.stringify({ 'type': 'ping' }));
+                            } catch (e) {
+                                console.error('Failed to send ping:', e);
+                                connect();
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Production-specific: Network change detection
+            if ('connection' in navigator) {
+                navigator.connection.addEventListener('change', function() {
+                    console.log('Network connection changed:', navigator.connection.effectiveType);
+                    if (navigator.connection.effectiveType && chatSocket && chatSocket.readyState !== WebSocket.OPEN) {
+                        // Wait a bit for network to stabilize then reconnect
+                        setTimeout(() => {
+                            if (connectionState === 'disconnected') {
+                                reconnectAttempts = Math.max(0, reconnectAttempts - 1);
+                                connect();
+                            }
+                        }, 2000);
+                    }
+                });
+            }
+        }
+    }
+
+    // --- REFACTORED BLOCK/UNBLOCK UI FUNCTIONS ---
+    function updateBlockUI(isBlocked, theyBlockedMe, iBlockedThem, mutualBlock) {
+        const newText = isBlocked ? 'Unblock User' : 'Block User';
+        const shouldShowBlockedIndicator = isBlocked || theyBlockedMe;
+        const shouldBlockForm = isBlocked || theyBlockedMe;
+
+        // Update all buttons for this user
+        document.querySelectorAll(`.block-user-btn[data-username="${otherUserUsername}"]`).forEach(btn => {
+            const actionText = btn.querySelector('.block-action-text');
+            if (actionText) actionText.textContent = newText;
+        });
+
+        // Update all indicators for this user
+        document.querySelectorAll(`.blocked-user-indicator`).forEach(indicator => {
+            indicator.style.display = shouldShowBlockedIndicator ? 'inline-block' : 'none';
+        });
+
+        // Update all chat forms
+        document.querySelectorAll('.chat-form-js').forEach(form => {
+            form.style.display = shouldBlockForm ? 'none' : 'block';
+        });
+
+        document.querySelectorAll('.blocked-chat-message').forEach(msg => {
+            msg.style.display = shouldBlockForm ? 'block' : 'none';
+            if (shouldBlockForm) {
+                const msgText = msg.querySelector('.blocked-message-text');
+                const helpText = msg.querySelector('.blocked-help-text');
+                if (msgText) {
+                    if (mutualBlock) msgText.textContent = 'You cannot message this user. You have both blocked each other.';
+                    else if (iBlockedThem) msgText.textContent = 'You cannot message this user. You have blocked them.';
+                    else if (theyBlockedMe) msgText.textContent = 'You cannot message this user. They have blocked you.';
+                }
+                if (helpText) {
+                    if (theyBlockedMe && !iBlockedThem) helpText.textContent = 'You cannot unblock this restriction as they have blocked you.';
+                    else if (iBlockedThem) helpText.textContent = 'You can unblock them using the menu above to resume messaging.';
+                    else helpText.textContent = '';
+                }
+            }
+        });
+    }
+
+    // --- Block/Unblock functionality using event delegation ---
+    document.addEventListener('click', function(e) {
+        const blockUserBtn = e.target.closest('.block-user-btn');
+        if (blockUserBtn && blockUserBtn.dataset.username === otherUserUsername) {
+            e.preventDefault();
+            const userId = blockUserBtn.dataset.userId;
+            if (!userId) return;
+
+            const isCurrentlyBlocked = blockUserBtn.querySelector('.block-action-text').textContent.trim() === 'Unblock User';
+            const action = isCurrentlyBlocked ? 'unblock' : 'block';
+            const url = `/ajax/${action}-user/${userId}/`;
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateBlockUI(data.is_blocked, data.they_blocked_me, data.i_blocked_them, data.mutual_block);
+                } else {
+                    console.error('Block/Unblock error:', data.error);
+                }
+            })
+            .catch(error => console.error('Network error:', error));
+        }
+    });
+
+    // --- Check block status on page load ---
+    function checkInitialBlockStatus() {
+        const anyBlockButton = document.querySelector(`.block-user-btn[data-username="${otherUserUsername}"]`);
+        if (anyBlockButton) {
+            const userId = anyBlockButton.dataset.userId;
+            if (userId) {
+                fetch(`/ajax/check-blocked/${userId}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateBlockUI(data.is_blocked, data.they_blocked_me, data.i_blocked_them, data.mutual_block);
+                        }
+                    })
+                    .catch(error => console.error('Error checking block status:', error));
+            }
+        }
+    }
+
+    // Run the check after a short delay to ensure all DOM elements are ready
+    setTimeout(checkInitialBlockStatus, 300);
+
+    // --- IMAGE PREVIEW MODAL FUNCTIONALITY ---
+    
+    // Handle Send button in image preview modal with improved state management
+    const sendImageButton = document.getElementById('send-image-upload');
+    if (sendImageButton) {
+        sendImageButton.addEventListener('click', function() {
+            const modal = document.getElementById('imagePreviewModal');
+            if (!modal || !modal.currentForm) {
+                console.error('No form associated with image upload');
+                return;
+            }
+            
+            const form = modal.currentForm;
+            const fileInputId = modal.getAttribute('data-current-input-id');
+            const fileInput = fileInputId ? document.getElementById(fileInputId) : null;
+            
+            // Validate that we have a file to send
+            if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                alert('No file selected. Please try again.');
+                return;
+            }
+            
+            // Disable the send button to prevent double-clicks
+            sendImageButton.disabled = true;
+            sendImageButton.textContent = 'Sending...';
+            
+            try {
+                // Hide the modal first
+                const imageModal = bootstrap.Modal.getInstance(modal);
+                if (imageModal) {
+                    imageModal.hide();
+                }
+                
+                // Trigger the form submission
+                const messageInput = form.querySelector('input[name="message"], textarea[name="message"]');
+                if (messageInput) {
+                    messageInput.value = messageInput.value.trim();
+                }
+                
+                sendMessage(form);
+                
+            } catch (error) {
+                console.error('Error sending image:', error);
+                alert('Error sending image. Please try again.');
+            } finally {
+                // Re-enable the button
+                setTimeout(() => {
+                    sendImageButton.disabled = false;
+                    sendImageButton.textContent = 'Send';
+                }, 1000);
+            }
+        });
+    }
+    
+    // Handle Cancel button and modal close - clear selected image
+    const imagePreviewModal = document.getElementById('imagePreviewModal');
+    if (imagePreviewModal) {
+        imagePreviewModal.addEventListener('hidden.bs.modal', function() {
+            // Get the current input that was being used
+            const inputId = this.getAttribute('data-current-input-id');
+            if (inputId) {
+                const fileInput = document.getElementById(inputId);
+                if (fileInput) {
+                    // Clear the file input
+                    fileInput.value = '';
+                    
+                    // Reset paperclip icon color
+                    const paperclipIcon = fileInput.parentNode.querySelector('.chat-image-label-js i');
+                    if (paperclipIcon) {
+                        paperclipIcon.className = 'fas fa-paperclip';
+                    }
+                }
+            }
+            
+            // Clear modal data attributes and form reference
+            this.currentForm = null;
+            this.removeAttribute('data-current-input-id');
+            
+            // Clear the preview image
+            const imagePreviewElement = document.getElementById('image-preview-element');
+            if (imagePreviewElement) {
+                imagePreviewElement.src = '#';
+            }
+        });
+    }
+
+    // --- CHAT IMAGE PREVIEW FUNCTIONALITY ---
+    // Handle clicks on chat images for preview
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('chat-image-preview')) {
+            const imageUrl = e.target.getAttribute('data-image-src');
+            const previewElement = document.getElementById('image-preview-element');
+            if (previewElement && imageUrl) {
+                previewElement.src = imageUrl;
+            }
+        }
+    });
+
+    {% endif %}
+});
+</script>

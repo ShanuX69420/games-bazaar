@@ -1,0 +1,38 @@
+{% load time_filters %}
+{% load safe_html %}
+
+{% if conv.participant1 == request.user %}
+    {% with other_user=conv.participant2 %}
+        {% with last_message=conv.latest_message_list.0 %}
+            <a href="{% url 'conversation_detail' other_user.username %}" class="dropdown-item conversation-dropdown-item">
+                <img src="{{ other_user.profile.image_url }}" alt="{{ other_user.username }}" class="avatar">
+                <div class="content">
+                    <div class="content-header">
+                        <span class="username">{{ other_user.username }}</span>
+                        <span class="timestamp">{{ last_message.timestamp|relative_time }}</span>
+                    </div>
+                    <p class="last-message mb-0">
+                        {% if last_message.sender == request.user %}You: {% endif %}{{ last_message.content|unescape_for_preview|default:"[Image]"|truncatechars:35 }}
+                    </p>
+                </div>
+            </a>
+        {% endwith %}
+    {% endwith %}
+{% else %}
+    {% with other_user=conv.participant1 %}
+        {% with last_message=conv.latest_message_list.0 %}
+            <a href="{% url 'conversation_detail' other_user.username %}" class="dropdown-item conversation-dropdown-item">
+                <img src="{{ other_user.profile.image_url }}" alt="{{ other_user.username }}" class="avatar">
+                <div class="content">
+                    <div class="content-header">
+                        <span class="username">{{ other_user.username }}</span>
+                        <span class="timestamp">{{ last_message.timestamp|relative_time }}</span>
+                    </div>
+                    <p class="last-message mb-0">
+                        {% if last_message.sender == request.user %}You: {% endif %}{{ last_message.content|unescape_for_preview|default:"[Image]"|truncatechars:35 }}
+                    </p>
+                </div>
+            </a>
+        {% endwith %}
+    {% endwith %}
+{% endif %}

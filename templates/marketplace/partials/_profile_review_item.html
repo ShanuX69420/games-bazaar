@@ -1,0 +1,64 @@
+{% load time_filters humanize %}
+<div class="review-card">
+    <div class="review-avatar">
+        <a href="{% url 'public_profile' review.buyer.username %}">
+            <img src="{{ review.buyer.profile.image_url }}" alt="{{ review.buyer.username }}">
+        </a>
+    </div>
+    <div class="review-content">
+        <div class="review-main-header">
+            <div style="flex-grow: 1;">
+                <div class="review-user-and-meta">
+                    <a href="{% url 'public_profile' review.buyer.username %}" class="username text-decoration-none" style="color: inherit;">{{ review.buyer.username }}</a>
+                    <div class="review-meta-info">
+                        <a href="{% url 'order_detail' review.order.clean_order_id %}">Order #{{ review.order.order_id }}</a>
+                        &middot;
+                        <span>{{ review.created_at|date:"j M \a\t H:i" }}, {{ review.created_at|naturaltime }}</span>
+                    </div>
+                </div>
+                <div class="review-product-info">
+                    {% if review.order.product %}
+                        {{ review.order.product.game.title }}
+                    {% else %}
+                        {{ review.order.game_snapshot.title }}
+                    {% endif %}, Rs{{ review.order.total_price|floatformat:2 }}
+                </div>
+            </div>
+            <div class="review-rating">
+                <div class="review-stars">
+                    {% for i in "12345" %}
+                        <i class="fa-star {% if i|add:0 <= review.rating %}fas{% else %}far{% endif %}"></i>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <p class="review-comment mb-2">
+            {{ review.comment|linebreaksbr }}
+        </p>
+        
+        {# Show existing reply if it exists #}
+        {% if review.reply %}
+            {% include 'marketplace/partials/_review_reply.html' with reply=review.reply %}
+        {% endif %}
+        
+        {# Show reply form for the seller (only if no reply exists yet) #}
+        {% if request.user == review.seller and not review.reply %}
+            <div class="reply-form-container mt-3">
+                <button class="btn btn-outline-primary btn-sm show-reply-form-btn" data-review-id="{{ review.id }}">
+                    <i class="fas fa-reply me-1"></i>Reply to Review
+                </button>
+                <form class="reply-form mt-2" data-review-id="{{ review.id }}" style="display: none;">
+                    {% csrf_token %}
+                    <div class="mb-2">
+                        <textarea name="reply_text" class="form-control" rows="3" placeholder="Write your response to this review..." maxlength="1000" required></textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm">Post Reply</button>
+                        <button type="button" class="btn btn-secondary btn-sm cancel-reply-btn">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        {% endif %}
+    </div>
+</div>

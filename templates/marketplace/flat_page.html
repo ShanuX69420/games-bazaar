@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .rules-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 2.5rem;
+        font-size: 0.9rem;
+    }
+    .rules-table th, .rules-table td {
+        border: 1px solid #dee2e6;
+        padding: 0.75rem 1rem;
+        vertical-align: top;
+    }
+    .rules-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        text-align: left;
+    }
+    .rules-table td:first-child {
+        width: 65%;
+    }
+    .rules-table td:last-child {
+        width: 35%;
+    }
+    .rules-table tbody tr:nth-of-type(odd) {
+        background-color: #f8f9fa;
+    }
+    
+    /* Enhanced content formatting */
+    .page-content {
+        max-width: 900px;
+        margin: 0 auto;
+        line-height: 1.8;
+        color: #333;
+    }
+    
+    .page-content h2 {
+        color: #2ABF64;
+        font-size: 1.8rem;
+        font-weight: 600;
+        margin-top: 2.5rem;
+        margin-bottom: 1.2rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .page-content h3 {
+        color: #495057;
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+    
+    .page-content h4 {
+        color: #6c757d;
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-top: 1.5rem;
+        margin-bottom: 0.8rem;
+    }
+    
+    .page-content p {
+        margin-bottom: 1.2rem;
+        text-align: justify;
+    }
+    
+    .page-content ul, .page-content ol {
+        margin-bottom: 1.5rem;
+        padding-left: 2rem;
+    }
+    
+    .page-content li {
+        margin-bottom: 0.5rem;
+    }
+    
+    .page-content strong {
+        color: #2ABF64;
+        font-weight: 600;
+    }
+    
+    .page-content .highlight-box {
+        background-color: #f8f9fa;
+        border-left: 4px solid #2ABF64;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .page-content .info-section {
+        background-color: #e7f3ff;
+        border: 1px solid #b8daff;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+    }
+    
+    .page-content .warning-section {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+    }
+    
+    .contact-info {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 2rem;
+        margin-top: 2rem;
+        text-align: center;
+    }
+    
+    .contact-info h3 {
+        color: #2ABF64;
+        margin-bottom: 1rem;
+    }
+    
+    .last-updated {
+        font-style: italic;
+        color: #6c757d;
+        text-align: center;
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    @media (max-width: 768px) {
+        .page-content {
+            padding: 0 1rem;
+        }
+        
+        .page-content h2 {
+            font-size: 1.5rem;
+        }
+        
+        .page-content h3 {
+            font-size: 1.3rem;
+        }
+    }
+</style>
+
+<div class="container mt-4">
+    <h1 class="mb-4 text-center">{{ page.title }}</h1>
+    <div class="page-content">
+        {{ page.content|safe }}
+    </div>
+</div>
+{% endblock %}

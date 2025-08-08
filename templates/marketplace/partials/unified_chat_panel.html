@@ -1,0 +1,182 @@
+{% load time_filters %}
+
+<style>
+.chat-panel-card {
+    height: 70vh;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #dee2e6;
+    border-radius: .375rem;
+    overflow: hidden;
+}
+.chat-panel-header {
+    background-color: #ffffff;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #dee2e6;
+}
+.chat-panel-header .d-flex {
+    margin-bottom: 0 !important;
+}
+.chat-panel-log {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    background-color: #ffffff;
+}
+.chat-panel-footer {
+    padding: 0;
+    border-top: 1px solid #dee2e6;
+    background-color: #ffffff;
+}
+.chat-panel-footer .form-control,
+.chat-panel-footer .btn {
+    border: none;
+    border-radius: 0;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+}
+.chat-panel-footer .form-control {
+    padding-left: 1rem;
+    background-color: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+.chat-panel-footer .form-control:focus {
+    box-shadow: none !important;
+    background-color: #ffffff !important;
+    border: none !important;
+    border-color: transparent !important;
+    outline: none !important;
+}
+.chat-panel-footer .form-control:hover {
+    background-color: #ffffff !important;
+    border: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+.chat-panel-footer .form-control:active {
+    background-color: #ffffff !important;
+    border: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* Unified chat input focus styles - simplified */
+.chat-panel-footer .form-control,
+.chat-panel-footer input[type="text"],
+.chat-panel-footer .chat-message-input-js {
+    background-color: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    transition: none !important;
+    transform: none !important;
+}
+
+/* Message grouping styles */
+.message-item.grouped .message-header {
+    display: none !important;
+}
+.message-item.grouped {
+    margin-bottom: 0.1rem;
+    margin-top: 0.1rem;
+}
+.message-item.group-start {
+    margin-top: 0.75rem;
+}
+.message-item.group-start:first-child {
+    margin-top: 0;
+}
+
+/* Reduce overall message spacing */
+.message-item {
+    margin-bottom: 0.5rem !important;
+}
+
+/* Remove background hover effect and customize paperclip icon hover */
+.chat-image-label-js {
+    background-color: transparent !important;
+    border: none !important;
+}
+.chat-image-label-js:hover {
+    background-color: transparent !important;
+    border: none !important;
+}
+.chat-image-label-js:hover i {
+    color: #495057 !important;
+}
+</style>
+
+<div class="chat-panel-card">
+    {# Card Header: Includes user info #}
+    <div class="chat-panel-header">
+        {% include 'marketplace/partials/chat_window.html' with other_user=other_user %}
+    </div>
+
+    {# Card Body: The scrollable chat log #}
+    <div class="chat-panel-log chat-log-js">
+        <div class="loading-indicator text-center py-2" style="display: none;">
+            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <small class="text-muted ms-2">Loading older messages...</small>
+        </div>
+        <div class="no-more-messages text-center py-2 text-muted" style="display: none;">
+            <small><i class="fas fa-comments"></i> You've reached the beginning of your conversation</small>
+        </div>
+        {% for message in messages %}
+            {% include 'marketplace/partials/message.html' with message=message %}
+        {% endfor %}
+    </div>
+
+    {# Card Footer: The message input form #}
+    <div class="chat-panel-footer">
+        {% if request.user.is_authenticated %}
+            {% if request.user != other_user %}
+                {% if is_blocked %}
+                    <!-- Blocked user message - shown when users are blocked -->
+                    <div class="blocked-chat-message text-center py-3">
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-ban text-warning me-2"></i>
+                            <span class="blocked-message-text">You cannot message this user.</span>
+                        </p>
+                        <small class="text-muted blocked-help-text">Use the menu above to manage blocking settings.</small>
+                    </div>
+                {% else %}
+                    <!-- Message form - shown when users are not blocked -->
+                    <form class="chat-form-js" enctype="multipart/form-data" action="#" onsubmit="return false;">
+                        {% csrf_token %}
+                        <div class="input-group">
+                            <input name="message" type="text" class="form-control chat-message-input-js" placeholder="Type a message..." autocomplete="off">
+
+                            <input type="file" name="image" id="chat-image-input-{{ panel_id|default:'main' }}" class="chat-image-input-js" accept="image/*" style="display: none;">
+                            <label for="chat-image-input-{{ panel_id|default:'main' }}" class="btn btn-outline-secondary chat-image-label-js" style="border: none; padding-top: 0.75rem; padding-bottom: 0.75rem; margin-right: 8px;">
+                                <i class="fas fa-paperclip" style="font-size: 1.4em;"></i>
+                            </label>
+
+                            <span id="attached-filename-{{ panel_id|default:'main' }}" class="text-muted small align-self-center attached-filename-js" style="white-space: nowrap; min-width: 0; max-width: 150px; overflow: hidden; text-overflow: ellipsis; margin: 0;"></span>
+                            
+                            <button type="submit" class="btn btn-primary chat-send-btn">Send</button>
+                        </div>
+                    </form>
+                    
+                    <!-- Hidden blocked message (will be shown by JavaScript when blocking status changes) -->
+                    <div class="blocked-chat-message text-center py-3" style="display: none;">
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-ban text-warning me-2"></i>
+                            <span class="blocked-message-text">You cannot message this user.</span>
+                        </p>
+                        <small class="text-muted blocked-help-text">Use the menu above to manage blocking settings.</small>
+                    </div>
+                {% endif %}
+            {% else %}
+                <p class="text-muted text-center small mb-0">This is your own profile. You cannot chat with yourself.</p>
+            {% endif %}
+        {% else %}
+            <p class="text-muted text-center small mb-0">Please <a href="{% url 'login' %}?next={{ request.path }}">log in</a> to start a conversation.</p>
+        {% endif %}
+    </div>
+</div>
+

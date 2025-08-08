@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /*
+      These styles will position the alphabet bar on the left,
+      perfectly aligned with the content below the header.
+    */
+    .alphabet-sidebar {
+        /* This makes the navigation bar stick to the top as you scroll down */
+        position: sticky;
+        top: 1.5rem; /* A little space from the top of the content area */
+        text-align: left;
+    }
+
+    .alphabet-sidebar ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .alphabet-sidebar a {
+        display: block;
+        padding: 0.1rem 0;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #2ABF64;
+        text-decoration: none;
+    }
+    .alphabet-sidebar a:hover {
+        color: #229a50;
+    }
+
+
+    /* Game cells inherit enhanced styles from base.html */
+</style>
+
+<div class="row">
+
+    <div class="col-md-1 d-none d-md-block">
+        <div class="alphabet-sidebar">
+            <ul>
+                {% for letter in letters %}
+                    <li><a href="#letter-{{ letter }}">{{ letter }}</a></li>
+                {% endfor %}
+                <li><a href="#letter-%23">#</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="col-md-11">
+        <div class="row row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 gx-3 gy-3">
+            {% for game in games %}
+                <div class="col">
+                    <div class="game-cell">
+                        <h5 class="game-cell-title mb-0">
+                            <a href="{% if game.categories.first %}{% url 'listing_page' game_pk=game.pk category_pk=game.categories.first.pk %}{% else %}#{% endif %}">
+                                {{ game.title }}
+                            </a>
+                        </h5>
+                        <div class="game-cell-categories">
+                            {% for category in game.categories.all %}
+                                <a href="{% url 'listing_page' game_pk=game.pk category_pk=category.pk %}">{{ category.name }}</a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="col">
+                    <p>No games are currently listed.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

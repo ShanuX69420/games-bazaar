@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat: {{ participant1.username }} ↔ {{ participant2.username }}</title>
+    {% load static %}
+    {% load time_filters %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <h3 class="mb-4">Chat with {{ participant1.username }} ↔ {{ participant2.username }}</h3>
+
+        <div id="chat-log" class="border p-3 rounded" style="height: 600px; overflow-y: scroll; background-color: #f8f9fa;">
+            {% for message in messages %}
+                {% if message.is_system_message %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <div><strong>Gamers Market</strong><span class="badge bg-primary ms-1">notification</span></div>
+                            <small class="text-muted">{{ message.timestamp|smart_time }}</small>
+                        </div>
+                        <div class="p-2 mt-1" style="background-color: #eafaf1; border-left: 3px solid #2ABF64; color: #1a6e3c;">
+                            <i class="fas fa-info-circle me-1"></i>
+                            {{ message.content|linebreaksbr }}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <a href="{% url 'public_profile' message.sender.username %}" class="text-decoration-none text-dark"><strong>{{ message.sender.username }}</strong></a>
+                                {% if message.sender.is_staff or message.sender.is_superuser %}
+                                    <span class="badge bg-warning text-dark ms-1">Admin</span>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">{{ message.timestamp|smart_time }}</small>
+                        </div>
+                        <div class="mb-0 text-break mt-1" style="overflow-wrap: break-word;">{{ message.content|linebreaksbr }}</div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <form id="chat-form" class="mt-3" enctype="multipart/form-data">
+            <div class="input-group">
+                <input id="chat-message-input" name="message" type="text" class="form-control" placeholder="Type a message...">
+
+                <input type="file" name="image" id="chat-image-input" accept="image/*" style="display: none;">
+                <label for="chat-image-input" class="btn btn-light">
+                    <i class="fas fa-paperclip"></i>
+                </label>
+
+                <span id="attached-filename" class="text-muted small align-self-center mx-2" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;"></span>
+
+                <button id="chat-message-submit" class="btn btn-primary">Send</button>
+            </div>
+        </form>
+
+        <!-- Admin Action Buttons -->
+        <div class="mt-3 text-center">
+            {% if conversation.is_disputed %}
+                {% if current_moderator == request.user %}
+                    <a href="{% url 'admin_chat:admin_leave_conversation' conversation.id %}" class="btn btn-secondary btn-sm">Leave</a>
+                    <a href="{% url 'admin_chat:admin_resolve_dispute' conversation.id %}" class="btn btn-success btn-sm">Resolve</a>
+                {% elif not current_moderator %}
+                    <a href="{% url 'admin_chat:admin_join_conversation' conversation.id %}" class="btn btn-primary btn-sm">Join as Moderator</a>
+                    <a href="{% url 'admin_chat:admin_resolve_dispute' conversation.id %}" class="btn btn-success btn-sm">Mark Resolved</a>
+                {% else %}
+                    <span class="btn btn-secondary btn-sm" style="opacity: 0.6;">Moderated by {{ current_moderator.username }}</span>
+                {% endif %}
+            {% else %}
+                <a href="{% url 'admin_chat:admin_join_conversation' conversation.id %}" class="btn btn-primary btn-sm">Join as Moderator</a>
+            {% endif %}
+            
+            <a href="/admin/marketplace/conversation/" class="btn btn-secondary btn-sm">Back to Admin</a>
+        </div>
+
+        {{ participant1.username|json_script:"other-user-username" }}
+        {{ request.user.username|json_script:"current-user-username" }}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    // Copy exact main site functionality
+    const otherUserUsername = JSON.parse(document.getElementById('other-user-username').textContent);
+    const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent);
+    const chatLog = document.querySelector('#chat-log');
+    const messageInputDom = document.querySelector('#chat-message-input');
+    const fileInput = document.getElementById('chat-image-input');
+    const filenameSpan = document.getElementById('attached-filename');
+
+    // Visual feedback for file selection
+    if (fileInput && filenameSpan) {
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                filenameSpan.textContent = this.files[0].name;
+            } else {
+                filenameSpan.textContent = '';
+            }
+        });
+    }
+
+    // Form submission exactly like main site
+    document.querySelector('#chat-form').onsubmit = function(e) {
+        e.preventDefault();
+        const form = e.target;
+        const messageText = messageInputDom.value.trim();
+
+        if (!messageText) {
+            return false;
+        }
+
+        // Send message via admin endpoint
+        fetch('{% url "admin_chat:admin_send_message" conversation.id %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({
+                'message': messageText
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Add message with exact same styling as main site
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'mb-3';
+                messageDiv.innerHTML = `
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <a href="/profile/${data.message.sender}/" class="text-decoration-none text-dark"><strong>${data.message.sender}</strong></a>
+                            <span class="badge bg-warning text-dark ms-1">Admin</span>
+                        </div>
+                        <small class="text-muted">${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase()}</small>
+                    </div>
+                    <div class="mb-0 text-break mt-1" style="overflow-wrap: break-word;">${data.message.content}</div>
+                `;
+                chatLog.appendChild(messageDiv);
+                chatLog.scrollTop = chatLog.scrollHeight;
+                
+                form.reset();
+                if (filenameSpan) filenameSpan.textContent = '';
+            } else {
+                alert('Error: ' + (data.error || 'Failed to send message'));
+            }
+        })
+        .catch(error => {
+            console.error('Error sending message:', error);
+            alert('Error sending message');
+        });
+
+        return false;
+    };
+
+    // Auto-scroll to bottom
+    chatLog.scrollTop = chatLog.scrollHeight;
+    </script>
+</body>
+</html>

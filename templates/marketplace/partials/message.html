@@ -1,0 +1,43 @@
+{% load time_filters %}
+{% load safe_html %}
+
+{% if message.is_system_message %}
+    <div class="mb-3 message-item" data-timestamp="{{ message.timestamp|date:'c' }}" data-sender="system">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <strong>GamesBazaar</strong>
+                <span class="badge bg-primary ms-1" style="font-size: 0.65em; vertical-align: baseline; background-color: #4A90E2 !important;">notification</span>
+            </div>
+            <small class="text-muted">{{ message.timestamp|smart_time }}</small>
+        </div>
+        <div class="d-flex align-items-start p-3 mt-1" style="background-color: #f0f2f5; border-radius: .375rem; color: #212529; font-size: 0.9rem;">
+            <i class="fas fa-info-circle me-2 mt-1" style="color: #0d6efd;"></i>
+            <div>
+                {{ message.content|safe_system_html }}
+            </div>
+        </div>
+    </div>
+{% else %}
+    <div class="mb-3 message-item" data-timestamp="{{ message.timestamp|date:'c' }}" data-sender="{{ message.sender.username }}">
+        <div class="message-header d-flex justify-content-between">
+            <div>
+                <a href="{% url 'public_profile' message.sender.username %}" class="text-decoration-none text-dark"><strong>{{ message.sender.username }}</strong></a>
+                {% if message.sender.profile.can_moderate %}
+                    <span class="badge bg-warning text-dark ms-1">Support</span>
+                {% endif %}
+                {% if message.is_auto_reply %}
+                    <span class="badge bg-info text-white ms-1" style="font-size: 0.65em; vertical-align: baseline;">auto-reply</span>
+                {% endif %}
+            </div>
+            <small class="text-muted message-time">{{ message.timestamp|smart_time }}</small>
+        </div>
+        
+        <div class="message-content">
+            {% if message.image and message.image.url %}
+                <img src="{{ message.image.url }}" alt="User attachment" class="chat-image-preview" data-bs-toggle="modal" data-bs-target="#imagePreviewModal" data-image-src="{{ message.image.url }}" style="max-width: 280px; max-height: 250px; border-radius: 8px; margin-top: 5px; cursor: pointer;">
+            {% endif %}
+            
+            <div class="mb-0 text-break mt-1" style="overflow-wrap: break-word;">{{ message.content|safe_user_html }}</div>
+        </div>
+    </div>
+{% endif %}

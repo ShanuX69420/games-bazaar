@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .rules-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 2.5rem;
+        font-size: 0.9rem;
+    }
+    .rules-table th, .rules-table td {
+        border: 1px solid #dee2e6;
+        padding: 0.75rem 1rem;
+        vertical-align: top;
+    }
+    .rules-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        text-align: left;
+    }
+    .rules-table td:first-child {
+        width: 65%;
+    }
+    .rules-table td:last-child {
+        width: 35%;
+    }
+    .rules-table tbody tr:nth-of-type(odd) {
+        background-color: #f8f9fa;
+    }
+    
+    .page-content {
+        max-width: 900px;
+        margin: 0 auto;
+        line-height: 1.8;
+        color: #333;
+    }
+    
+    .page-content h2 {
+        color: #2ABF64;
+        font-size: 1.8rem;
+        font-weight: 600;
+        margin-top: 2.5rem;
+        margin-bottom: 1.2rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .page-content h3 {
+        color: #495057;
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+    
+    .page-content h4 {
+        color: #6c757d;
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-top: 1.5rem;
+        margin-bottom: 0.8rem;
+    }
+    
+    .page-content p {
+        margin-bottom: 1.2rem;
+        text-align: justify;
+    }
+    
+    .page-content ul, .page-content ol {
+        margin-bottom: 1.5rem;
+        padding-left: 2rem;
+    }
+    
+    .page-content li {
+        margin-bottom: 0.5rem;
+    }
+    
+    .page-content strong {
+        color: #2ABF64;
+        font-weight: 600;
+    }
+    
+    .info-section {
+        background-color: #e7f3ff;
+        border: 1px solid #b8daff;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+    }
+    
+    .warning-section {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+    }
+    
+    .highlight-box {
+        background-color: #f8f9fa;
+        border-left: 4px solid #2ABF64;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .contact-info {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 2rem;
+        margin-top: 2rem;
+        text-align: center;
+    }
+    
+    .contact-info h3 {
+        color: #2ABF64;
+        margin-bottom: 1rem;
+    }
+    
+    @media (max-width: 768px) {
+        .page-content {
+            padding: 0 1rem;
+        }
+        
+        .page-content h2 {
+            font-size: 1.5rem;
+        }
+        
+        .page-content h3 {
+            font-size: 1.3rem;
+        }
+    }
+</style>
+
+<div class="container mt-4">
+    <h1 class="mb-4 text-center">GamesBazaar Community Rules</h1>
+    <div class="page-content">
+        
+        <h2>1. Basic Rules for Everyone</h2>
+        <table class="rules-table">
+        <thead>
+        <tr>
+        <th>What You Can't Do</th>
+        <th>What Happens If You Break This Rule</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+        <td><strong>1.1.</strong> Don't share your phone number, Discord, Telegram, or social media with other users. Don't use contact info they give you. Don't message them in games after your order is done.</td>
+        <td>First time: Temporary account block. Keep doing it: Permanent account block and you lose your money.</td>
+        </tr>
+        <tr>
+        <td><strong>1.2.</strong> Don't write fake reviews, threaten people for reviews, or change old reviews for no good reason.</td>
+        <td>We delete fake reviews. Keep doing it: Account gets blocked (but you keep your money).</td>
+        </tr>
+        <tr>
+        <td><strong>1.3.</strong> Don't share someone else's personal info (like their username, player ID, or payment details) to hurt them.</td>
+        <td>All your accounts get blocked forever and you lose your money.</td>
+        </tr>
+        <tr>
+        <td><strong>1.4.</strong> Don't try to buy or sell GamesBazaar accounts.</td>
+        <td>All your accounts get blocked forever (but you keep your money).</td>
+        </tr>
+        <tr>
+        <td><strong>1.5.</strong> Don't put inappropriate pictures, website links, or political stuff in your profile picture.</td>
+        <td>We remove your profile picture. Keep doing it: Account gets blocked (but you keep your money).</td>
+        </tr>
+        <tr>
+        <td><strong>1.6.</strong> Don't put website links or political stuff in your username.</td>
+        <td>We change your username for you.</td>
+        </tr>
+        <tr>
+        <td><strong>1.7.</strong> Don't spam the chat, advertise other websites, insult people, or post political stuff. Don't criticize other sellers publicly.</td>
+        <td>You can't use chat for a while. Keep doing it: Account gets blocked (but you keep your money).</td>
+        </tr>
+        <tr>
+        <td><strong>1.8.</strong> Don't insult, threaten, or spam people in private messages. Don't send inappropriate content without permission.</td>
+        <td>First: Warning. Keep doing it: Account gets blocked temporarily.</td>
+        </tr>
+        <tr>
+        <td><strong>1.9.</strong> Don't spam or send mass messages to users.</td>
+        <td>Account gets blocked temporarily or permanently (but you keep your money).</td>
+        </tr>
+        <tr>
+        <td><strong>1.10.</strong> Don't scam or try to hurt other users on purpose.</td>
+        <td>All your accounts get blocked forever and you lose your money.</td>
+        </tr>
+        <tr>
+        <td><strong>1.11.</strong> Don't use GamesBazaar to exchange money between payment methods without buying anything. No credit card fraud or stolen money.</td>
+        <td>All your accounts get blocked forever and you lose your money.</td>
+        </tr>
+        <tr>
+        <td><strong>1.12.</strong> Don't share random file links unless it's actually needed (like sharing account login details through an image).</td>
+        <td>First: Warning. Keep doing it: Account gets blocked (but you keep your money).</td>
+        </tr>
+        </tbody>
+        </table>
+
+        <div class="info-section">
+        <p><strong>Important:</strong> Sometimes our system will let you join Discord voice chat for certain sales. But you still can't exchange personal contact info or add each other as friends - that's still against the rules.</p>
+
+        <p>If you want to work with another seller on orders together, contact our support team first.</p>
+
+        <p>Our staff might test sellers by pretending to be regular buyers to make sure everyone follows the rules.</p>
+
+        <p>We can reduce or remove punishments if we think they don't fit the situation.</p>
+        </div>
+
+        <h2>2. Rules for Sellers</h2>
+
+        <h3>2.1. Things Sellers Can't Do</h3>
+        <table class="rules-table">
+        <thead>
+        <tr>
+        <th>What You Can't Do</th>
+        <th>What Happens If You Break This Rule</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+        <td><strong>2.1.1.</strong> Don't try to sell or trade outside of GamesBazaar's payment system. All transactions must go through our platform.</td>
+        <td>All your accounts get blocked forever and you lose your money.</td>
+        </tr>
+        <tr>
+        <td><strong>2.1.2.</strong> Don't ask buyers to mark orders as complete before you actually finish the work (unless you think they're trying to scam you).</td>
+        <td>Account gets blocked temporarily and no more instant withdrawals.</td>
+        </tr>
+        <tr>
+        <td><strong>2.1.3.</strong> Don't buy from competitors just to leave them bad reviews or make fake complaints.</td>
+        <td>Your main account gets blocked temporarily.</td>
+        </tr>
+        <tr>
+        <td><strong>2.1.4.</strong> Don't ignore your customers' questions for no good reason.</td>
+        <td>First: Warning. Keep doing it: Account gets blocked.</td>
+        </tr>
+        <tr>
+        <td><strong>2.1.5.</strong> Don't post fake listings or wrong prices on purpose.</td>
+        <td>Account gets blocked temporarily. Might become permanent (but you keep your money).</td>
+        </tr>
+        <tr>
+        <td><strong>2.1.7.</strong> When using "Automatic delivery", only put actual products in the product field. Don't add extra random information.</td>
+        <td>First: Warning. Keep doing it: Account gets blocked.</td>
+        </tr>
+        <tr>
+        <td><strong>2.1.8.</strong> Don't use "Automatic delivery" for things that need communication or extra work (like account re-linking).</td>
+        <td>First: Warning. Keep doing it: Account gets blocked.</td>
+        </tr>
+        <tr>
+        <td><strong>2.1.9.</strong> Follow the posting rules for each section. Don't ignore messages from GamesBazaar staff.</td>
+        <td>We delete all your listings and give a warning. Keep doing it: Account gets blocked temporarily.</td>
+        </tr>
+        <tr>
+        <td><strong>2.1.10.</strong> Don't post the same listing multiple times. Don't post "buying" requests in selling sections.</td>
+        <td>We delete all your listings. Keep doing it: Account gets blocked temporarily.</td>
+        </tr>
+        <tr>
+        <td><strong>2.1.11.</strong> Post your items in the right category (don't sell game currency in the items section, etc.).</td>
+        <td>We move it to the right section and charge the correct fee. Keep doing it: Account gets blocked (but you keep your money).</td>
+        </tr>
+        <tr>
+        <td><strong>2.1.12.</strong> Don't use inappropriate images, people's photos, website links, or political content in your listings.</td>
+        <td>We delete the images or listings. Keep doing it: Account gets blocked (but you keep your money).</td>
+        </tr>
+        <tr>
+        <td><strong>2.1.13.</strong> Don't post anything that violates other people's rights or could get them in trouble.</td>
+        <td>We delete your listings. Keep doing it: Account gets blocked (but you keep your money).</td>
+        </tr>
+        </tbody>
+        </table>
+
+        <h3>2.2. Things You Can't Sell</h3>
+        <table class="rules-table">
+        <thead>
+        <tr>
+        <th>What You Can't Sell</th>
+        <th>What Happens If You Try</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+        <td><strong>2.2.1.</strong> Anything stolen, hacked, or obtained illegally (like hacked accounts, stolen credit cards, etc.)</td>
+        <td>Account blocked forever. You need to verify your identity within 60 days to get your money.</td>
+        </tr>
+        <tr>
+        <td><strong>2.2.2.</strong> Teaching people how to hack, steal, or do other illegal things.</td>
+        <td>Account blocked forever. You need to verify your identity within 60 days to get your money.</td>
+        </tr>
+        <tr>
+        <td><strong>2.2.3.</strong> Personal information about other people.</td>
+        <td>Account blocked forever. You need to verify your identity within 60 days to get your money.</td>
+        </tr>
+        <tr>
+        <td><strong>2.2.4.</strong> Pirated software, viruses, or harmful programs.</td>
+        <td>Account blocked forever. You need to verify your identity within 30 days to get your money.</td>
+        </tr>
+        <tr>
+        <td><strong>2.2.5.</strong> Social media accounts or streaming service subscriptions (unless we have a special section for them).</td>
+        <td>Account blocked forever. You need to verify your identity within 30 days to get your money.</td>
+        </tr>
+        <tr>
+        <td><strong>2.2.6.</strong> Phone numbers (real or fake ones).</td>
+        <td>Account blocked forever. You need to verify your identity within 30 days to get your money.</td>
+        </tr>
+        <tr>
+        <td><strong>2.2.7.</strong> Lots of accounts at once (unless you created them all yourself).</td>
+        <td>Account blocked forever. You need to verify your identity within 30 days to get your money.</td>
+        </tr>
+        <tr>
+        <td><strong>2.2.8.</strong> Adult content or inappropriate material.</td>
+        <td>Account blocked forever. You need to verify your identity within 30 days to get your money.</td>
+        </tr>
+        <tr>
+        <td><strong>2.2.9.</strong> Spam services or mass messaging tools.</td>
+        <td>Account blocked forever. You need to verify your identity within 30 days to get your money.</td>
+        </tr>
+        <tr>
+        <td><strong>2.2.10.</strong> Gambling or casino related stuff.</td>
+        <td>Account blocked forever. You need to verify your identity within 30 days to get your money.</td>
+        </tr>
+        <tr>
+        <td><strong>2.2.11.</strong> Methods to artificially boost or promote accounts.</td>
+        <td>Account blocked forever. You need to verify your identity within 30 days to get your money.</td>
+        </tr>
+        <tr>
+        <td><strong>2.2.12.</strong> Shared game accounts or Game Pass subscriptions you're reselling.</td>
+        <td>First: Warning. Keep doing it: Account gets blocked temporarily.</td>
+        </tr>
+        <tr>
+        <td><strong>2.2.13.</strong> Lotteries, giveaways, or "mystery box" style random items.</td>
+        <td>First: Warning. Keep doing it: Account gets blocked forever (but you keep your money).</td>
+        </tr>
+        </tbody>
+        </table>
+
+        <div class="warning-section">
+        <p><strong>Important:</strong> We can check any products listed on GamesBazaar to make sure they're legitimate.</p>
+        </div>
+
+        <h2>3. When Sellers Have to Give Refunds</h2>
+
+        <table class="rules-table">
+        <thead>
+        <tr>
+        <th>What Went Wrong</th>
+        <th>How Much Money Back</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+        <td><strong>3.1.1.</strong> You don't help solve disputes when GamesBazaar staff asks you to, or you ignore their messages.</td>
+        <td>Buyer gets up to 100% of their money back.</td>
+        </tr>
+        <tr>
+        <td><strong>3.1.2.</strong> You don't help your buyer or ignore their questions about their order.</td>
+        <td>Buyer gets up to 100% of their money back.</td>
+        </tr>
+        </tbody>
+        </table>
+
+        <h3>3.2. Game Currency and Items</h3>
+        <table class="rules-table">
+        <thead>
+        <tr>
+        <th>What Went Wrong</th>
+        <th>How Much Money Back</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+        <td><strong>3.2.1.</strong> The buyer got banned because you sold them stolen/hacked currency or items.</td>
+        <td>Buyer gets up to 100% of their money back.</td>
+        </tr>
+        <tr>
+        <td><strong>3.2.2.</strong> The buyer got banned just because they bought currency or items (not because it was stolen).</td>
+        <td>Buyer gets up to 50% of their money back.</td>
+        </tr>
+        <tr>
+        <td><strong>3.2.3.</strong> You didn't cover the game's transfer fees, so the buyer got less than they paid for.</td>
+        <td>You pay back the missing amount.</td>
+        </tr>
+        <tr>
+        <td><strong>3.2.4.</strong> You included bonus currency in your advertised amount, which isn't allowed.</td>
+        <td>You pay back the value of the bonus currency.</td>
+        </tr>
+        </tbody>
+        </table>
+
+        <h3>3.3. Game Accounts</h3>
+        <table class="rules-table">
+        <thead>
+        <tr>
+        <th>What Went Wrong</th>
+        <th>How Much Money Back</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+        <td><strong>3.3.1.</strong> You or the original owner took the account back from the buyer.</td>
+        <td>Buyer gets up to 100% of their money back.</td>
+        </tr>
+        <tr>
+        <td><strong>3.3.2.</strong> The account got banned just because it was bought/sold.</td>
+        <td>Buyer gets up to 50% of their money back.</td>
+        </tr>
+        </tbody>
+        </table>
+
+        <h3>3.4. Services (Like Boosting)</h3>
+        <table class="rules-table">
+        <thead>
+        <tr>
+        <th>What Went Wrong</th>
+        <th>How Much Money Back</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+        <td><strong>3.4.1.</strong> You changed something important on the account without asking (like losing items).</td>
+        <td>You pay for the damage you caused.</td>
+        </tr>
+        <tr>
+        <td><strong>3.4.2.</strong> You made things worse instead of better (like lowering rank instead of raising it).</td>
+        <td>Full refund plus you pay for the damage.</td>
+        </tr>
+        <tr>
+        <td><strong>3.4.3.</strong> The account got banned because you used bots or cheats while doing the service.</td>
+        <td>Full refund plus extra compensation.</td>
+        </tr>
+        <tr>
+        <td><strong>3.4.4.</strong> The account got banned because of the service you provided.</td>
+        <td>Buyer gets up to 50% of their money back.</td>
+        </tr>
+        <tr>
+        <td><strong>3.4.5.</strong> You refuse to finish the work for no good reason.</td>
+        <td>You only get paid for 50% of what you actually completed.</td>
+        </tr>
+        <tr>
+        <td><strong>3.4.6.</strong> You're late finishing the work.</td>
+        <td>Your payment gets reduced based on how late you are. If you're 2x late, you get 50% payment.</td>
+        </tr>
+        </tbody>
+        </table>
+
+        <div class="highlight-box">
+        <p><strong>Remember:</strong> Every dispute is different, so we might decide on different refund amounts than what's listed above. We'll also consider any special agreements you made with the buyer.</p>
+        </div>
+
+        <div class="contact-info">
+        <h3>Need Help?</h3>
+        <p>If you have questions about these rules or need help, contact our support team through the Support Center.</p>
+        </div>
+        
+    </div>
+</div>
+{% endblock %}

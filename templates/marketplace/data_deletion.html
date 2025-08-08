@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+    .deletion-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 2rem 1rem;
+        line-height: 1.6;
+    }
+    
+    .deletion-header {
+        text-align: center;
+        margin-bottom: 3rem;
+        padding-bottom: 2rem;
+        border-bottom: 3px solid #dc3545;
+    }
+    
+    .deletion-title {
+        color: #dc3545;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+    
+    .deletion-subtitle {
+        color: #6c757d;
+        font-size: 1.2rem;
+        margin: 0;
+    }
+    
+    .deletion-info {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2.5rem;
+        border-left: 5px solid #dc3545;
+    }
+    
+    .info-icon {
+        font-size: 2rem;
+        color: #dc3545;
+        margin-bottom: 1rem;
+        display: block;
+    }
+    
+    .deletion-steps {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .step {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #2ABF64;
+    }
+    
+    .step-number {
+        background-color: #2ABF64;
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        margin-right: 1rem;
+        flex-shrink: 0;
+    }
+    
+    .step-content h3 {
+        color: #495057;
+        margin: 0 0 0.5rem 0;
+        font-size: 1.1rem;
+    }
+    
+    .step-content p {
+        margin: 0;
+        color: #6c757d;
+    }
+    
+    .contact-card {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 2.5rem;
+        text-align: center;
+        margin-top: 2rem;
+    }
+    
+    .contact-card h3 {
+        color: white;
+        margin-bottom: 1rem;
+        font-size: 1.8rem;
+    }
+    
+    .contact-email {
+        background-color: rgba(255, 255, 255, 0.2);
+        padding: 0.75rem 1.5rem;
+        border-radius: 25px;
+        display: inline-block;
+        margin: 1rem 0;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    .back-link {
+        text-align: center;
+        margin-top: 2rem;
+    }
+    
+    .back-link a {
+        color: #2ABF64;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    .back-link a:hover {
+        text-decoration: underline;
+    }
+    
+    @media (max-width: 768px) {
+        .deletion-container {
+            padding: 1rem 0.5rem;
+        }
+        
+        .deletion-title {
+            font-size: 2rem;
+        }
+        
+        .step {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .step-number {
+            margin: 0 auto 1rem auto;
+        }
+    }
+</style>
+
+<div class="deletion-container">
+    <div class="deletion-header">
+        <h1 class="deletion-title">🗑️ Data Deletion Request</h1>
+        <p class="deletion-subtitle">Request deletion of your social media data</p>
+    </div>
+
+    <div class="deletion-info">
+        <span class="info-icon">ℹ️</span>
+        <h3 style="color: #dc3545; margin-bottom: 1rem;">What is this page?</h3>
+        <p>If you signed up or logged in using <strong>Facebook</strong> or <strong>Google</strong>, we may have received some basic information from these platforms (like your name and email). This page allows you to request deletion of that social media data in compliance with privacy regulations.</p>
+    </div>
+
+    <div class="deletion-steps">
+        <h3 style="color: #495057; margin-bottom: 1.5rem; text-align: center;">How to request data deletion:</h3>
+        
+        <div class="step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+                <h3>Send us an email</h3>
+                <p>Contact us at the email address below with your data deletion request</p>
+            </div>
+        </div>
+        
+        <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+                <h3>Provide your details</h3>
+                <p>Include your username and the social platform you used (Facebook/Google)</p>
+            </div>
+        </div>
+        
+        <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+                <h3>We'll process your request</h3>
+                <p>We will delete your social media data within 30 days and send you a confirmation</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="contact-card">
+        <h3>📧 Contact Us</h3>
+        <p>Send your data deletion request to:</p>
+        <div class="contact-email">support@gamesbazaarpk.com</div>
+        <p style="font-size: 0.9rem; margin: 1rem 0 0 0;">We take your privacy seriously and will respond within 48 hours.</p>
+    </div>
+
+    <div class="back-link">
+        <a href="{% url 'privacy_policy' %}">← Back to Privacy Policy</a>
+    </div>
+</div>
+{% endblock %}

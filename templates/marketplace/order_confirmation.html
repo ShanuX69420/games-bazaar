@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container text-center mt-5">
+    <div class="alert alert-success" role="alert">
+        <h4 class="alert-heading">Payment Successful!</h4>
+        <p>Your payment has been processed and your order is now being handled.</p>
+        <hr>
+        <p class="mb-0">You can view the details of your order and chat with the seller now.</p>
+    </div>
+    <a href="{% url 'order_detail' order.clean_order_id %}" class="btn btn-primary mt-3">View Your Order</a>
+</div>
+{% endblock %}

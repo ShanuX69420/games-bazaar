@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+    .policy-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+        line-height: 1.8;
+        color: #333;
+    }
+    
+    .policy-header {
+        text-align: center;
+        margin-bottom: 3rem;
+        padding-bottom: 2rem;
+        border-bottom: 3px solid #2ABF64;
+    }
+    
+    .policy-title {
+        color: #2ABF64;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+    
+    .last-updated {
+        font-style: italic;
+        color: #6c757d;
+        font-size: 1.1rem;
+        background-color: #f8f9fa;
+        padding: 0.75rem 1.5rem;
+        border-radius: 25px;
+        display: inline-block;
+    }
+    
+    .policy-intro {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2.5rem;
+        border-left: 5px solid #2ABF64;
+    }
+    
+    .policy-intro p {
+        font-size: 1.1rem;
+        margin: 0;
+        font-weight: 500;
+    }
+    
+    .section {
+        margin-bottom: 3rem;
+    }
+    
+    .section-title {
+        color: #2ABF64;
+        font-size: 1.8rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .section-number {
+        background-color: #2ABF64;
+        color: white;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    
+    .subsection-title {
+        color: #495057;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin: 2rem 0 1rem 0;
+        position: relative;
+        padding-left: 1.5rem;
+    }
+    
+    .subsection-title::before {
+        content: "▶";
+        color: #2ABF64;
+        position: absolute;
+        left: 0;
+        font-size: 1rem;
+    }
+    
+    .policy-content p {
+        margin-bottom: 1.2rem;
+        text-align: justify;
+    }
+    
+    .policy-list {
+        margin: 1.5rem 0;
+        padding-left: 0;
+        list-style: none;
+    }
+    
+    .policy-list li {
+        background-color: #f8f9fa;
+        margin-bottom: 0.75rem;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        border-left: 4px solid #2ABF64;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+    
+    .policy-list li:hover {
+        background-color: #e9ecef;
+        transform: translateX(5px);
+    }
+    
+    .policy-list li::before {
+        content: "✓";
+        color: #2ABF64;
+        font-weight: bold;
+        margin-right: 0.75rem;
+        font-size: 1.1rem;
+    }
+    
+    .highlight-text {
+        color: #2ABF64;
+        font-weight: 600;
+    }
+    
+    .security-section {
+        background: linear-gradient(135deg, #e7f3ff 0%, #cce7ff 100%);
+        border: 1px solid #b8daff;
+        border-radius: 12px;
+        padding: 2rem;
+        margin: 2rem 0;
+        text-align: center;
+    }
+    
+    .security-section h3 {
+        color: #0066cc;
+        margin-bottom: 1rem;
+        font-size: 1.5rem;
+    }
+    
+    .contact-section {
+        background: linear-gradient(135deg, #2ABF64 0%, #229a50 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 2.5rem;
+        margin-top: 3rem;
+        text-align: center;
+    }
+    
+    .contact-section h3 {
+        color: white;
+        margin-bottom: 1rem;
+        font-size: 1.8rem;
+    }
+    
+    .contact-section p {
+        font-size: 1.1rem;
+        margin: 0;
+    }
+    
+    .contact-email {
+        background-color: rgba(255, 255, 255, 0.2);
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        display: inline-block;
+        margin-top: 1rem;
+        font-weight: 600;
+    }
+    
+    @media (max-width: 768px) {
+        .policy-container {
+            padding: 1rem 0.5rem;
+        }
+        
+        .policy-title {
+            font-size: 2rem;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            flex-direction: column;
+            text-align: center;
+            gap: 0.5rem;
+        }
+        
+        .policy-list li {
+            padding: 0.75rem 1rem;
+        }
+        
+        .policy-list li:hover {
+            transform: none;
+        }
+    }
+</style>
+
+<div class="policy-container">
+    <div class="policy-header">
+        <h1 class="policy-title">Privacy Policy</h1>
+        <div class="last-updated">Last Updated: August 1, 2025</div>
+    </div>
+
+    <div class="policy-intro">
+        <p>This Privacy Policy describes how <span class="highlight-text">Games Bazaar</span> ("we," "us," or "our") collects, uses, and discloses your information when you use our website and services (collectively, the "Service").</p>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">1</span>
+            Information We Collect
+        </h2>
+        <div class="policy-content">
+            <p>We collect several types of information from and about users of our Service, including:</p>
+
+            <h3 class="subsection-title">Personal Information</h3>
+            <ul class="policy-list">
+                <li>When you register for an account, we collect your <span class="highlight-text">username, email address, and password</span>.</li>
+                <li>If you choose to register or log in using a social media account (Google or Facebook), we may receive information from those services, such as your name and email address.</li>
+                <li>When you create a listing, we collect information about the product you are selling, including the listing title, description, price, and images.</li>
+                <li>When you make a purchase, we collect information about the transaction, including the buyer and seller, the product, and the total price.</li>
+                <li>If you contact our support team, we will collect the information you provide in your support ticket.</li>
+            </ul>
+
+            <h3 class="subsection-title">User-Generated Content</h3>
+            <ul class="policy-list">
+                <li>We collect the content of messages you send and receive through our messaging service, including any images you upload.</li>
+                <li>We collect the reviews and ratings you provide for sellers.</li>
+            </ul>
+
+            <h3 class="subsection-title">Usage Information</h3>
+            <ul class="policy-list">
+                <li>We may collect information about your activity on the Service, such as the pages you view and the actions you take.</li>
+                <li>We may collect performance metrics to monitor and improve our Service.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">2</span>
+            How We Use Your Information
+        </h2>
+        <div class="policy-content">
+            <p>We use the information we collect for various purposes, including to:</p>
+            <ul class="policy-list">
+                <li>Provide, maintain, and improve our Service.</li>
+                <li>Create and manage your account.</li>
+                <li>Process your transactions and facilitate payments.</li>
+                <li>Communicate with you, including to respond to your inquiries and provide customer support.</li>
+                <li>Personalize your experience on the Service.</li>
+                <li>Enforce our terms and policies.</li>
+                <li>Monitor and analyze trends, usage, and activities in connection with our Service.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">3</span>
+            How We Share Your Information
+        </h2>
+        <div class="policy-content">
+            <p>We may share your information in the following situations:</p>
+            <ul class="policy-list">
+                <li><span class="highlight-text">With other users:</span> Your username and profile information will be visible to other users of the Service. When you buy or sell an item, we will share the necessary information between the buyer and seller to facilitate the transaction.</li>
+                <li><span class="highlight-text">With third-party service providers:</span> We may share your information with third-party vendors, consultants, and other service providers who need access to such information to carry out work on our behalf. This includes payment processors like Jazzcash.</li>
+                <li><span class="highlight-text">For legal reasons:</span> We may disclose your information if we believe it is necessary to comply with a law, regulation, legal process, or governmental request.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">4</span>
+            Your Choices and Rights
+        </h2>
+        <div class="policy-content">
+            <p>You have certain choices and rights regarding your information:</p>
+            <ul class="policy-list">
+                <li><span class="highlight-text">Account Information:</span> You may update or correct your account information at any time by logging into your account and visiting your settings page.</li>
+                <li><span class="highlight-text">Communications:</span> You may opt out of receiving promotional communications from us by following the instructions in those communications.</li>
+                <li><span class="highlight-text">Data Deletion:</span> If you registered using Facebook or Google, you can request deletion of your data obtained from these social platforms. <a href="{% url 'facebook_data_deletion' %}" style="color: #2ABF64; font-weight: 600;">Request data deletion here</a>.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">5</span>
+            Security
+        </h2>
+        <div class="security-section">
+            <h3>🔒 Your Data is Safe</h3>
+            <p>We take <span class="highlight-text">reasonable measures</span> to help protect your information from loss, theft, misuse, and unauthorized access, disclosure, alteration, and destruction.</p>
+        </div>
+    </div>
+
+    <div class="contact-section">
+        <h3>📧 Contact Us</h3>
+        <p>If you have any questions about this Privacy Policy, please contact us at:</p>
+        <div class="contact-email">[Your Contact Email Address]</div>
+    </div>
+</div>
+{% endblock %}

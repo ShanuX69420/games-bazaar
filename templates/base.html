@@ -1,0 +1,742 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Gamer's Market</title>
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/fontawesome.min.css' %}">
+
+    <style>
+    .auth-container {
+            max-width: 400px;
+            margin: 2rem auto;
+        }
+        @media (min-width: 992px) {
+    .auth-container {
+        max-width: 520px; /* Increased from 400px for larger screens */
+    }
+}
+        .auth-card {
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            overflow: hidden; /* Ensures the rounded corners apply to the header */
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .auth-tabs {
+            display: flex;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .auth-tabs a {
+            flex: 1;
+            text-align: center;
+            padding: 1rem 0;
+            text-decoration: none;
+            color: #6c757d;
+            font-weight: 600;
+            font-size: 1.2rem;
+            border-bottom: 3px solid transparent;
+        }
+        .auth-tabs a.active {
+            color: #212529;
+            border-bottom-color: var(--bs-primary); /* Uses your site's primary color */
+        }
+        .auth-body {
+            padding: 1.5rem;
+        }
+        .social-login-header, .form-login-header {
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        .social-buttons {
+    display: flex;
+    flex-direction: column; /* Stack buttons vertically */
+    gap: 0.75rem; /* Space between buttons */
+    margin-bottom: 1.5rem;
+}
+.social-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.65rem;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    font-weight: 600;
+    color: #333;
+    text-decoration: none;
+    transition: all 0.2s ease-in-out;
+    gap: 0.5rem; /* Space between logo and text */
+}
+.social-btn:hover {
+    background-color: #f8f9fa;
+    border-color: #adb5bd;
+}
+.social-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+        .form-control {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+        .form-control:focus {
+            background-color: #fff;
+            border-color: #2ABF64;
+            box-shadow: 0 0 0 0.25rem rgba(42, 191, 100, 0.25);
+            transform: translateY(-1px);
+        }
+        .form-text {
+            font-size: 0.8rem;
+        }
+        .auth-card .btn-primary {
+            padding: 0.75rem;
+            font-weight: 600;
+        }
+    
+    .form-check-input:checked {
+    background-color: #2ABF64;
+    border-color: #2ABF64;
+}
+        :root {
+        --bs-primary: #2ABF64;
+        --bs-primary-rgb: 42, 191, 100;
+        --bs-link-color: #2ABF64;
+        --bs-link-hover-color: #229a50;
+    }
+
+    .btn-primary {
+        --bs-btn-bg: #2ABF64;
+        --bs-btn-border-color: #2ABF64;
+        --bs-btn-hover-bg: #229a50;
+        --bs-btn-hover-border-color: #229a50;
+        --bs-btn-active-bg: #1f8a48;
+        --bs-btn-active-border-color: #1f8a48;
+        --bs-btn-disabled-bg: #2ABF64;
+        --bs-btn-disabled-border-color: #2ABF64;
+        box-shadow: 0 2px 4px rgba(42, 191, 100, 0.2);
+        transition: all 0.2s ease;
+        font-weight: 600;
+    }
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(42, 191, 100, 0.3);
+    }
+
+    .btn-outline-primary {
+        --bs-btn-color: #2ABF64;
+        --bs-btn-border-color: #2ABF64;
+        --bs-btn-hover-bg: #2ABF64;
+        --bs-btn-hover-border-color: #2ABF64;
+        --bs-btn-active-bg: #2ABF64;
+        --bs-btn-active-border-color: #2ABF64;
+    }
+    .text-primary {
+        color: #2ABF64 !important;
+    }
+    .bg-primary {
+        background-color: #2ABF64 !important;
+    }
+    .border-primary {
+        border-color: #2ABF64 !important;
+    }
+    .alert-primary {
+        background-color: #eafaf1;
+        border-color: #a6e7c1;
+        color: #1a6e3c;
+    }
+
+        body { 
+            display: flex; 
+            flex-direction: column; 
+            min-height: 100vh; 
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 50%, #f8f9fa 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+        }
+        /* New class for pages that need a gray background */
+        body.bg-light-gray {
+            background: linear-gradient(135deg, #f1f3f4 0%, #f8f9fa 50%, #f1f3f4 100%);
+        }
+        main { flex: 1; }
+        .footer { padding: 1rem 0; background-color: #f8f9fa; border-top: 1px solid #e7e7e7; }
+
+        /* Clean minimal styles for game cells */
+        .game-cell { 
+            padding: 0.75rem;
+            transition: all 0.15s ease;
+        }
+        .game-cell:hover {
+            background-color: rgba(42, 191, 100, 0.02);
+        }
+        .game-cell-title { 
+            flex-shrink: 0;
+            margin-bottom: 0;
+        }
+        .game-cell-title a { 
+            color: #212529; 
+            font-size: 15px; 
+            font-weight: 600; 
+            text-decoration: none; 
+            line-height: 1.3;
+        }
+        .game-cell-title a:hover { 
+            color: #2ABF64; 
+            text-decoration: underline; 
+        }
+        .game-cell-categories { 
+            margin-top: 0.25rem; 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 0.4rem 0.75rem;
+            align-content: flex-start;
+        }
+        .game-cell-categories a { 
+            color: #2ABF64; 
+            font-size: 13px; 
+            font-weight: 500; 
+            text-decoration: none; 
+            display: inline-block; 
+            position: relative;
+        }
+        .game-cell-categories a:not(:last-child)::after { 
+            content: "•";
+            color: #d0d7de;
+            font-size: 10px;
+            position: absolute;
+            right: -0.35rem;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .game-cell-categories a:hover { 
+            text-decoration: underline;
+        }
+        .category-overflow {
+            color: #6c757d;
+            font-size: 12px;
+            font-weight: 500;
+            font-style: italic;
+        }
+        .category-separator { color: #8e9196; margin: 0 0.4rem; font-size: 0.8rem; }
+        
+        /* User Presence */
+        .user-status.online { color: #198754; font-weight: bold; }
+        .user-status.offline { color: #6c757d; }
+        /* Profile Dropdown */
+        .profile-dropdown-item { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        .profile-dropdown-item .profile-username { display: block; font-weight: bold; font-size: 1.1rem; line-height: 1.2; }
+        .profile-dropdown-item .profile-subtext { display: block; font-size: 0.8rem; color: #6c757d; }
+
+        .sticky-chat-panel { position: -webkit-sticky; position: sticky; top: 1rem; align-self: flex-start; }
+
+        .search-bar-container { 
+            position: relative; 
+        }
+        #live-search-input-desktop,
+        #live-search-input-mobile {
+            border: none;
+            background-color: transparent;
+            border-radius: 0;
+            padding-left: 0;
+            padding-right: 2rem;
+        }
+        
+        /* Mobile-specific search styling */
+        @media (max-width: 991.98px) {
+            .mobile-nav-search input[type="search"] {
+                width: 140px !important;
+                padding: 0 !important;
+            }
+            .mobile-nav-search .search-icon-btn {
+                left: 125px !important;
+            }
+        }
+        #live-search-input-desktop:focus,
+        #live-search-input-mobile:focus {
+            box-shadow: none;
+            background-color: transparent;
+        }
+        .search-icon-btn { 
+            position: absolute; 
+            top: 50%; 
+            right: 0; 
+            transform: translateY(-50%); 
+            background: none; 
+            border: none; 
+            color: #6c757d; 
+            padding: 0 0.1rem; 
+            pointer-events: none; 
+        }
+        .search-icon-btn i { font-size: 0.9rem; vertical-align: middle; }
+        #live-search-input-desktop::-webkit-search-cancel-button,
+        #live-search-input-mobile::-webkit-search-cancel-button { display: none; }
+        #live-search-input-mobile::placeholder {
+            font-size: 14px;
+        }
+         /* --- Custom Mobile Header Styles --- */
+        @media (max-width: 991.98px) {
+            .navbar > .container {
+                max-width: 100%;
+                padding-left: 0;
+                padding-right: 0;
+            }
+            .mobile-nav {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+            .mobile-nav-right .nav-link {
+                font-size: 1.4rem; /* Makes message icon bigger */
+            }
+            .mobile-profile-dropdown .dropdown-toggle img {
+                width: 36px;   /* Makes profile image bigger */
+                height: 36px;  /* Makes profile image bigger */
+            }
+        }
+
+        /* --- Enhanced Mobile Navbar Styles --- */
+        .mobile-nav { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0.1rem 0; }
+        .mobile-nav-left { display: flex; align-items: center; gap: 0.25rem; flex-grow: 1; min-width: 0; }
+        .mobile-nav-search { max-width: 180px; flex-grow: 1; }
+        .mobile-nav-right { display: flex; align-items: center; gap: 1rem; }
+        .mobile-nav-right .nav-link { color: rgba(0, 0, 0, 0.55); font-size: 1.25rem; padding: 0.1rem; }
+        .mobile-nav-right .nav-link:hover { color: #000; }
+        .mobile-profile-dropdown .dropdown-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.25rem; font-size: 1rem; }
+        .mobile-profile-dropdown .dropdown-item i.fa-fw { width: 20px; text-align: center; color: #6c757d; }
+        .mobile-profile-dropdown .dropdown-item .badge { margin-left: auto; }
+        .mobile-profile-dropdown a.support-header { width: 100%; display: flex; justify-content: space-between; align-items: center; }
+        .mobile-profile-dropdown a.support-header i.fa-chevron-down { transition: transform 0.2s ease-in-out; }
+        .mobile-profile-dropdown a.support-header:not(.collapsed) i.fa-chevron-down { transform: rotate(-180deg); }
+        .mobile-profile-dropdown .support-links .dropdown-item { padding-left: 3.25rem; font-size: 0.9rem; }
+
+        /* --- LIVE SEARCH OVERLAY STYLES --- */
+        .search-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.5); z-index: 1040; display: none; opacity: 0; transition: opacity 0.2s ease-in-out; }
+        .search-results-container { position: absolute; top: 100%; left: 0; right: 0; background-color: #ffffff; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; box-shadow: 0 8px 16px rgba(0,0,0,0.15); z-index: 1050; display: none; opacity: 0; transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out; transform: translateY(-10px); max-height: 70vh; overflow-y: auto; }
+        body.search-active .search-backdrop { display: block; opacity: 1; }
+        body.search-active .search-results-container { display: block; opacity: 1; transform: translateY(0); }
+        .search-results-content { padding: 2rem 0; }
+
+        .search-results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
+            gap: 1.5rem 2rem;
+        }
+        .search-game-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: #212529;
+        }
+        .search-game-title a { color: inherit; text-decoration: none; }
+        .search-game-title a:hover { text-decoration: underline; }
+        .search-category-list a { color: #2ABF64; text-decoration: none; font-size: 0.9rem; padding: 0.25rem 0; display: block; }
+        .search-category-list a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <!-- Only load audio on desktop devices, not mobile -->
+    <script>
+        if (!/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            document.write('<audio id="notification-sound" src="{% static 'sounds/notification.mp3' %}" preload="auto"></audio>');
+        }
+    </script>
+    <div class="search-backdrop"></div>
+
+    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom" style="position: relative; z-index: 1041; box-shadow: 0 2px 8px rgba(0,0,0,0.06); backdrop-filter: blur(8px);">
+        <div class="container">
+            <div class="d-none d-lg-flex justify-content-between align-items-center w-100">
+                <a class="navbar-brand" href="{% url 'home' %}">
+        <img src="{% static 'images/logo.png' %}" alt="Gamer's Market Logo" style="height: 55px;">
+    </a>
+                <div class="mx-auto me-3" style="position: relative; width: 180px;">
+                    <form class="search-bar-container" action="{% url 'search_results' %}" method="get" role="search">
+                        <input id="live-search-input-desktop" class="form-control live-search-input" type="search" name="q" placeholder="Search by {{ total_games_count }} games" aria-label="Search" autocomplete="off">
+                        <span class="search-icon-btn" aria-label="Search"><i class="fas fa-search"></i></span>
+                    </form>
+                </div>
+                {% include 'marketplace/partials/navbar_links.html' %}
+            </div>
+            <div class="d-lg-none mobile-nav">
+                <div class="mobile-nav-left">
+                    <a class="navbar-brand" href="{% url 'home' %}">
+            <img src="{% static 'images/logo.png' %}" alt="Gamer's Market Logo" style="height: 48px;">
+    </a>
+                    <form class="mobile-nav-search search-bar-container" action="{% url 'search_results' %}" method="get" role="search">
+                        <input id="live-search-input-mobile" class="form-control live-search-input" type="search" name="q" placeholder="Search by {{ total_games_count }} games" aria-label="Search" autocomplete="off">
+                        <span class="search-icon-btn" aria-label="Search"><i class="fas fa-search"></i></span>
+                    </form>
+                </div>
+                <div class="mobile-nav-right">
+                    {% if user.is_authenticated %}
+                        <a class="nav-link position-relative" href="{% url 'my_messages' %}">
+                            <i class="fas fa-envelope"></i>
+                            {% if unread_conversations_count > 0 %}<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.6em; padding: .25em .4em;">{{ unread_conversations_count }}</span>{% endif %}
+                        </a>
+                        <div class="nav-item dropdown mobile-profile-dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"><img src="{{ user.profile.image_url }}" alt="p" width="32" height="32" class="rounded-circle"></a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{% url 'public_profile' user.username %}"><i class="fas fa-user-circle fa-fw"></i> Profile</a></li>
+                                <li><a class="dropdown-item support-header collapsed" data-bs-toggle="collapse" href="#support-collapse-mobile" role="button" aria-expanded="false" aria-controls="support-collapse-mobile"><i class="fas fa-question-circle fa-fw"></i> Support <i class="fas fa-chevron-down ms-auto"></i></a></li>
+                                <div class="collapse support-links" id="support-collapse-mobile">
+                                    <li><a class="dropdown-item" href="{% url 'support_center' %}">Submit a Request</a></li>
+                                    <li><a class="dropdown-item" href="/rules/">Rules</a></li>
+                                </div>
+                                <li><hr class="dropdown-divider my-1"></li>
+                                <li><a class="dropdown-item" href="{% url 'my_purchases' %}"><i class="fas fa-shopping-bag fa-fw"></i> Purchases {% if active_purchases_count > 0 %}<span class="badge bg-danger rounded-pill">{{ active_purchases_count }}</span>{% endif %}</a></li>
+                                <li><a class="dropdown-item" href="{% url 'my_sales' %}"><i class="fas fa-tag fa-fw"></i> Sales {% if active_sales_count > 0 %}<span class="badge bg-danger rounded-pill">{{ active_sales_count }}</span>{% endif %}</a></li>
+                                <li><a class="dropdown-item" href="{% url 'my_messages' %}"><i class="fas fa-envelope fa-fw"></i> Messages {% if unread_conversations_count > 0 %}<span class="badge bg-danger rounded-pill">{{ unread_conversations_count }}</span>{% endif %}</a></li>
+                                <li><a class="dropdown-item" href="{% url 'funds' %}"><i class="fas fa-wallet fa-fw"></i> Funds</a></li>
+                                <li><a class="dropdown-item" href="{% url 'settings' %}"><i class="fas fa-cog fa-fw"></i> Settings</a></li>
+                                <li><hr class="dropdown-divider my-1"></li>
+                                <li><form action="{% url 'logout' %}" method="post" class="w-100">{% csrf_token %}<button type="submit" class="dropdown-item"><i class="fas fa-sign-out-alt fa-fw"></i> Logout</button></form></li>
+                            </ul>
+                        </div>
+                    {% else %}
+                        <div class="nav-item dropdown mobile-profile-dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-user-circle"></i>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{% url 'login' %}"><i class="fas fa-sign-in-alt fa-fw"></i> Login</a></li>
+                                <li><a class="dropdown-item" href="{% url 'register' %}"><i class="fas fa-user-plus fa-fw"></i> Sign Up</a></li>
+                            </ul>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="search-results-container">
+            <div class="container">
+                <div class="search-results-content"></div>
+            </div>
+        </div>
+    </nav>
+
+    {% block main_content_wrapper %}
+    <main class="container mt-4 mb-4">
+        {% block content %}{% endblock %}
+    </main>
+    {% endblock main_content_wrapper %}
+
+    <footer class="footer mt-auto py-3 bg-light">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <span class="text-muted">&copy; 2025 Games Bazaar</span>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <a href="/privacy-policy/" class="text-muted text-decoration-none me-2 small">Privacy Policy</a>
+                    <span class="text-muted">|</span>
+                    <a href="/terms-of-service/" class="text-muted text-decoration-none mx-2 small">Terms of Service</a>
+                    <span class="text-muted">|</span>
+                    <a href="/cookie-policy/" class="text-muted text-decoration-none ms-2 small">Cookie Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-labelledby="imagePreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="imagePreviewModalLabel">Image Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="image-preview-element" src="#" alt="Image preview" class="img-fluid rounded" style="max-height: 70vh;">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" id="send-image-upload" class="btn btn-primary" style="display: none;">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+    {% if user.is_authenticated %}{{ request.user.username|json_script:"current-user-username" }}{% endif %}
+    <script>
+// Global function to show image preview
+window.showImagePreview = function(imageUrl, showSendButton = false) {
+    const modal = document.getElementById('imagePreviewModal');
+    const imageElement = document.getElementById('image-preview-element');
+    const sendButton = document.getElementById('send-image-upload');
+    
+    if (modal && imageElement) {
+        imageElement.src = imageUrl;
+        sendButton.style.display = showSendButton ? 'inline-block' : 'none';
+        
+        const bootstrapModal = new bootstrap.Modal(modal);
+        bootstrapModal.show();
+    }
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle chat image previews globally
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('chat-image-preview')) {
+            e.preventDefault();
+            const imageUrl = e.target.getAttribute('data-image-src');
+            if (imageUrl) {
+                showImagePreview(imageUrl, false);
+            }
+        }
+    });
+    
+    // Handle product image thumbnails
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.image-thumbnail-box')) {
+            const thumbnail = e.target.closest('.image-thumbnail-box');
+            const imageUrl = thumbnail.getAttribute('data-img-src');
+            if (imageUrl) {
+                e.preventDefault();
+                showImagePreview(imageUrl, false);
+            }
+        }
+    });
+    // --- START OF CORRECTED SEARCH SCRIPT ---
+    const searchInputs = document.querySelectorAll('.live-search-input'); // Selects BOTH search bars
+    const searchBackdrop = document.querySelector('.search-backdrop');
+    const searchResultsContainer = document.querySelector('.search-results-container');
+    const searchResultsContent = document.querySelector('.search-results-content');
+    const body = document.body;
+    let searchTimeout;
+
+    if (searchInputs.length > 0 && searchBackdrop && searchResultsContainer && searchResultsContent) {
+        const showSearch = (inputElement) => {
+            if (inputElement.value.trim().length > 0) {
+                body.classList.add('search-active');
+            }
+        };
+        const hideSearch = () => {
+            body.classList.remove('search-active');
+        };
+
+        const performSearch = (query) => {
+            if (query.length < 1) {
+                hideSearch();
+                searchResultsContent.innerHTML = '';
+                return;
+            }
+            body.classList.add('search-active');
+            searchResultsContent.innerHTML = '<p class="text-muted text-center py-5">Searching...</p>';
+            fetch(`/api/live-search/?q=${encodeURIComponent(query)}`).then(response => response.json()).then(data => {
+                if (!body.classList.contains('search-active')) return;
+                let resultsHtml = '';
+                if (data.length > 0) {
+                    resultsHtml = '<div class="search-results-grid">';
+                    data.forEach(game => {
+                        const gameLink = game.categories.length > 0 ? game.categories[0].url : game.url;
+                        let categoriesHtml = game.categories.map(cat => `<a href="${cat.url}">${cat.name}</a>`).join('');
+                        resultsHtml += `<div><h5 class="search-game-title"><a href="${gameLink}">${game.name}</a></h5><div class="search-category-list">${categoriesHtml}</div></div>`;
+                    });
+                    resultsHtml += '</div>';
+                } else {
+                    resultsHtml = '<p class="text-muted text-center py-5">No games found matching your search.</p>';
+                }
+                searchResultsContent.innerHTML = resultsHtml;
+            }).catch(error => {
+                console.error('Live search error:', error);
+                searchResultsContent.innerHTML = '<p class="text-danger text-center py-5">An error occurred during search.</p>';
+            });
+        };
+        
+        // This loop now attaches the search logic to BOTH inputs
+        searchInputs.forEach(searchInput => {
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.trim();
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => performSearch(query), 300);
+            });
+            searchInput.addEventListener('focus', (e) => {
+                if (e.target.value.trim().length > 0) {
+                   body.classList.add('search-active');
+                }
+            });
+        });
+
+        searchBackdrop.addEventListener('click', hideSearch);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === "Escape") hideSearch();
+        });
+    }
+    // --- END OF CORRECTED SEARCH SCRIPT ---
+
+    function formatTimeSince(isoString) { if (!isoString) return ''; const date = new Date(isoString); const now = new Date(); const seconds = Math.floor((now - date) / 1000); if (seconds < 60) return "just now"; let interval = seconds / 31536000; if (interval > 1) return Math.floor(interval) + " years ago"; interval = seconds / 2592000; if (interval > 1) return Math.floor(interval) + " months ago"; interval = seconds / 86400; if (interval > 1) return Math.floor(interval) + " days ago"; interval = seconds / 3600; if (interval > 1) return Math.floor(interval) + " hours ago"; interval = seconds / 60; if (interval > 1) return Math.floor(interval) + " minutes ago"; return "just now"; }
+    function updateRelativeTimestamps() { const elements = document.querySelectorAll('[data-iso-timestamp]'); elements.forEach(element => { if (element.dataset.isoTimestamp) element.textContent = `was active ${formatTimeSince(element.dataset.isoTimestamp)}`; }); }
+    function updateUserStatusOnPage(data) { 
+        console.log('Updating status for user:', data.username, 'Online:', data.is_online, 'Last seen:', data.last_seen_iso);
+        
+        // Update all status elements for this user
+        const statusElements = document.querySelectorAll(`.user-status[data-username="${data.username}"]`); 
+        const sellerElements = document.querySelectorAll(`.seller-username[data-username="${data.username}"]`);
+        
+        console.log('Found', statusElements.length, 'status elements for', data.username);
+        
+        // Update status text elements
+        statusElements.forEach(statusEl => { 
+            if (data.is_online) { 
+                statusEl.textContent = 'Online'; 
+                statusEl.className = 'user-status online'; 
+                statusEl.removeAttribute('data-iso-timestamp'); 
+            } else { 
+                const lastSeenText = `was active ${formatTimeSince(data.last_seen_iso)}`; 
+                statusEl.textContent = lastSeenText; 
+                statusEl.className = 'user-status offline'; 
+                statusEl.setAttribute('data-iso-timestamp', data.last_seen_iso); 
+            } 
+        });
+        
+        // Update seller username elements (for listings)
+        sellerElements.forEach(sellerEl => {
+            if (data.is_online) {
+                sellerEl.classList.add('online');
+                sellerEl.classList.remove('offline');
+            } else {
+                sellerEl.classList.remove('online');
+                sellerEl.classList.add('offline');
+            }
+        });
+        
+        // Update status dots
+        const statusDots = document.querySelectorAll(`.status-dot[data-username="${data.username}"]`);
+        statusDots.forEach(dot => {
+            if (data.is_online) {
+                dot.classList.add('online');
+            } else {
+                dot.classList.remove('online');
+            }
+        });
+    }
+    function unescapeHtml(text) {
+        // Create a temporary element to decode HTML entities
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = text;
+        return tempDiv.textContent || tempDiv.innerText || '';
+    }
+    
+    function updateConversationLink(data) { 
+        const conversationLink = document.querySelector(`.list-group-item[data-conversation-id="${data.conversation_id}"]`); 
+        if (!conversationLink) return; 
+        const lastMessageElement = conversationLink.querySelector('.last-message'); 
+        const timestampElement = conversationLink.querySelector('.timestamp'); 
+        const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent); 
+        if (lastMessageElement) { 
+            let messagePrefix = ''; 
+            if (data.sender_username === currentUserUsername) { 
+                messagePrefix = 'You: '; 
+            } 
+            // Unescape HTML entities for display as plain text, then truncate
+            const unescapedContent = unescapeHtml(data.last_message_content);
+            const truncatedContent = unescapedContent.length > 50 ? unescapedContent.substring(0, 47) + '...' : unescapedContent;
+            lastMessageElement.textContent = messagePrefix + truncatedContent; 
+        } 
+        if (timestampElement) { 
+            timestampElement.textContent = formatTimeSince(data.last_message_timestamp); 
+        } 
+        // Always show yellow indicator for messages from other users
+        if (data.sender_username !== currentUserUsername) { 
+            conversationLink.classList.add('unread', 'unread-highlight'); 
+        } 
+        const parentList = conversationLink.parentNode; 
+        if (parentList) { 
+            parentList.prepend(conversationLink); 
+        } 
+    }
+    {% if user.is_authenticated %}
+    function updateBadge(selector, count) { const link = document.querySelector(selector); if (!link) return; let badge = link.querySelector('.badge'); if (!badge) { badge = document.createElement('span'); badge.className = 'badge bg-danger ms-1'; link.appendChild(badge); } if (count > 0) { badge.textContent = count; badge.style.display = ''; } else { if (badge) badge.remove(); } }
+    function connectNotifications() {
+        const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent); 
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://'; 
+        let notificationSocket = new WebSocket(protocol + window.location.host + '/ws/notifications/'); 
+        let heartbeatInterval = null;
+        let reconnectAttempts = 0;
+        
+        notificationSocket.onopen = function(e) { 
+            console.log("Notification socket connected."); 
+            reconnectAttempts = 0;
+            
+            // Simple heartbeat every 30 seconds
+            heartbeatInterval = setInterval(() => { 
+                if (notificationSocket.readyState === WebSocket.OPEN) {
+                    notificationSocket.send(JSON.stringify({ 'type': 'heartbeat' }));
+                }
+            }, 30000); // 30 seconds - much more reasonable
+        };
+        notificationSocket.onmessage = function(e) {
+            const content = JSON.parse(e.data);
+            const notificationType = content.type;
+            const data = content.data;
+            console.log('Received WebSocket message:', notificationType, data);
+            
+            if (notificationType === 'new_message') {
+                updateConversationLink(data);
+                updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
+                
+                // Only play sound if page is not visible (minimized/different tab)
+                if (document.hidden && data.sender_username !== currentUserUsername) {
+                    playNotificationSound();
+                }
+            } else if (notificationType === 'read_receipt_update') {
+                updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
+                const conversationLink = document.querySelector(`.list-group-item[data-conversation-id="${data.conversation_id}"]`);
+                if (conversationLink) {
+                    conversationLink.classList.remove('unread', 'unread-highlight');
+                }
+            } else if (notificationType === 'presence_update') {
+                console.log('Processing presence update for:', data.username);
+                updateUserStatusOnPage(data);
+            }
+        };
+        notificationSocket.onclose = function(e) { 
+            console.log("Notification socket closed."); 
+            clearInterval(heartbeatInterval); 
+            
+            // Simple reconnection with exponential backoff
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+            reconnectAttempts++;
+            
+            setTimeout(() => {
+                if (reconnectAttempts < 5) {
+                    connectNotifications();
+                }
+            }, delay); 
+        };
+        
+        notificationSocket.onerror = function(e) {
+            console.log("Notification socket error:", e);
+        };
+    }
+    function playNotificationSound() { 
+        // Skip notification sounds on mobile devices
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            console.log("Notification sound skipped on mobile");
+            return;
+        }
+        const sound = document.getElementById('notification-sound'); 
+        if (sound) { 
+            sound.play().catch(error => console.log("Playback failed:", error)); 
+        } 
+    }
+    connectNotifications(); setInterval(updateRelativeTimestamps, 30000);
+    
+    
+    // Handle visibility change for proper notification behavior
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            // User returned to the page - if they're viewing an active chat,
+            // the chat WebSocket will handle marking messages as read
+            console.log('Page became visible');
+        }
+    });
+    {% endif %}
+});
+</script>
+    {% block extra_js %}{% endblock %}
+    <script src="{% static 'js/main.js' %}"></script>
+</body>
+</html>

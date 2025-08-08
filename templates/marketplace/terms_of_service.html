@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+    .terms-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+        line-height: 1.8;
+        color: #333;
+    }
+    
+    .terms-header {
+        text-align: center;
+        margin-bottom: 3rem;
+        padding-bottom: 2rem;
+        border-bottom: 3px solid #2ABF64;
+    }
+    
+    .terms-title {
+        color: #2ABF64;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+    
+    .last-updated {
+        font-style: italic;
+        color: #6c757d;
+        font-size: 1.1rem;
+        background-color: #f8f9fa;
+        padding: 0.75rem 1.5rem;
+        border-radius: 25px;
+        display: inline-block;
+    }
+    
+    .terms-intro {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2.5rem;
+        border-left: 5px solid #2ABF64;
+    }
+    
+    .terms-intro p {
+        font-size: 1.1rem;
+        margin: 0;
+        font-weight: 500;
+    }
+    
+    .section {
+        margin-bottom: 3rem;
+    }
+    
+    .section-title {
+        color: #2ABF64;
+        font-size: 1.8rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .section-number {
+        background-color: #2ABF64;
+        color: white;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    
+    .subsection-title {
+        color: #495057;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin: 2rem 0 1rem 0;
+        position: relative;
+        padding-left: 1.5rem;
+    }
+    
+    .subsection-title::before {
+        content: "▶";
+        color: #2ABF64;
+        position: absolute;
+        left: 0;
+        font-size: 1rem;
+    }
+    
+    .terms-content p {
+        margin-bottom: 1.2rem;
+        text-align: justify;
+    }
+    
+    .terms-list {
+        margin: 1.5rem 0;
+        padding-left: 0;
+        list-style: none;
+    }
+    
+    .terms-list li {
+        background-color: #f8f9fa;
+        margin-bottom: 0.75rem;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        border-left: 4px solid #2ABF64;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+    
+    .terms-list li:hover {
+        background-color: #e9ecef;
+        transform: translateX(5px);
+    }
+    
+    .terms-list li::before {
+        content: "✓";
+        color: #2ABF64;
+        font-weight: bold;
+        margin-right: 0.75rem;
+        font-size: 1.1rem;
+    }
+    
+    .prohibited-list li::before {
+        content: "✗";
+        color: #dc3545;
+    }
+    
+    .prohibited-list li {
+        border-left-color: #dc3545;
+    }
+    
+    .highlight-text {
+        color: #2ABF64;
+        font-weight: 600;
+    }
+    
+    .warning-section {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        border: 1px solid #ffc107;
+        border-radius: 12px;
+        padding: 2rem;
+        margin: 2rem 0;
+        text-align: center;
+    }
+    
+    .warning-section h3 {
+        color: #856404;
+        margin-bottom: 1rem;
+        font-size: 1.5rem;
+    }
+    
+    .contact-section {
+        background: linear-gradient(135deg, #2ABF64 0%, #229a50 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 2.5rem;
+        margin-top: 3rem;
+        text-align: center;
+    }
+    
+    .contact-section h3 {
+        color: white;
+        margin-bottom: 1rem;
+        font-size: 1.8rem;
+    }
+    
+    .contact-section p {
+        font-size: 1.1rem;
+        margin: 0;
+    }
+    
+    .contact-email {
+        background-color: rgba(255, 255, 255, 0.2);
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        display: inline-block;
+        margin-top: 1rem;
+        font-weight: 600;
+    }
+    
+    @media (max-width: 768px) {
+        .terms-container {
+            padding: 1rem 0.5rem;
+        }
+        
+        .terms-title {
+            font-size: 2rem;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            flex-direction: column;
+            text-align: center;
+            gap: 0.5rem;
+        }
+        
+        .terms-list li {
+            padding: 0.75rem 1rem;
+        }
+        
+        .terms-list li:hover {
+            transform: none;
+        }
+    }
+</style>
+
+<div class="terms-container">
+    <div class="terms-header">
+        <h1 class="terms-title">Terms of Service</h1>
+        <div class="last-updated">Last Updated: August 4, 2025</div>
+    </div>
+
+    <div class="terms-intro">
+        <p>Welcome to <span class="highlight-text">Games Bazaar</span>! These Terms of Service ("Terms") govern your use of our website and marketplace services. By using our platform, you agree to comply with and be bound by these Terms.</p>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">1</span>
+            Acceptance of Terms
+        </h2>
+        <div class="terms-content">
+            <p>By accessing or using Games Bazaar, you agree to be bound by these Terms of Service and our Privacy Policy. If you disagree with any part of these terms, you may not access the service.</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">2</span>
+            Platform Overview
+        </h2>
+        <div class="terms-content">
+            <p>Games Bazaar is an online marketplace that connects buyers and sellers of gaming-related items including:</p>
+            <ul class="terms-list">
+                <li>Game accounts and characters</li>
+                <li>In-game currency and items</li>
+                <li>Gaming services and boosting</li>
+                <li>Digital game assets</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">3</span>
+            User Accounts
+        </h2>
+        <div class="terms-content">
+            <h3 class="subsection-title">Account Registration</h3>
+            <ul class="terms-list">
+                <li>You must provide accurate, current, and complete information</li>
+                <li>You are responsible for maintaining the security of your account</li>
+                <li>You must notify us immediately of any unauthorized use</li>
+                <li>One person may only create one account</li>
+            </ul>
+
+            <h3 class="subsection-title">Account Termination</h3>
+            <p>We reserve the right to suspend or terminate accounts that violate these Terms or engage in fraudulent activity.</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">4</span>
+            Marketplace Rules
+        </h2>
+        <div class="terms-content">
+            <h3 class="subsection-title">Selling Guidelines</h3>
+            <ul class="terms-list">
+                <li>You must own or have legal right to sell the items you list</li>
+                <li>All listings must include accurate descriptions and images</li>
+                <li>You must deliver items as described within reasonable time</li>
+                <li>You are responsible for ensuring your items comply with game Terms of Service</li>
+            </ul>
+
+            <h3 class="subsection-title">Buying Guidelines</h3>
+            <ul class="terms-list">
+                <li>Review listings carefully before purchasing</li>
+                <li>Communicate with sellers through our messaging system</li>
+                <li>Report any issues or disputes promptly</li>
+                <li>Understand that digital items may carry risks</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">5</span>
+            Prohibited Activities
+        </h2>
+        <div class="terms-content">
+            <p>The following activities are strictly prohibited on Games Bazaar:</p>
+            <ul class="terms-list prohibited-list">
+                <li>Selling stolen, hacked, or fraudulently obtained accounts</li>
+                <li>Using bots, scripts, or automated tools</li>
+                <li>Creating fake reviews or manipulating ratings</li>
+                <li>Harassment, threats, or abusive behavior</li>
+                <li>Selling items that violate game publishers' terms</li>
+                <li>Money laundering or other illegal financial activities</li>
+                <li>Impersonating other users or entities</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">6</span>
+            Payments and Fees
+        </h2>
+        <div class="terms-content">
+            <ul class="terms-list">
+                <li>We use secure payment processors including JazzCash</li>
+                <li>Platform fees may apply to transactions</li>
+                <li>Refunds are handled according to our dispute resolution process</li>
+                <li>All prices are displayed in Pakistani Rupees (PKR)</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">7</span>
+            Dispute Resolution
+        </h2>
+        <div class="terms-content">
+            <p>In case of disputes between buyers and sellers:</p>
+            <ul class="terms-list">
+                <li>Try to resolve issues directly through our messaging system</li>
+                <li>If unresolved, escalate to our support team</li>
+                <li>We will investigate and make fair decisions based on evidence</li>
+                <li>Our decisions on disputes are final</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">8</span>
+            Limitation of Liability
+        </h2>
+        <div class="warning-section">
+            <h3>⚠️ Important Notice</h3>
+            <p>Games Bazaar is a marketplace platform. We do not guarantee the quality, safety, or legality of items listed. Users engage in transactions at their own risk.</p>
+        </div>
+        <div class="terms-content">
+            <p>We are not liable for:</p>
+            <ul class="terms-list prohibited-list">
+                <li>Actions taken by game publishers against accounts</li>
+                <li>Loss of digital items or account access</li>
+                <li>Disputes between buyers and sellers</li>
+                <li>Technical issues or platform downtime</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">9</span>
+            Changes to Terms
+        </h2>
+        <div class="terms-content">
+            <p>We reserve the right to modify these Terms at any time. Users will be notified of significant changes via email or platform notifications. Continued use of the platform constitutes acceptance of updated Terms.</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2 class="section-title">
+            <span class="section-number">10</span>
+            Governing Law
+        </h2>
+        <div class="terms-content">
+            <p>These Terms are governed by the laws of Pakistan. Any disputes will be resolved in the courts of Pakistan.</p>
+        </div>
+    </div>
+
+    <div class="contact-section">
+        <h3>📧 Questions?</h3>
+        <p>If you have questions about these Terms of Service, contact us at:</p>
+        <div class="contact-email">support@gamesbazaarpk.com</div>
+    </div>
+</div>
+{% endblock %}

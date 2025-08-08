@@ -1,0 +1,809 @@
+{% extends "base.html" %}
+{% load time_filters %}
+
+{% block main_content_wrapper %}
+<main class="container mt-4 mb-4" id="messages-main-container">
+    {% block content %}
+<style>
+    /* --- Main Page Adjustments --- */
+    main.container {
+        margin-top: 1rem !important;
+        margin-bottom: 1rem !important;
+        max-width: 1320px !important;
+    }
+    .footer {
+        display: none !important;
+    }
+
+    /* The main container for the entire chat interface */
+    .chat-container {
+        display: flex;
+        height: 88vh; 
+        border: 1px solid #dee2e6;
+        border-radius: .25rem;
+        overflow: hidden;
+        background-color: #fff;
+    }
+
+    /* === Left Column: List of conversations === */
+    .chat-sidebar {
+        flex: 0 0 300px;
+        border-right: 1px solid #dee2e6;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* --- DEFINITIVE ALIGNMENT FIX --- */
+    .chat-sidebar-header, .chat-header {
+        height: 65px; /* Sets a FIXED height to align the bottom borders */
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #dee2e6;
+        flex-shrink: 0;
+        background-color: #fff;
+    }
+    
+    /* This aligns the text and makes the "Messages" title bigger and bolder */
+    .chat-sidebar-header h4 {
+        margin: 0 !important; 
+        font-size: 1.35rem; /* Increased font size */
+        font-weight: 900;   /* Made the font weight even bolder */
+    }
+    
+    .chat-header h5 {
+        margin: 0 !important;
+        font-size: 1.25rem;
+        font-weight: 600; /* Original weight for username */
+    }
+    
+    /* Fix dropdown positioning in messages page */
+    .chat-header .d-flex {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .chat-header .dropdown {
+        margin-left: auto;
+    }
+    /* --- End of Fix --- */
+
+    .conversation-list {
+        overflow-y: auto;
+        flex-grow: 1;
+    }
+    .conversation-link {
+    display: flex;
+    align-items: center; /* This vertically centers the content */
+    padding: 0.5rem 1rem; /* Adjust padding for a tighter look */
+    height: 70px;         /* This sets a UNIFORM HEIGHT for all items */
+    text-decoration: none;
+    color: inherit;
+}
+.conversation-link:hover {
+    background-color: #f8f9fa;
+}
+
+/* === MODIFIED STYLES FOR ACTIVE CHAT === */
+.conversation-link.active {
+    background-color: #0d6efd; /* Blue background */
+    border-color: #0d6efd;
+    color: #ffffff; /* White text for all children */
+}
+.conversation-link.active .username,
+.conversation-link.active .last-message,
+.conversation-link.active .timestamp {
+    color: inherit; /* Inherit the white color from the parent */
+}
+.conversation-link.active .username {
+    font-weight: 700; /* Bold username */
+}
+
+/* === END OF MODIFIED STYLES === */
+
+.conversation-link .avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+.conversation-link .content {
+    flex-grow: 1;
+    min-width: 0;
+}
+.conversation-link .content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+.conversation-link .username {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.9rem; /* Slightly smaller username */
+}
+.conversation-link .timestamp {
+    font-size: 0.7rem; /* Smaller timestamp */
+    color: #6c757d;
+    flex-shrink: 0;
+    margin-left: 8px;
+}
+.conversation-link .last-message {
+    font-size: 0.8rem; /* Smaller message text */
+    color: #6c757d;
+    margin-top: 1px;
+    line-height: 1.3; /* Control line spacing */
+
+    /* The following rules ensure it wraps and is limited to 2 lines */
+    white-space: normal; 
+    word-break: break-all;         
+    display: -webkit-box;
+    -webkit-line-clamp: 2;         
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.list-group-item.unread .username,
+.list-group-item.unread .last-message {
+    font-weight: bold;
+    color: #212529;
+}
+.list-group-item.unread-highlight {
+    background-color: #fffbe6;
+}
+    .list-group-item.unread .username,
+    .list-group-item.unread .last-message {
+        font-weight: bold;
+        color: #212529;
+    }
+    
+    /* This is the new style for the yellow highlight */
+    .list-group-item.unread-highlight {
+        background-color: #fffbe6; /* A light yellow color */
+    }
+
+    .chat-sidebar .list-group-item {
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+        border-top: 0;
+    }
+    .chat-sidebar .list-group-item:first-child { border-top: none; }
+    .chat-sidebar .list-group-item:last-child { border-bottom: none; }
+
+    /* === Middle Column: The chat window === */
+    .chat-main {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    /* Use the unified chat panel styles */
+    .chat-panel-log {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 1rem;
+        background-color: #ffffff;
+    }
+    .chat-panel-footer {
+        padding: 0;
+        border-top: 1px solid #dee2e6;
+        background-color: #ffffff;
+    }
+    .chat-panel-footer .form-control,
+    .chat-panel-footer .btn {
+        border: none;
+        border-radius: 0;
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+    .chat-panel-footer .form-control {
+        padding-left: 1rem;
+        background-color: #ffffff !important;
+        border: none !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }
+    .chat-panel-footer .form-control:focus {
+        box-shadow: none !important;
+        background-color: #ffffff !important;
+        border: none !important;
+        border-color: transparent !important;
+        outline: none !important;
+    }
+    .chat-panel-footer .form-control:hover {
+        background-color: #ffffff !important;
+        border: none !important;
+        border-color: transparent !important;
+        box-shadow: none !important;
+    }
+    .chat-panel-footer .form-control:active {
+        background-color: #ffffff !important;
+        border: none !important;
+        border-color: transparent !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }
+
+    /* Unified chat input focus styles */
+    .chat-panel-footer .form-control,
+    .chat-panel-footer input[type="text"],
+    .chat-panel-footer .chat-message-input-js {
+        background-color: #ffffff !important;
+        border: none !important;
+        box-shadow: none !important;
+        outline: none !important;
+        transition: none !important;
+        transform: none !important;
+    }
+    
+    .chat-panel-footer .form-control:focus,
+    .chat-panel-footer .form-control:focus-visible,
+    .chat-panel-footer .form-control:focus-within,
+    .chat-panel-footer input[type="text"]:focus,
+    .chat-panel-footer input[type="text"]:focus-visible,
+    .chat-panel-footer input[type="text"]:focus-within,
+    .chat-panel-footer .chat-message-input-js:focus {
+        background-color: #ffffff !important;
+        border: none !important;
+        border-color: transparent !important;
+        box-shadow: none !important;
+        outline: none !important;
+        transform: none !important;
+        -webkit-box-shadow: none !important;
+        -moz-box-shadow: none !important;
+        -webkit-transform: none !important;
+        -moz-transform: none !important;
+    }
+
+    /* Placeholder shown when no chat is selected */
+    .chat-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        text-align: center;
+        color: #6c757d;
+        background-color: #ffffff;
+    }
+
+    /* === Right Column: User Details === */
+    .chat-details {
+        flex: 0 0 250px;
+        border-left: 1px solid #dee2e6;
+        padding: 1rem;
+        background-color: #ffffff;
+        overflow-y: auto;
+    }
+    
+    /* Message grouping styles */
+    .message-item.grouped .message-header {
+        display: none !important;
+    }
+    .message-item.grouped {
+        margin-bottom: 0.1rem;
+        margin-top: 0.1rem;
+    }
+    .message-item.group-start {
+        margin-top: 0.75rem;
+    }
+    .message-item.group-start:first-child {
+        margin-top: 0;
+    }
+    
+    /* Reduce overall message spacing */
+    .message-item {
+        margin-bottom: 0.5rem !important;
+    }
+    
+    /* Remove background hover effect and customize paperclip icon hover */
+    .chat-image-label-js {
+        background-color: transparent !important;
+        border: none !important;
+    }
+    .chat-image-label-js:hover {
+        background-color: transparent !important;
+        border: none !important;
+    }
+    .chat-image-label-js:hover i {
+        color: #495057 !important;
+    }
+    
+    /* Hide main navbar on mobile ONLY when in active chat - controlled by JavaScript */
+    @media (max-width: 991px) {
+        body.mobile-chat-active nav.navbar {
+            display: none !important;
+        }
+        
+        /* Make back button more prominent since navbar is hidden */
+        .chat-header a.btn {
+            background-color: transparent !important;
+            border: none !important;
+            font-size: 1.2rem !important;
+            color: #2ABF64 !important;
+            padding: 0.5rem !important;
+            margin-right: 1rem !important;
+        }
+        
+        .chat-header a.btn:hover {
+            background-color: rgba(42, 191, 100, 0.1) !important;
+            border-radius: 50% !important;
+        }
+        
+        /* Make chat header more prominent */
+        .chat-header {
+            background-color: #f8f9fa !important;
+            border-bottom: 2px solid #dee2e6 !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        }
+        
+        /* Make sidebar header more prominent too */
+        .chat-sidebar-header {
+            background-color: #f8f9fa !important;
+            border-bottom: 2px solid #dee2e6 !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        }
+        
+        .chat-sidebar-header h4 {
+            color: #2ABF64 !important;
+            font-weight: 700 !important;
+        }
+    }
+
+    /* MOBILE LAYOUT - Fixed header/footer, scrollable messages only */
+    @media (max-width: 991px) {
+    
+    /* Fixed chat input - ONLY when in active chat */
+    body.mobile-chat-active .chat-panel-footer {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        min-height: 60px !important;
+        background: #fff !important;
+        border-top: 1px solid #dee2e6 !important;
+        z-index: 1000 !important;
+        padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+        padding-bottom: constant(safe-area-inset-bottom, 0px) !important;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
+    }
+    
+    /* For chat list, normal footer positioning */
+    .chat-panel-footer {
+        position: relative !important;
+        min-height: 60px !important;
+        background: #fff !important;
+        border-top: 1px solid #dee2e6 !important;
+        flex-shrink: 0 !important;
+    }
+    
+    /* Chat messages - ONLY when in active chat */
+    body.mobile-chat-active .chat-panel-log {
+        flex: 1 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding: 1rem !important;
+        padding-top: 80px !important; /* Space for fixed header */
+        padding-bottom: 80px !important; /* Space for fixed footer */
+        position: relative !important;
+        background: #fff !important;
+    }
+    
+    /* For chat list, normal message log */
+    .chat-panel-log {
+        flex: 1 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding: 1rem !important;
+        position: relative !important;
+        background: #fff !important;
+    }
+    
+    /* Container styles - different for chat list vs active chat */
+    main.container,
+    #messages-main-container {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+    
+    /* ONLY when in active chat - apply fixed positioning */
+    body.mobile-chat-active main.container,
+    body.mobile-chat-active #messages-main-container {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+    }
+    
+    /* Override body scrolling ONLY in active chat */
+    body.mobile-chat-active {
+        overflow: hidden !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        position: fixed !important;
+        width: 100% !important;
+    }
+    .chat-container {
+        height: 100% !important; /* Fill the main container completely */
+        border-radius: 0;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        position: relative;
+        flex: 1;
+    }
+
+    /* Always hide the right-side details panel on mobile */
+    .chat-details {
+        display: none !important;
+    }
+
+    /* --- Logic for showing/hiding panels --- */
+
+    /* If NO chat is selected, hide the main chat window */
+    .chat-container:not(.chat-is-active) .chat-main {
+        display: none;
+    }
+
+    /* If a chat IS selected, hide the conversation list */
+    .chat-container.chat-is-active .chat-sidebar {
+        display: none;
+    }
+    
+    /* EMERGENCY MOBILE FIX: Force correct layout when body has mobile-chat-active class */
+    body.mobile-chat-active .chat-sidebar {
+        display: none !important;
+    }
+    
+    body.mobile-chat-active .chat-main {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    /* Make the visible panel take up the full width */
+    .chat-sidebar {
+        flex: 1;
+        border-right: none;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    
+    /* Chat main - full height container */
+    .chat-main {
+        flex: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100% !important;
+        overflow: hidden !important;
+        position: relative !important;
+    }
+
+    /* Fixed header - ONLY when in active chat */
+    body.mobile-chat-active .chat-header {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        height: 65px !important;
+        background: #fff !important;
+        border-bottom: 1px solid #dee2e6 !important;
+        z-index: 1001 !important;
+        display: flex !important;
+        align-items: center !important;
+        padding: 0 1rem !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important;
+    }
+
+    /* Messages area - ONLY when in active chat */
+    body.mobile-chat-active .chat-main .chat-panel-log {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        background: #fff !important;
+    }
+
+    /* For chat list (not in active chat), normal header */
+    .chat-header {
+        position: relative !important;
+        background: #fff !important;
+        border-bottom: 1px solid #dee2e6 !important;
+        height: 65px !important;
+        display: flex !important;
+        align-items: center !important;
+        padding: 0 1rem !important;
+        flex-shrink: 0 !important;
+    }
+    
+    /* Fix input group styling on mobile */
+    .chat-panel-footer .input-group {
+        margin: 0 !important;
+    }
+    
+    .chat-panel-footer .form-control,
+    .chat-panel-footer .btn {
+        border-radius: 0 !important;
+        border: none !important;
+        height: 60px !important;
+    }
+    
+    .chat-panel-footer .btn-primary {
+        background-color: #28a745 !important;
+        border-color: #28a745 !important;
+    }
+    
+    /* Conversation list adjustments */
+    .conversation-list {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Additional mobile optimizations */
+    @media (max-width: 480px) {
+        /* Prevent input zoom on iOS */
+        .chat-panel-footer .form-control,
+        .chat-panel-footer .btn {
+            font-size: 16px !important;
+        }
+        
+        /* Ensure adequate touch targets */
+        .chat-image-label-js {
+            min-height: 44px !important;
+            min-width: 44px !important;
+        }
+        
+        .conversation-link {
+            min-height: 60px !important;
+        }
+        
+        /* Enhanced safe area support */
+        .chat-panel-footer {
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px) !important;
+            padding-bottom: calc(constant(safe-area-inset-bottom, 0px) + 10px) !important;
+        }
+        
+        .chat-header {
+            padding-top: env(safe-area-inset-top, 0px) !important;
+            padding-top: constant(safe-area-inset-top, 0px) !important;
+        }
+        
+        /* Adjust message padding for smaller screens */
+        .chat-panel-log {
+            padding-top: calc(65px + env(safe-area-inset-top, 0px) + 10px) !important;
+            padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px) + 10px) !important;
+        }
+    }
+    
+    /* Universal mobile fixes - ONLY when in active chat */
+    body.mobile-chat-active html {
+        overflow: hidden !important;
+        height: 100% !important;
+    }
+    
+    body.mobile-chat-active {
+        overflow: hidden !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        position: fixed !important;
+        width: 100% !important;
+        touch-action: none !important;
+    }
+    
+    /* Prevent page scrolling ONLY in active chat */
+    body.mobile-chat-active * {
+        overscroll-behavior: none !important;
+    }
+    
+    /* Messages can scroll ONLY in active chat */
+    body.mobile-chat-active .chat-panel-log {
+        touch-action: pan-y !important;
+    }
+    
+    /* For chat list, allow normal scrolling */
+    .conversation-list {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        touch-action: pan-y !important;
+    }
+    
+    /* Additional mobile keyboard handling */
+    .chat-message-input-js {
+        -webkit-appearance: none;
+        appearance: none;
+    }
+    
+    /* Prevent input zoom on focus for all mobile devices */
+    input[type="text"], input[type="search"], textarea {
+        font-size: 16px !important;
+    }
+    
+    /* Fix for webkit mobile browsers - safe area handling */
+    @supports (-webkit-appearance: none) {
+        .chat-panel-footer {
+            padding-bottom: constant(safe-area-inset-bottom, 20px);
+            padding-bottom: env(safe-area-inset-bottom, 20px);
+        }
+    }
+}
+</style>
+
+<div class="chat-container {% if active_conversation %}chat-is-active{% endif %}" data-debug-active-chat="{% if active_conversation %}true{% else %}false{% endif %}" data-debug-conversation-id="{{ active_conversation.id|default:'none' }}" data-debug-other-user="{{ other_user_profile.username|default:'none' }}">
+
+    {# Left Column: Renders the list of conversations #}
+    <div class="chat-sidebar">
+        <div class="chat-sidebar-header">
+            <h4>Messages</h4>
+        </div>
+
+        <div class="conversation-list list-group list-group-flush">
+            {% for conv in conversations %}
+                {% if conv.participant1 == request.user %}
+                    {% with other_user=conv.participant2 %}
+                        {% include 'marketplace/partials/conversation_link.html' with conversation=conv other_user=other_user %}
+                    {% endwith %}
+                {% else %}
+                    {% with other_user=conv.participant1 %}
+                        {% include 'marketplace/partials/conversation_link.html' with conversation=conv other_user=other_user %}
+                    {% endwith %}
+                {% endif %}
+            {% empty %}
+                <div class="p-3 text-muted">You have no conversations.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# Middle Column: Renders the active chat window #}
+    <div class="chat-main">
+        {% if active_conversation and other_user_profile %}
+            <div class="chat-header">
+                {# This is the new back button for mobile #}
+                <a href="{% url 'my_messages' %}" class="btn d-lg-none me-2" style="border: none;"><i class="fas fa-arrow-left"></i></a>
+                {% include 'marketplace/partials/chat_window.html' with other_user=other_user_profile %}
+            </div>
+            
+            {# Use the unified chat panel content but adapted for messages page layout #}
+            <div class="chat-panel-log chat-log-js">
+                <div class="loading-indicator text-center py-2" style="display: none;">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <small class="text-muted ms-2">Loading older messages...</small>
+                </div>
+                <div class="no-more-messages text-center py-2 text-muted" style="display: none;">
+                    <small><i class="fas fa-comments"></i> You've reached the beginning of your conversation</small>
+                </div>
+                {% for message in messages %}
+                    {% include 'marketplace/partials/message.html' with message=message %}
+                {% endfor %}
+            </div>
+            
+            <div class="chat-panel-footer">
+                {% if request.user.is_authenticated %}
+                    <form class="chat-form-js" enctype="multipart/form-data" action="#" onsubmit="return false;">
+                        {% csrf_token %}
+                        <div class="input-group">
+                            <input name="message" type="text" class="form-control chat-message-input-js" placeholder="Type a message..." autocomplete="off">
+
+                            <input type="file" name="image" id="chat-image-input-messages" class="chat-image-input-js" accept="image/*" style="display: none;">
+                            <label for="chat-image-input-messages" class="btn btn-outline-secondary chat-image-label-js" style="border: none; padding-top: 0.75rem; padding-bottom: 0.75rem; margin-right: 8px;">
+                                <i class="fas fa-paperclip" style="font-size: 1.4em;"></i>
+                            </label>
+
+                            <span id="attached-filename-messages" class="text-muted small align-self-center attached-filename-js" style="white-space: nowrap; min-width: 0; max-width: 150px; overflow: hidden; text-overflow: ellipsis; margin: 0;"></span>
+                            
+                            <button type="submit" class="btn btn-primary chat-send-btn">Send</button>
+                        </div>
+                    </form>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="chat-placeholder">
+                <div>
+                    <i class="fas fa-comments fa-3x mb-3"></i>
+                    <h5>Select a dialogue</h5>
+                    <p class="small">Choose a conversation from the list to start chatting.</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    {# Right Column: Renders details about the other user and admin controls #}
+    <div class="chat-details">
+        {% if other_user_profile %}
+            <h6 class="text-muted text-uppercase small">Registration Date</h6>
+            <p>
+                {{ other_user_profile.date_joined|date:"d F Y, H:i" }} <br>
+                <small class="text-muted">({{ other_user_profile.date_joined|timesince }} ago)</small>
+            </p>
+            
+        {% else %}
+            <div class="text-center text-muted mt-5">
+                <i class="fas fa-user-circle fa-2x mb-2"></i>
+                <p class="small">User details will appear here once you select a conversation.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+    {% endblock %}
+</main>
+{% endblock main_content_wrapper %}
+
+{% block extra_js %}
+<script>
+    // Make the active conversation ID globally available.
+    var activeConversationId = {{ active_conversation.id|default:'null' }};
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- SIMPLIFIED MOBILE HANDLING ---
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                         (window.matchMedia && window.matchMedia("(max-width: 991px)").matches);
+        
+        if (isMobile) {
+            // --- MOBILE CHAT STATE HANDLING ---
+            const chatContainer = document.querySelector('.chat-container');
+            if (chatContainer) {
+                const handleChatState = () => {
+                    const isInChatUrl = window.location.pathname.includes('/my-messages/') && 
+                                      window.location.pathname !== '/my-messages/';
+                    
+                    if (isInChatUrl) {
+                        document.body.classList.add('mobile-chat-active');
+                        chatContainer.classList.add('chat-is-active');
+                    } else {
+                        document.body.classList.remove('mobile-chat-active');
+                        chatContainer.classList.remove('chat-is-active');
+                    }
+                };
+
+                handleChatState();
+                window.addEventListener('popstate', handleChatState);
+                
+                // Force layout recalculation after DOM changes
+                setTimeout(() => {
+                    const chatMain = document.querySelector('.chat-main');
+                    const chatHeader = document.querySelector('.chat-header');
+                    const chatFooter = document.querySelector('.chat-panel-footer');
+                    
+                    if (chatMain && chatHeader && chatFooter) {
+                        // Ensure elements are visible
+                        chatHeader.style.display = 'flex';
+                        chatFooter.style.display = 'block';
+                        chatMain.style.display = 'flex';
+                        
+                        // Force repaint
+                        chatMain.offsetHeight;
+                    }
+                }, 100);
+            }
+        }
+    });
+</script>
+
+{% if active_conversation %}
+    {% if active_conversation.participant1 == request.user %}
+        {{ active_conversation.participant2.username|json_script:"other-user-username" }}
+    {% else %}
+        {{ active_conversation.participant1.username|json_script:"other-user-username" }}
+    {% endif %}
+    {{ request.user.username|json_script:"current-user-username" }}
+    {% include 'marketplace/partials/unified_chat_script.html' %}
+    
+{% endif %}
+{% endblock %}

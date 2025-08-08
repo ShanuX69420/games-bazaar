@@ -1,0 +1,801 @@
+{% extends "base.html" %}
+{% load static %}
+{% load time_filters %}
+{% load math_filters %}
+
+{% block content %}
+
+<style>
+    /* Add this new style for the sticky sidebar */
+    .sidebar-sticky {
+        position: -webkit-sticky;
+        position: sticky;
+        top: 1.5rem;
+    }
+
+    /* New style to highlight the payment dropdown when needed */
+    .custom-dropdown-container.is-invalid {
+        border-color: var(--bs-danger) !important;
+    }
+    
+    /* --- NEW STYLES FOR IMAGE GALLERY --- */
+    .image-gallery-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .image-thumbnail-box {
+        width: 100px;
+        height: 100px;
+        border: 1px solid #dee2e6;
+        border-radius: .375rem;
+        overflow: hidden;
+        cursor: pointer;
+    }
+    .image-thumbnail-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.2s;
+    }
+    .image-thumbnail-box:hover img {
+        transform: scale(1.05);
+    }
+    #imagePreviewModal .modal-body img {
+        max-height: 80vh;
+    }
+    /* --- END OF NEW STYLES --- */
+
+
+    /* Existing styles */
+    .reviews-section-card { background-color: #fff; border: 1px solid #dee2e6; border-radius: .375rem; margin-bottom: 2.5rem; }
+    .review-summary-box { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1.5rem; border-bottom: 1px solid #dee2e6; flex-wrap: wrap;}
+    .review-summary-box .avg-rating { font-size: 3rem; font-weight: 700; line-height: 1; }
+    .review-summary-box .rating-stars { color: #ffc107; font-size: 1.25rem; margin-bottom: 0.25rem; }
+    .review-summary-box .review-count { color: #6c757d; }
+    #reviews-container { padding: 1.5rem; }
+    .load-more-reviews-container { padding: 0 1.5rem 1.5rem; text-align: center; }
+    .review-card { display: flex; gap: 1rem; padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid #e9ecef; }
+    .review-card:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .review-card .review-avatar img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+    .review-card .review-content { flex-grow: 1; }
+    .review-card .review-user-and-meta .username { font-weight: 600; font-size: 1rem; color: #212529; }
+    .review-card .review-meta-info { font-size: 0.85rem; color: #6c757d; }
+    .review-card .review-rating .review-stars { color: #ffc107; }
+    .review-card .review-comment { color: #212529; }
+    .filter-label {
+        font-size: 0.75rem;
+        color: #495057;
+        text-transform: uppercase;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        margin-bottom: 0.4rem;
+    }
+    .filter-value {
+        font-weight: 550;
+        font-size: 1rem;
+        color: #212529;
+        line-height: 1.4;
+    }
+    .custom-dropdown-container {
+    position: relative;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    background-color: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+.custom-dropdown-container:hover {
+    border-color: #2ABF64;
+    box-shadow: 0 4px 8px rgba(42, 191, 100, 0.15);
+}
+.dropdown-selected {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    font-weight: 550;
+}
+.dropdown-caret {
+    color: #6c757d;
+    margin-left: 1rem;
+    transition: transform 0.2s ease-in-out;
+}
+.custom-dropdown-container.open .dropdown-caret {
+    transform: rotate(180deg);
+}
+.dropdown-options {
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    right: 0;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: .375rem;
+    z-index: 10;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.dropdown-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+}
+.dropdown-option:hover {
+    background-color: #f8f9fa;
+}
+.payment-option-details {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+}
+.payment-option-details img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+.payment-option-price {
+    font-weight: 600;
+}
+.payment-option-end {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+</style>
+
+<div class="row">
+
+    <div class="col-lg-2 d-none d-lg-block">
+        <div class="sidebar-sticky">
+            <a href="{% url 'listing_page' game_pk=product.game.pk category_pk=product.category.pk %}" class="text-decoration-none text-dark fw-bold mb-3 d-flex align-items-center">
+    <i class="fas fa-chevron-left fa-xs me-2"></i>{{ product.game.title }} - {{ product.category.name }}
+</a>
+        </div>
+    </div>
+
+    {# --- MAIN CONTENT COLUMN (Spans full width on mobile/tablet) --- #}
+    <div class="col-lg-5 col-md-7">
+        
+        <div class="d-lg-none mb-3">
+            <a href="{% url 'listing_page' game_pk=product.game.pk category_pk=product.category.pk %}" class="btn btn-outline-secondary w-100">
+                <i class="fas fa-arrow-left"></i>
+                Back to {{ product.game.title }} - {{ product.category.name }}
+            </a>
+        </div>
+        
+        {# --- Block A: Ordering Info --- #}
+        <h2 class="mb-1">Ordering</h2>
+        {% if product.automatic_delivery %}
+            <div class="d-flex align-items-center text-success mb-2">
+                <i class="fas fa-bolt me-2"></i>
+                <span class="fw-bold">Automatic delivery</span>
+            </div>
+        {% endif %}
+        <div class="row mt-4">
+            {% for option in ordered_filter_options %}
+            <div class="col-6 mb-3">
+                <div class="filter-label">{{ option.filter.name }}</div>
+                <div class="filter-value">{{ option.value }}</div>
+            </div>
+            {% endfor %}
+            {% if product.stock_count is not None %}
+            <div class="col-6 mb-3">
+                <div class="filter-label">In Stock</div>
+                <div class="filter-value">{{ product.stock_count }}</div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="mt-3">
+            <div class="filter-label mb-1">TITLE</div>
+            <div class="filter-value" style="font-weight: normal; font-size: 14px;">{{ product.listing_title|linebreaksbr }}</div>
+        </div>
+
+        <div class="filter-label mt-4 mb-1">DESCRIPTION</div>
+        <div class="filter-value" style="font-weight: normal; font-size: 14px;">
+            {{ product.description|linebreaksbr }}
+        </div>
+        
+        {# --- Images Section --- #}
+        {% if product.images.all %}
+            <div class="filter-label mt-4 mb-2">IMAGES</div>
+            <div class="image-gallery-container">
+                {% for image in product.images.all %}
+                    <div class="image-thumbnail-box" data-bs-toggle="modal" data-bs-target="#imagePreviewModal" data-img-src="{{ image.image.url }}">
+                        <img src="{{ image.image.url }}" alt="Product image {{ forloop.counter }}">
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {# Mobile chat panel - shown after listing details #}
+        <div class="d-lg-none my-4">
+            {% if user.is_authenticated and user != product.seller %}
+                {% include 'marketplace/partials/unified_chat_panel.html' with other_user=product.seller product=product is_blocked=is_blocked panel_id='mobile' %}
+            {% elif not user.is_authenticated %}
+                <div class="border p-3 rounded text-center">
+                    <p>Please <a href="{% url 'login' %}?next={{ request.path }}">log in</a> or <a href="{% url 'register' %}?next={{ request.path }}">register</a> to send a message to the seller.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        {# --- Block B: Payment & Purchase Section --- #}
+        <div class="filter-label mt-4 mb-1">PAYMENT METHOD</div>
+        <div class="custom-dropdown-container" id="payment-method-dropdown">
+            <div class="dropdown-selected">
+                <div class="payment-option-details">
+                    <span>Not selected</span>
+                </div>
+                <div class="payment-option-end">
+                    <span class="payment-option-price">from Rs{{ product.price|floatformat:2 }}</span>
+                    <i class="fas fa-chevron-down dropdown-caret"></i>
+                </div>
+            </div>
+            <div class="dropdown-options">
+                <div class="dropdown-option" data-value="Easypaisa" data-img-src="{% static 'images/easypaisa_logo.png' %}" data-price="Rs{{ product.price|floatformat:2 }}">
+                    <div class="payment-option-details">
+                        <img src="{% static 'images/easypaisa_logo.png' %}" alt="Easypaisa Logo">
+                        <span>Easypaisa</span>
+                    </div>
+                    <div class="payment-option-end">
+                        <span class="payment-option-price">Rs{{ product.price|floatformat:2 }}</span>
+                        <i class="fas fa-chevron-down dropdown-caret invisible"></i>
+                    </div>
+                </div>
+                <div class="dropdown-option" data-value="Jazzcash" data-img-src="{% static 'images/jazzcash_logo.png' %}" data-price="Rs{{ product.price|floatformat:2 }}">
+                    <div class="payment-option-details">
+                        <img src="{% static 'images/jazzcash_logo.png' %}" alt="Jazzcash Logo">
+                        <span>Jazzcash</span>
+                    </div>
+                    <div class="payment-option-end">
+                        <span class="payment-option-price">Rs{{ product.price|floatformat:2 }}</span>
+                        <i class="fas fa-chevron-down dropdown-caret invisible"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-3">
+            <a href="#" id="multiple-purchase-toggle" class="text-decoration-none fw-bold small">Multiple purchase</a>
+        </div>
+        <div id="multiple-purchase-section" class="mt-2" style="display: none;">
+            <div class="row gx-2 align-items-center">
+                <div class="col">
+                    <label for="quantity-input" class="form-label small text-muted text-center mb-1 d-block">TO BE RECEIVED</label>
+                    <div class="input-group">
+                        <input type="number" id="quantity-input" class="form-control text-center fw-bold" value="1" min="0">
+                        <span class="input-group-text">pcs.</span>
+                    </div>
+                </div>
+                <div class="col-auto align-self-end pb-2">
+                    <i class="fas fa-exchange-alt text-muted"></i>
+                </div>
+                <div class="col">
+                    <label for="total-price-display" class="form-label small text-muted text-center mb-1 d-block">TO BE PAID</label>
+                    <div class="input-group">
+                        <span class="input-group-text">Rs</span>
+                        <input type="text" id="total-price-display" class="form-control text-center fw-bold" value="" readonly placeholder="0.00">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            {% if user.is_authenticated %}
+                {% if user != product.seller %}
+                    <form id="payment-form" method="post" action="{% url 'create_order' pk=product.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="payment_method" id="selected-payment-method" value="">
+                        <input type="hidden" name="quantity" id="selected-quantity" value="1">
+                        <button type="submit" id="buy-now-btn" class="btn btn-success btn-lg w-100">Buy Now</button>
+                        <small id="payment-helper-text" class="form-text text-muted d-block text-center mt-1">
+                            {% if user.profile.available_balance >= product.price %}
+                                Will be paid from your balance (Rs {{ user.profile.available_balance|floatformat:2 }} available)
+                            {% else %}
+                                Balance: Rs {{ user.profile.available_balance|floatformat:2 }} | Need: Rs {{ product.price|sub:user.profile.available_balance|floatformat:2 }} via payment method
+                            {% endif %}
+                        </small>
+                    </form>
+                    <p class="text-muted text-center small mt-2">
+                        Your payment is held securely. The seller will not receive the funds until you have confirmed successful delivery of your order.
+                    </p>
+                {% else %}
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'edit_product' pk=product.pk %}" class="btn btn-outline-primary">Edit Listing</a>
+                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteConfirmationModal">
+                            Delete Listing
+                        </button>
+                    </div>
+                {% endif %}
+            {% else %}
+                 <a href="{% url 'login' %}?next={{ request.path }}" class="btn btn-success btn-lg w-100">Log in to Buy</a>
+                 <p class="text-muted text-center small mt-2">
+                    Your payment is held securely. The seller will not receive the funds until you have confirmed successful delivery of your order.
+                </p>
+            {% endif %}
+        </div>
+    </div>
+
+    {# --- CHAT PANEL COLUMN (Desktop Sidebar) --- #}
+    <div class="col-lg-5 col-md-5 d-none d-lg-block">
+        <div class="sidebar-sticky">
+             {% if user.is_authenticated and user != product.seller %}
+                 {% include 'marketplace/partials/unified_chat_panel.html' with other_user=product.seller product=product is_blocked=is_blocked panel_id='desktop' %}
+             {% elif not user.is_authenticated %}
+                 <div class="border p-3 rounded text-center mt-4">
+                     <p>Please <a href="{% url 'login' %}?next={{ request.path }}">log in</a> or <a href="{% url 'register' %}?next={{ request.path }}">register</a> to send a message to the seller.</p>
+                 </div>
+             {% endif %}
+        </div>
+    </div>
+</div>
+
+{# --- Block C: Seller's Reviews (Aligned with ordering section on desktop, full width on mobile) --- #}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-2 d-none d-lg-block">
+            {# Empty column to match the sidebar spacing #}
+        </div>
+        <div class="col-lg-5 col-md-7 col-12">
+            <h3 id="reviews-section" class="mt-1 mb-4">Seller's Reviews</h3>
+            <div class="reviews-section-card">
+                <div class="review-summary-box">
+                    <div class="d-flex align-items-center" style="gap: 1.5rem;">
+                        <div>
+                            <div class="avg-rating">{{ average_rating|default:0|floatformat:1 }}</div>
+                            <div class="text-muted">out of 5</div>
+                        </div>
+                        <div>
+                            <div class="rating-stars">
+                                {% for i in "12345" %}
+                                    <i class="fa-star {% if i|add:0 <= average_rating|default:0 %}fas text-warning{% else %}far text-muted{% endif %}"></i>
+                                {% endfor %}
+                            </div>
+                            <div class="review-count">
+                                Based on {{ review_count }} review{{ review_count|pluralize }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dropdown">
+                        <button class="btn btn-light border dropdown-toggle" type="button" id="reviewFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            {% if current_rating_filter %}
+                                {% with rating_int=current_rating_filter|add:0 %}
+                                <span class="text-warning">
+                                    {% for j in "12345" %}<i class="fa-star {% if j|add:0 <= rating_int %}fas{% else %}far{% endif %}"></i>{% endfor %}
+                                </span>
+                                {% endwith %}
+                            {% else %}
+                                All reviews
+                            {% endif %}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="reviewFilterDropdown">
+                            <li><a class="dropdown-item {% if not current_rating_filter %}active{% endif %}" href="{% url 'product_detail' pk=product.pk %}#reviews-section">All reviews</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% for i in "54321" %}
+                            <li>
+                                <a class="dropdown-item {% if current_rating_filter == i %}active{% endif %}" href="?rating={{ i }}#reviews-section">
+                                    <span class="text-warning">
+                                        {% with rating_int=i|add:0 %}{% for j in "12345" %}<i class="fa-star {% if j|add:0 <= rating_int %}fas{% else %}far{% endif %}"></i>{% endfor %}{% endwith %}
+                                    </span>
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+
+                <div id="reviews-container">
+                    {% for review in reviews %}
+                        {% if user == product.seller %}
+                            {% include 'marketplace/partials/_profile_review_item.html' with review=review %}
+                        {% else %}
+                            {% include 'marketplace/partials/_public_review_item.html' with review=review %}
+                        {% endif %}
+                    {% empty %}
+                        <div class="alert alert-light m-0">
+                            {% if current_rating_filter %}
+                                No {{ current_rating_filter }}-star reviews found for this seller.
+                            {% else %}
+                                This seller has no reviews yet.
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                {% if reviews.has_next %}
+                    <div class="load-more-reviews-container">
+                        <button id="load-more-reviews" class="btn btn-outline-primary" data-page="{{ reviews.next_page_number }}">Show More Reviews</button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-lg-5 d-none d-lg-block">
+            {# Empty column to match the chat panel spacing #}
+        </div>
+    </div>
+</div>
+
+{# --- MODAL FOR DELETION --- #}
+<div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteConfirmationModalLabel">Confirm Deletion</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to permanently delete this listing? This action cannot be undone.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <form action="{% url 'delete_product' pk=product.pk %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Yes, Delete Listing</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    var activeConversationId = {{ active_conversation.id|default:'null' }};
+</script>
+{% if user.is_authenticated %}
+    {% if user != product.seller %}
+        {{ product.seller.username|json_script:"other-user-username" }}
+    {% endif %}
+    {{ request.user.username|json_script:"current-user-username" }}
+    {% include 'marketplace/partials/unified_chat_script.html' %}
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // --- Custom Payment Dropdown & Multiple Purchase Logic ---
+    const dropdownContainer = document.getElementById('payment-method-dropdown');
+    const multiplePurchaseToggle = document.getElementById('multiple-purchase-toggle');
+    const multiplePurchaseSection = document.getElementById('multiple-purchase-section');
+    const quantityInput = document.getElementById('quantity-input');
+    const totalPriceDisplay = document.getElementById('total-price-display');
+    const productPrice = parseFloat("{{ product.price }}");
+
+    const updateTotalPrice = () => {
+        let quantity = parseInt(quantityInput.value, 10);
+        if (isNaN(quantity) || quantity < 0) {
+            quantity = 0;
+            quantityInput.value = 0;
+        }
+        totalPriceDisplay.value = (quantity * productPrice).toFixed(2);
+    };
+
+    // Payment form handling
+    const paymentForm = document.getElementById('payment-form');
+    const buyNowBtn = document.getElementById('buy-now-btn');
+    let selectedPaymentMethod = null;
+
+    if (dropdownContainer) {
+        const selected = dropdownContainer.querySelector('.dropdown-selected');
+        const optionsContainer = dropdownContainer.querySelector('.dropdown-options');
+        const options = optionsContainer.querySelectorAll('.dropdown-option');
+        const selectedDetails = selected.querySelector('.payment-option-details');
+        const selectedPrice = selected.querySelector('.payment-option-price');
+
+        selected.addEventListener('click', (event) => {
+            event.stopPropagation();
+            optionsContainer.style.display = optionsContainer.style.display === 'block' ? 'none' : 'block';
+            dropdownContainer.classList.toggle('open');
+        });
+
+        options.forEach(option => {
+            option.addEventListener('click', function() {
+                selectedPaymentMethod = this.dataset.value;
+                const imgSrc = this.dataset.imgSrc;
+                const value = this.dataset.value;
+                const price = this.dataset.price;
+                selectedDetails.innerHTML = `<img src="${imgSrc}" alt="${value} Logo"><span>${value}</span>`;
+                selectedPrice.textContent = price;
+                optionsContainer.style.display = 'none';
+                dropdownContainer.classList.remove('open');
+                
+                // Update helper text to show selected payment method
+                const paymentHelperText = document.getElementById('payment-helper-text');
+                if (paymentHelperText) {
+                    paymentHelperText.innerHTML = `Payment method selected: ${value}`;
+                }
+                
+                // Update hidden form field
+                document.getElementById('selected-payment-method').value = value;
+            });
+        });
+
+        document.addEventListener('click', function() {
+            if (optionsContainer.style.display === 'block') {
+                optionsContainer.style.display = 'none';
+                dropdownContainer.classList.remove('open');
+            }
+        });
+    }
+
+    if (multiplePurchaseToggle) {
+        multiplePurchaseToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            multiplePurchaseSection.style.display = 'block';
+            this.style.display = 'none'; // Hide the link after clicking
+        });
+    }
+
+    if (quantityInput) {
+        quantityInput.addEventListener('input', function() {
+            updateTotalPrice();
+            // Update hidden quantity field
+            document.getElementById('selected-quantity').value = quantityInput.value;
+        });
+    }
+
+    // Handle form submission - validate before submitting
+    if (paymentForm) {
+        paymentForm.addEventListener('submit', function(e) {
+            // Get quantity for multiple purchase
+            let quantity = 1;
+            if (multiplePurchaseSection.style.display !== 'none') {
+                quantity = parseInt(quantityInput.value, 10) || 1;
+            }
+            
+            // Update hidden fields
+            document.getElementById('selected-quantity').value = quantity;
+            
+            // Check if payment method is selected (for external payment)
+            const userBalance = parseFloat("{{ user.profile.available_balance }}");
+            const totalPrice = productPrice * quantity;
+            
+            if (totalPrice > userBalance && !selectedPaymentMethod) {
+                e.preventDefault();
+                alert('Please select a payment method for the amount that exceeds your balance.');
+                return;
+            }
+            
+            // Disable button to prevent double submission
+            buyNowBtn.disabled = true;
+            buyNowBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+            
+            // Form will submit normally (don't prevent default if validation passes)
+        });
+    }
+
+    const loadMoreButton = document.getElementById('load-more-reviews');
+    if (loadMoreButton) {
+        loadMoreButton.addEventListener('click', function() {
+            let page = this.dataset.page;
+            const ratingFilter = "{{ current_rating_filter|default:'' }}";
+            let url = `/ajax/load-more-reviews/{{ product.seller.username }}/?page=${page}`;
+
+            if (ratingFilter) {
+                url += `&rating=${ratingFilter}`;
+            }
+
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const reviewsContainer = document.getElementById('reviews-container');
+                    reviewsContainer.insertAdjacentHTML('beforeend', data.html);
+
+                    if (data.has_next) {
+                        this.dataset.page = parseInt(page) + 1;
+                        this.disabled = false;
+                        this.innerHTML = 'Show More Reviews';
+                    } else {
+                        this.parentElement.remove();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading more reviews:', error);
+                    this.disabled = false;
+                    this.innerHTML = 'Show More Reviews';
+                });
+        });
+    }
+
+    // Image preview is now handled globally in base.html
+
+
+    // --- REVIEW REPLY FUNCTIONALITY ---
+    // Show reply form
+    document.addEventListener('click', function(e) {
+        if (e.target.matches('.show-reply-form-btn')) {
+            e.preventDefault();
+            const reviewId = e.target.dataset.reviewId;
+            const replyForm = document.querySelector(`.reply-form[data-review-id="${reviewId}"]`);
+            const button = e.target;
+            
+            button.style.display = 'none';
+            replyForm.style.display = 'block';
+            replyForm.querySelector('textarea').focus();
+        }
+        
+        // Cancel reply
+        if (e.target.matches('.cancel-reply-btn')) {
+            e.preventDefault();
+            const form = e.target.closest('.reply-form');
+            const reviewId = form.dataset.reviewId;
+            const button = document.querySelector(`.show-reply-form-btn[data-review-id="${reviewId}"]`);
+            
+            form.style.display = 'none';
+            form.reset();
+            button.style.display = 'inline-block';
+        }
+        
+        // Edit reply
+        if (e.target.matches('.edit-reply-btn')) {
+            e.preventDefault();
+            const replyId = e.target.dataset.replyId;
+            
+            // Get current reply text
+            fetch(`/review-reply/${replyId}/edit/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const replyDiv = e.target.closest('.review-reply');
+                        const originalContent = replyDiv.querySelector('.reply-content').innerHTML;
+                        
+                        replyDiv.querySelector('.reply-content').innerHTML = `
+                            <form class="edit-reply-form" data-reply-id="${replyId}">
+                                <textarea class="form-control mb-2" rows="3" maxlength="1000" required>${data.reply_text}</textarea>
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary btn-sm">Update Reply</button>
+                                    <button type="button" class="btn btn-secondary btn-sm cancel-edit-reply-btn" data-original-content="${encodeURIComponent(originalContent)}">Cancel</button>
+                                </div>
+                            </form>
+                        `;
+                        
+                        replyDiv.querySelector('textarea').focus();
+                    }
+                })
+                .catch(error => console.error('Error loading reply data:', error));
+        }
+        
+        // Cancel edit reply
+        if (e.target.matches('.cancel-edit-reply-btn')) {
+            e.preventDefault();
+            const replyDiv = e.target.closest('.review-reply');
+            const originalContent = decodeURIComponent(e.target.dataset.originalContent);
+            
+            replyDiv.querySelector('.reply-content').innerHTML = originalContent;
+        }
+        
+        // Delete reply
+        if (e.target.matches('.delete-reply-btn')) {
+            e.preventDefault();
+            if (confirm('Are you sure you want to delete this reply? This action cannot be undone.')) {
+                const replyId = e.target.dataset.replyId;
+                
+                fetch(`/review-reply/${replyId}/delete/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const replyDiv = e.target.closest('.review-reply');
+                        const reviewCard = replyDiv.closest('.review-card');
+                        
+                        replyDiv.remove();
+                        
+                        // Show reply button again
+                        const replyFormContainer = reviewCard.querySelector('.reply-form-container');
+                        if (replyFormContainer) {
+                            replyFormContainer.style.display = 'block';
+                        }
+                        
+                        alert(data.message);
+                    } else {
+                        alert(data.message || 'Error deleting reply');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting reply:', error);
+                    alert('Error deleting reply');
+                });
+            }
+        }
+    });
+    
+    // Handle reply form submissions
+    document.addEventListener('submit', function(e) {
+        if (e.target.matches('.reply-form')) {
+            e.preventDefault();
+            const form = e.target;
+            const reviewId = form.dataset.reviewId;
+            const formData = new FormData(form);
+            
+            const submitBtn = form.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Posting...';
+            
+            fetch(`/review/${reviewId}/reply/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Add the reply HTML after the review comment
+                    const reviewCard = form.closest('.review-card');
+                    const reviewContent = reviewCard.querySelector('.review-content');
+                    const replyFormContainer = reviewCard.querySelector('.reply-form-container');
+                    
+                    reviewContent.insertAdjacentHTML('beforeend', data.reply_html);
+                    replyFormContainer.remove();
+                    
+                    alert(data.message);
+                } else {
+                    alert(data.message || 'Error posting reply');
+                }
+            })
+            .catch(error => {
+                console.error('Error posting reply:', error);
+                alert('Error posting reply');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Post Reply';
+            });
+        }
+        
+        // Handle edit reply form submissions
+        if (e.target.matches('.edit-reply-form')) {
+            e.preventDefault();
+            const form = e.target;
+            const replyId = form.dataset.replyId;
+            const formData = new FormData(form);
+            
+            const submitBtn = form.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Updating...';
+            
+            fetch(`/review-reply/${replyId}/edit/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const replyDiv = form.closest('.review-reply');
+                    replyDiv.outerHTML = data.reply_html;
+                    alert(data.message);
+                } else {
+                    alert(data.message || 'Error updating reply');
+                }
+            })
+            .catch(error => {
+                console.error('Error updating reply:', error);
+                alert('Error updating reply');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Update Reply';
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

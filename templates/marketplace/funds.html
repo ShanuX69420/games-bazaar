@@ -1,0 +1,563 @@
+{% extends "base.html" %}
+{% load time_filters %}
+
+{% block content %}
+<style>
+    /* Styling for the new funds page layout */
+    .balance-display {
+        font-size: 2.5rem;
+        font-weight: 300;
+    }
+    .balance-display .currency {
+        font-weight: 600;
+        color: #495057;
+    }
+    .filter-sidebar .list-group-item {
+        border: none;
+        padding: .75rem 1rem;
+        font-weight: 500;
+    }
+    .filter-sidebar .list-group-item.active {
+        background-color: #e9ecef;
+        color: #000;
+        font-weight: 600;
+    }
+    .transaction-header, .transaction-row {
+        display: grid;
+        grid-template-columns: 2fr 4fr 1.5fr 1.5fr;
+        gap: 1rem;
+        padding: .75rem 1.5rem;
+        align-items: center;
+    }
+    .transaction-header {
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: #6c757d;
+        border-bottom: 2px solid #e9ecef;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+    }
+    .transaction-row {
+        border-bottom: 1px solid #f1f3f5;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+    .transaction-row:last-child {
+        border-bottom: none;
+    }
+    .transaction-row:hover {
+        background-color: #f8f9fa;
+    }
+    .transaction-total {
+        color: #343a40; /* Dark Grey */
+    }
+    .load-more-container {
+        padding: 1.5rem;
+        text-align: center;
+    }
+    /* Simple table for the modal */
+    .modal-body .table {
+        margin-bottom: 0;
+    }
+    .modal-body .table td {
+        border-top: none;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    /* --- MOBILE STYLES --- */
+    @media (max-width: 767px) {
+        .funds-card { border: none; background-color: transparent; }
+        .balance-display { font-size: 2rem; }
+        .transaction-header, .transaction-row { display: none; }
+        .transactions-card-body { padding: 0 !important; }
+
+        .mobile-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 0.5rem 0.5rem 0.5rem;
+            font-weight: 600;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .mobile-transaction-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            margin-bottom: 1rem;
+            text-decoration: none;
+            color: inherit;
+            background-color: #fff;
+            min-height: 95px;
+        }
+        .mobile-left-col {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex-grow: 1;
+            padding-right: 1rem;
+            justify-content: center;
+        }
+        .mobile-right-col {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .mobile-tx-info {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        .mobile-tx-description {
+            font-weight: 500;
+        }
+    }
+</style>
+
+<div class="row">
+    <div class="col-12 col-md-8">
+        <h1 class="balance-display mb-1"><span class="currency">Rs</span> {{ available_balance|floatformat:2 }}</h1>
+        <p class="text-muted">Available Balance</p>
+        {% if held_balance > 0 %}
+        <div class="alert alert-info py-2 mt-2">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <small><strong>Rs{{ held_balance|floatformat:2 }}</strong> is currently held from recent sales</small>
+                {% if not show_details %}
+                <a href="?show_held_details=1{{ request.GET.filter|yesno:'&filter='}}{{ request.GET.filter }}" class="btn btn-sm btn-outline-info">
+                    View Details
+                </a>
+                {% else %}
+                <a href="?" class="btn btn-sm btn-outline-secondary">
+                    Hide Details
+                </a>
+                {% endif %}
+            </div>
+            
+            <!-- Smart Summary View -->
+            {% if held_funds_summary %}
+            <div class="row g-2">
+                {% for summary_item in held_funds_summary %}
+                <div class="col-6">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body p-2 text-center">
+                            <div class="fw-bold text-primary">Rs{{ summary_item.total_amount|floatformat:2 }}</div>
+                            <small class="text-muted">
+                                {% if summary_item.label == 'available_now' %}
+                                    Available now
+                                {% elif summary_item.label == 'next_24h' %}
+                                    Next 24 hours
+                                {% elif summary_item.label == 'next_48h' %}
+                                    24-48 hours
+                                {% else %}
+                                    Later
+                                {% endif %}
+                            </small>
+                            <div class="small text-muted">{{ summary_item.count }} order{{ summary_item.count|pluralize }}</div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <!-- Detailed View (only if requested and limited) -->
+            {% if show_details and held_funds_details %}
+            <div class="mt-3">
+                <div class="card card-body p-2">
+                    <div class="text-muted small mb-2">Recent held funds (showing latest 20):</div>
+                    {% for held_fund in held_funds_details %}
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-1">
+                        <div>
+                            <small class="text-muted">Order {{ held_fund.order.order_id }}</small><br>
+                            <strong>Rs{{ held_fund.amount|floatformat:2 }}</strong>
+                        </div>
+                        <div class="text-end">
+                            <small class="{% if held_fund.can_be_released %}text-success{% else %}text-muted{% endif %}">
+                                {{ held_fund.release_at|time_until }}
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% if held_funds_details|length == 20 %}
+                    <div class="text-center mt-2">
+                        <small class="text-muted">Showing latest 20 orders only</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+        <small class="text-muted">Total Balance: Rs{{ balance|floatformat:2 }}</small>
+    </div>
+    <div class="col-md-4 text-md-end d-none d-md-block">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#withdrawModal">Withdraw</button>
+    </div>
+</div>
+
+<div class="d-flex d-md-none justify-content-between align-items-center my-3">
+    <div class="dropdown">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            All transactions
+        </button>
+        <ul class="dropdown-menu">
+            <li><a href="{% url 'funds' %}" class="dropdown-item {% if not current_filter %}active{% endif %}">All transactions</a></li>
+            <li><a href="?filter=deposits" class="dropdown-item {% if current_filter == 'deposits' %}active{% endif %}">Deposits</a></li>
+            <li><a href="?filter=withdrawals" class="dropdown-item {% if current_filter == 'withdrawals' %}active{% endif %}">Withdrawals</a></li>
+            <li><a href="?filter=orders" class="dropdown-item {% if current_filter == 'orders' %}active{% endif %}">Orders</a></li>
+            <li><a href="?filter=miscellaneous" class="dropdown-item {% if current_filter == 'miscellaneous' %}active{% endif %}">Miscellaneous</a></li>
+        </ul>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#withdrawModal">Withdraw</button>
+</div>
+
+
+<div class="row mt-md-4">
+    <div class="col-md-3 d-none d-md-block">
+        <div class="list-group filter-sidebar">
+            <a href="{% url 'funds' %}" class="list-group-item list-group-item-action {% if not current_filter %}active{% endif %}">All transactions</a>
+            <a href="?filter=deposits" class="list-group-item list-group-item-action {% if current_filter == 'deposits' %}active{% endif %}">Deposits</a>
+            <a href="?filter=withdrawals" class="list-group-item list-group-item-action {% if current_filter == 'withdrawals' %}active{% endif %}">Withdrawals</a>
+            <a href="?filter=orders" class="list-group-item list-group-item-action {% if current_filter == 'orders' %}active{% endif %}">Orders</a>
+            <a href="?filter=miscellaneous" class="list-group-item list-group-item-action {% if current_filter == 'miscellaneous' %}active{% endif %}">Miscellaneous</a>
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <div class="card funds-card">
+            <div class="card-body transactions-card-body">
+                <div class="transaction-header">
+                    <div>Date</div>
+                    <div>Description</div>
+                    <div class="text-center">Status</div>
+                    <div class="text-end">Total</div>
+                </div>
+                
+                <div class="mobile-header d-md-none mt-3">
+                    <span>Description</span>
+                    <span>Total</span>
+                </div>
+
+                <div id="transactions-list">
+                    {% for tx in transactions %}
+                        {% include 'marketplace/partials/transaction_row.html' with tx=tx %}
+                    {% empty %}
+                    <div class="p-4 text-center text-muted" id="no-transactions-placeholder">
+                        <p>No transactions found.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% if transactions.has_next %}
+                    <div class="load-more-container">
+                        <button id="load-more-btn" class="btn btn-outline-primary" data-page="{{ transactions.next_page_number }}">Show More Transactions</button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="transactionDetailModal" tabindex="-1" aria-labelledby="transactionDetailModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="transactionDetailModalLabel">Transaction Information</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body pt-0">
+        <table class="table">
+            <tbody>
+                <tr>
+                    <td class="text-muted" style="width: 150px;">Transaction date</td>
+                    <td id="modal-tx-date"></td>
+                </tr>
+                <tr>
+                    <td class="text-muted">Description</td>
+                    <td id="modal-tx-description"></td>
+                </tr>
+                <tr>
+                    <td class="text-muted">Total</td>
+                    <td id="modal-tx-total" class="fw-bold"></td>
+                </tr>
+                <tr>
+                    <td class="text-muted">Transaction status</td>
+                    <td id="modal-tx-status"></td>
+                </tr>
+                
+                <tr id="modal-order-info-row" style="display: none;">
+                    <td class="text-muted">Order number</td>
+                    <td><a href="#" id="modal-order-link" class="fw-bold text-decoration-none"></a></td>
+                </tr>
+
+                <tr id="modal-deposit-info-row-1" style="display: none;">
+                    <td class="text-muted">Deposit ID</td>
+                    <td id="modal-deposit-id"></td>
+                </tr>
+                <tr id="modal-deposit-info-row-2" style="display: none;">
+                    <td class="text-muted">Payment system</td>
+                    <td><span class="text-muted fst-italic">Not available</span></td>
+                </tr>
+                <tr id="modal-deposit-info-row-3" style="display: none;">
+                    <td class="text-muted">External transaction</td>
+                    <td><span class="text-muted fst-italic">Not available</span></td>
+                </tr>
+
+                <tr id="modal-withdrawal-info-row-1" style="display: none;">
+                    <td class="text-muted">Withdrawal ID</td>
+                    <td id="modal-withdrawal-id"></td>
+                </tr>
+                <tr id="modal-withdrawal-info-row-2" style="display: none;">
+                    <td class="text-muted">Payment system</td>
+                    <td><span class="text-muted fst-italic">Not available</span></td>
+                </tr>
+
+            </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="withdrawModal" tabindex="-1" aria-labelledby="withdrawModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="withdrawModalLabel">Request a Withdrawal</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Your available balance is <strong>Rs{{ available_balance|floatformat:2 }}</strong>.</p>
+        {% if held_balance > 0 %}
+        <p class="text-muted small">Note: Rs{{ held_balance|floatformat:2 }} from recent sales is currently held. Each sale becomes available 72 hours after order completion.</p>
+        {% endif %}
+        <form method="post" action="{% url 'funds' %}" id="withdrawalForm">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label for="{{ withdrawal_form.amount.id_for_label }}" class="form-label">Amount (Rs)</label>
+                {{ withdrawal_form.amount }}
+                {% if withdrawal_form.amount.errors %}
+                    {% for error in withdrawal_form.amount.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <div class="mb-3">
+                <label for="{{ withdrawal_form.payment_method.id_for_label }}" class="form-label">Payment Method</label>
+                {{ withdrawal_form.payment_method }}
+                {% if withdrawal_form.payment_method.errors %}
+                    {% for error in withdrawal_form.payment_method.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <div class="mb-3">
+                <label for="{{ withdrawal_form.account_title.id_for_label }}" class="form-label">Account Title</label>
+                {{ withdrawal_form.account_title }}
+                {% if withdrawal_form.account_title.errors %}
+                    {% for error in withdrawal_form.account_title.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <!-- Fields for EasyPaisa/JazzCash -->
+            <div class="mb-3" id="mobile-wallet-fields" style="display: none;">
+                <label for="{{ withdrawal_form.account_number.id_for_label }}" class="form-label">Mobile Number</label>
+                {{ withdrawal_form.account_number }}
+                <div class="form-text">Enter your 11-digit mobile number (e.g., 03XXXXXXXXX)</div>
+                {% if withdrawal_form.account_number.errors %}
+                    {% for error in withdrawal_form.account_number.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <!-- Fields for Bank Transfer -->
+            <div class="mb-3" id="bank-transfer-fields" style="display: none;">
+                <label for="{{ withdrawal_form.iban.id_for_label }}" class="form-label">IBAN</label>
+                {{ withdrawal_form.iban }}
+                <div class="form-text">Enter your 24-character IBAN starting with PK</div>
+                {% if withdrawal_form.iban.errors %}
+                    {% for error in withdrawal_form.iban.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <button type="submit" class="btn btn-primary">Submit Request</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Success Modal for Withdrawal Request -->
+<div class="modal fade" id="withdrawalSuccessModal" tabindex="-1" aria-labelledby="withdrawalSuccessModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="withdrawalSuccessModalLabel">✅ Withdrawal Request Submitted</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div class="mb-3">
+          <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+        </div>
+        <h6>Your withdrawal request has been received!</h6>
+        <p class="text-muted mb-2">We will process your request within <strong>24-48 hours</strong>.</p>
+        <p class="text-muted small">You will receive a notification once your withdrawal has been processed.</p>
+      </div>
+      <div class="modal-footer justify-content-center">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Got it!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loadMoreButton = document.getElementById('load-more-btn');
+    if (loadMoreButton) {
+        loadMoreButton.addEventListener('click', function() {
+            let page = this.dataset.page;
+            const currentUrl = new URL(window.location.href);
+            const params = new URLSearchParams(currentUrl.search);
+            params.set('page', page);
+
+            let url = `{% url 'load_more_transactions' %}?${params.toString()}`;
+
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const listContainer = document.getElementById('transactions-list');
+                    listContainer.insertAdjacentHTML('beforeend', data.html);
+
+                    if (data.has_next) {
+                        this.dataset.page = parseInt(page) + 1;
+                        this.disabled = false;
+                        this.innerHTML = 'Show More Transactions';
+                    } else {
+                        this.parentElement.remove();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading more transactions:', error);
+                    this.disabled = false;
+                    this.innerHTML = 'Show More Transactions';
+                });
+        });
+    }
+
+    // --- NEW SCRIPT FOR TRANSACTION MODAL ---
+    const transactionDetailModal = document.getElementById('transactionDetailModal');
+    if (transactionDetailModal) {
+        transactionDetailModal.addEventListener('show.bs.modal', function(event) {
+            const triggerRow = event.relatedTarget;
+            if (!triggerRow) return;
+
+            const txData = triggerRow.dataset;
+
+            // Get the elements inside the modal that we need to update
+            const modalDateEl = document.getElementById('modal-tx-date');
+            const modalDescEl = document.getElementById('modal-tx-description');
+            const modalTotalEl = document.getElementById('modal-tx-total');
+            const modalStatusEl = document.getElementById('modal-tx-status');
+            
+            // Get the conditional rows
+            const orderInfoRow = document.getElementById('modal-order-info-row');
+            const depositInfoRows = [
+                document.getElementById('modal-deposit-info-row-1'),
+                document.getElementById('modal-deposit-info-row-2'),
+                document.getElementById('modal-deposit-info-row-3')
+            ];
+            const withdrawalInfoRows = [
+                document.getElementById('modal-withdrawal-info-row-1'),
+                document.getElementById('modal-withdrawal-info-row-2')
+            ];
+
+            // Populate the common fields
+            modalDateEl.textContent = txData.txDate;
+            modalDescEl.textContent = txData.txDescription;
+            modalTotalEl.textContent = txData.txTotal;
+            modalStatusEl.textContent = txData.txStatus;
+            
+            // Hide all conditional rows to reset the modal's state
+            orderInfoRow.style.display = 'none';
+            depositInfoRows.forEach(row => row.style.display = 'none');
+            withdrawalInfoRows.forEach(row => row.style.display = 'none');
+
+            // Show details based on the transaction type
+            if (txData.txType === 'ORDER_PURCHASE' || txData.txType === 'ORDER_SALE') {
+                if (txData.orderId && txData.orderUrl) {
+                    const orderLink = document.getElementById('modal-order-link');
+                    orderLink.href = txData.orderUrl;
+                    orderLink.textContent = '#' + txData.orderId;
+                    orderInfoRow.style.display = ''; // An empty string makes it revert to the default 'table-row'
+                }
+            } else if (txData.txType === 'DEPOSIT') {
+                if (txData.depositId) {
+                    document.getElementById('modal-deposit-id').textContent = txData.depositId;
+                    depositInfoRows.forEach(row => row.style.display = '');
+                }
+            } else if (txData.txType === 'WITHDRAWAL') {
+                if (txData.withdrawalId) {
+                    document.getElementById('modal-withdrawal-id').textContent = txData.withdrawalId;
+                    withdrawalInfoRows.forEach(row => row.style.display = '');
+                }
+            }
+        });
+    }
+
+    // Withdrawal form payment method handling
+    const paymentMethodSelect = document.getElementById('id_payment_method');
+    const mobileWalletFields = document.getElementById('mobile-wallet-fields');
+    const bankTransferFields = document.getElementById('bank-transfer-fields');
+
+    if (paymentMethodSelect) {
+        function togglePaymentFields() {
+            const selectedMethod = paymentMethodSelect.value;
+            
+            // Hide all conditional fields first
+            mobileWalletFields.style.display = 'none';
+            bankTransferFields.style.display = 'none';
+            
+            // Show relevant fields based on selection
+            if (selectedMethod === 'easypaisa' || selectedMethod === 'jazzcash') {
+                mobileWalletFields.style.display = 'block';
+            } else if (selectedMethod === 'bank_transfer') {
+                bankTransferFields.style.display = 'block';
+            }
+        }
+
+        // Set initial state
+        togglePaymentFields();
+        
+        // Handle changes
+        paymentMethodSelect.addEventListener('change', togglePaymentFields);
+    }
+
+    // Check for withdrawal success message and show modal
+    {% if messages %}
+        {% for message in messages %}
+            {% if message.tags == 'success' and 'withdrawal request' in message.message|lower %}
+                // Show success modal for withdrawal requests
+                const withdrawalSuccessModal = new bootstrap.Modal(document.getElementById('withdrawalSuccessModal'));
+                withdrawalSuccessModal.show();
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+});
+</script>
+{% endblock %}

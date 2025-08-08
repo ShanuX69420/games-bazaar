@@ -1,0 +1,111 @@
+/* Support Tickets Admin Enhancements */
+
+/* Pulsing animation for open tickets */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+/* Visual priority for open tickets */
+.admin-object-tools .support-stats {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.admin-object-tools .support-stats h3 {
+    margin: 0 0 5px 0;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.admin-object-tools .support-stats .stat-item {
+    display: inline-block;
+    margin-right: 15px;
+    font-size: 12px;
+}
+
+/* Enhanced table styling for support tickets */
+.admin-changelist .results table tr.open-ticket {
+    background-color: #fff5f5 !important;
+    border-left: 4px solid #dc3545;
+}
+
+.admin-changelist .results table tr.in-progress-ticket {
+    background-color: #fffdf5 !important;
+    border-left: 4px solid #ffc107;
+}
+
+.admin-changelist .results table tr.closed-ticket {
+    background-color: #f8fff8 !important;
+    border-left: 4px solid #28a745;
+    opacity: 0.8;
+}
+
+/* Action buttons styling */
+.action-buttons {
+    white-space: nowrap;
+}
+
+.action-buttons a {
+    display: inline-block;
+    margin-right: 5px;
+    margin-bottom: 3px;
+}
+
+/* Enhanced status badges with better visibility */
+.status-badge {
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Category badges with consistent styling */
+.category-badge {
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+/* User info styling */
+.user-info {
+    line-height: 1.3;
+}
+
+.user-info strong {
+    font-size: 13px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .action-buttons a {
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+    
+    .category-badge, .status-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+}
+
+/* Enhanced fieldset styling in change form */
+.support-ticket-form .form-row {
+    margin-bottom: 15px;
+}
+
+.support-ticket-form textarea {
+    width: 100%;
+    min-height: 120px;
+}
+
+/* Highlighting for urgent tickets */
+.admin-changelist .results table tr.urgent-ticket {
+    animation: pulse 3s infinite;
+    background-color: #ffe6e6 !important;
+}

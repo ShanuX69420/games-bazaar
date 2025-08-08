@@ -1,0 +1,27 @@
+{% load time_filters %}
+{% load safe_html %}
+
+<a href="{% url 'conversation_detail' other_user.username %}" class="list-group-item list-group-item-action conversation-link {% if conversation.id in unread_conversation_ids %}unread unread-highlight{% endif %} {% if active_conversation and conversation.id == active_conversation.id %}active{% endif %}" data-username="{{ other_user.username }}" data-conversation-id="{{ conversation.id }}">
+    
+    <img src="{{ other_user.profile.image_url }}" alt="{{ other_user.username }}" class="avatar">
+    
+    <div class="content">
+        <div class="content-header">
+            <div class="d-flex align-items-center">
+                <p class="mb-0 username">{{ other_user.username }}</p>
+                {% if other_user.profile.can_moderate %}
+                    <span class="badge bg-warning text-dark ms-1" style="font-size: 0.6rem;">Support</span>
+                {% endif %}
+            </div>
+            {% if conversation.messages.last %}
+                <small class="timestamp">{{ conversation.messages.last.timestamp|relative_time }}</small>
+            {% endif %}
+        </div>
+        
+        {% if conversation.messages.last %}
+            <p class="mb-0 last-message">
+                {{ conversation.messages.last.content|unescape_for_preview|truncatechars:50 }}
+            </p>
+        {% endif %}
+    </div>
+</a>

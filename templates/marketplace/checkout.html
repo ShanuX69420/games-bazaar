@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% load static %}
+{% load math_filters %}
+
+{% block content %}
+
+<!-- Easypaisa Message -->
+{% if easypaisa_message %}
+<div class="container mt-3">
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        <i class="fas fa-info-circle me-2"></i>
+        {{ easypaisa_message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+</div>
+{% endif %}
+
+<style>
+    .checkout-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .product-details-card {
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: .375rem;
+        padding: 1.5rem;
+    }
+    .order-summary-card {
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: .375rem;
+        padding: 1.5rem;
+        position: sticky;
+        top: 1.5rem;
+    }
+    .filter-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.25rem;
+    }
+    .filter-value {
+        font-weight: 500;
+        font-size: 0.95rem;
+        color: #212529;
+    }
+    .product-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    .seller-info {
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    .price-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f1f3f4;
+    }
+    .price-row:last-child {
+        border-bottom: none;
+        font-weight: 600;
+        font-size: 1.1rem;
+        padding-top: 1rem;
+        border-top: 2px solid #f1f3f4;
+    }
+    .charge-breakdown {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: .375rem;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+    }
+    .security-message {
+        background-color: #f8f9fa;
+        border-left: 4px solid #198754;
+        padding: 1rem;
+        margin-top: 1rem;
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    .back-link {
+        color: #007bff;
+        text-decoration: none;
+        font-weight: 500;
+        margin-bottom: 1rem;
+        display: inline-block;
+    }
+    .back-link:hover {
+        text-decoration: underline;
+    }
+    .description-text {
+        font-size: 0.9rem;
+        line-height: 1.5;
+        color: #495057;
+    }
+</style>
+
+<div class="checkout-container">
+    <!-- Back Button -->
+    <div class="mb-3">
+        <a href="{% url 'product_detail' pk=product.pk %}" class="back-link">
+            <i class="fas fa-chevron-left me-1"></i> Back
+        </a>
+    </div>
+
+    <!-- Page Title -->
+    <h2 class="mb-4">Confirm order</h2>
+
+    <div class="row">
+        <!-- Left Column - Product Details -->
+        <div class="col-lg-7">
+            <div class="product-details-card">
+                <!-- Game and Category -->
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <div class="filter-label">GAME</div>
+                        <div class="filter-value">{{ product.game.title }}</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="filter-label">CATEGORY</div>
+                        <div class="filter-value">{{ product.category.name }}</div>
+                    </div>
+                </div>
+
+                <!-- Offer Type and Region -->
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <div class="filter-label">OFFER TYPE</div>
+                        <div class="filter-value">
+                            {% if product.automatic_delivery %}
+                                Auto-delivery
+                            {% else %}
+                                Manual
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% for option in ordered_filter_options %}
+                        {% if forloop.first %}
+                        <div class="col-6">
+                            <div class="filter-label">{{ option.filter.name|upper }}</div>
+                            <div class="filter-value">{{ option.value }}</div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <!-- Short Description -->
+                <div class="mb-3">
+                    <div class="filter-label">SHORT DESCRIPTION</div>
+                    <div class="product-title">{{ product.listing_title }}</div>
+                </div>
+
+                <!-- Detailed Description -->
+                <div class="mb-3">
+                    <div class="filter-label">DETAILED DESCRIPTION</div>
+                    <div class="description-text">
+                        {{ product.description|linebreaksbr }}
+                    </div>
+                </div>
+
+                <!-- Additional Filter Options -->
+                {% for option in ordered_filter_options %}
+                    {% if not forloop.first %}
+                        <div class="mb-2">
+                            <div class="filter-label">{{ option.filter.name|upper }}</div>
+                            <div class="filter-value">{{ option.value }}</div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+
+                <!-- Quantity -->
+                <div class="mb-2">
+                    <div class="filter-label">QUANTITY</div>
+                    <div class="filter-value">{{ quantity }} pcs</div>
+                </div>
+
+                <!-- Seller Link -->
+                <div class="mt-4">
+                    <div class="filter-label">SELLER</div>
+                    <a href="{% url 'public_profile' username=product.seller.username %}" class="text-decoration-none">
+                        {{ product.seller.username }}
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column - Order Summary -->
+        <div class="col-lg-5">
+            <div class="order-summary-card">
+                <!-- Charge Breakdown -->
+                <div class="charge-breakdown">
+                    <div class="filter-label mb-2">YOUR ACCOUNT WILL BE CHARGED FOR</div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>{{ quantity }} × Rs {{ product.price|floatformat:2 }}</span>
+                        <strong>Rs {{ total_price|floatformat:2 }}</strong>
+                    </div>
+                </div>
+
+                <!-- Payment Breakdown -->
+                <div class="mb-3">
+                    <div class="filter-label mb-2">PAYMENT BREAKDOWN</div>
+                    {% if amount_from_balance > 0 %}
+                        <div class="price-row">
+                            <span>Account Balance</span>
+                            <span>Rs {{ amount_from_balance|floatformat:2 }}</span>
+                        </div>
+                    {% endif %}
+                    {% if remaining_amount > 0 %}
+                        <div class="price-row">
+                            <span>{{ payment_method|title }}</span>
+                            <span>Rs {{ remaining_amount|floatformat:2 }}</span>
+                        </div>
+                    {% endif %}
+                    {% if amount_from_balance == 0 and remaining_amount == 0 %}
+                        <div class="price-row">
+                            <span>{{ payment_method|title }}</span>
+                            <span>Rs {{ total_price|floatformat:2 }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Total -->
+                <div class="price-row">
+                    <span><strong>REMAINING PRICE</strong></span>
+                    <span><strong>
+                        {% if payment_method == 'balance' and can_pay_from_balance %}
+                            Rs 0.00
+                        {% else %}
+                            Rs {{ remaining_amount|floatformat:2 }}
+                        {% endif %}
+                    </strong></span>
+                </div>
+
+                <!-- Pay Button -->
+                <form method="post" action="{% url 'process_checkout' pk=product.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="quantity" value="{{ quantity }}">
+                    <input type="hidden" name="payment_method" value="{{ payment_method }}">
+                    <button type="submit" class="btn btn-primary btn-lg w-100 mt-3">Pay</button>
+                </form>
+
+                <!-- Security Message -->
+                <div class="security-message">
+                    The seller will not be able to receive the payment until you confirm that he has fulfilled his obligations.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

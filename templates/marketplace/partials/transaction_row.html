@@ -1,0 +1,76 @@
+{% load time_filters %}
+
+{# Desktop View - visible on medium screens and up #}
+<div class="transaction-row d-none d-md-grid" 
+     data-bs-toggle="modal" 
+     data-bs-target="#transactionDetailModal"
+     data-tx-date="{{ tx.created_at|date:"d F Y, H:i" }}"
+     data-tx-description="{{ tx.description }}"
+     data-tx-total="{% if tx.status == 'REFUNDED' %}{% if tx.amount > 0 %}-Rs{{ tx.amount|floatformat:2 }}{% else %}+Rs{{ tx.amount|floatformat:2|cut:'-' }}{% endif %}{% elif tx.transaction_type == 'WITHDRAWAL' and tx.status == 'PENDING' %}Rs0.00 (Pending){% else %}{% if tx.amount > 0 %}+Rs{{ tx.amount|floatformat:2 }}{% else %}-Rs{{ tx.amount|floatformat:2|cut:'-' }}{% endif %}{% endif %}"
+     data-tx-status="{{ tx.get_status_display }}"
+     data-tx-type="{{ tx.transaction_type }}"
+     {% if tx.order %}data-order-id="{{ tx.order.order_id }}" data-order-url="{% url 'order_detail' tx.order.clean_order_id %}"{% endif %}
+     {% if tx.withdrawal %}data-withdrawal-id="{{ tx.withdrawal.id }}"{% endif %}
+     {% if tx.transaction_type == 'DEPOSIT' %}data-deposit-id="{{ tx.id }}"{% endif %}
+>
+    <div>
+        <div class="fw-bold">{{ tx.created_at|date:"d M, H:i" }}</div>
+        <small class="text-muted">{{ tx.created_at|timesince }} ago</small>
+    </div>
+    <div>{{ tx.description }}</div>
+    <div class="text-center">
+        <span class="badge rounded-pill
+            {% if tx.status == 'COMPLETED' %}text-bg-success
+            {% elif tx.status == 'PROCESSING' or tx.status == 'PENDING' %}text-bg-warning
+            {% elif tx.status == 'CANCELLED' or tx.status == 'REFUNDED' %}text-bg-danger
+            {% else %}text-bg-secondary
+            {% endif %}">
+            {{ tx.get_status_display }}
+        </span>
+    </div>
+    <div class="text-end transaction-total fw-bold">
+        {% if tx.status == 'REFUNDED' %}{% if tx.amount > 0 %}-Rs{{ tx.amount|floatformat:2 }}{% else %}+Rs{{ tx.amount|floatformat:2|cut:"-" }}{% endif %}{% elif tx.transaction_type == 'WITHDRAWAL' and tx.status == 'PENDING' %}<span class="text-muted">Rs0.00 (Pending)</span>{% else %}{% if tx.amount > 0 %}+Rs{{ tx.amount|floatformat:2 }}{% else %}-Rs{{ tx.amount|floatformat:2|cut:"-" }}{% endif %}{% endif %}
+    </div>
+</div>
+
+{# Mobile View - visible only on small screens #}
+<div class="mobile-transaction-card d-md-none"
+     data-bs-toggle="modal" 
+     data-bs-target="#transactionDetailModal"
+     data-tx-date="{{ tx.created_at|date:"d F Y, H:i" }}"
+     data-tx-description="{{ tx.description }}"
+     data-tx-total="{% if tx.status == 'REFUNDED' %}{% if tx.amount > 0 %}-Rs{{ tx.amount|floatformat:2 }}{% else %}+Rs{{ tx.amount|floatformat:2|cut:'-' }}{% endif %}{% elif tx.transaction_type == 'WITHDRAWAL' and tx.status == 'PENDING' %}Rs0.00 (Pending){% else %}{% if tx.amount > 0 %}+Rs{{ tx.amount|floatformat:2 }}{% else %}-Rs{{ tx.amount|floatformat:2|cut:'-' }}{% endif %}{% endif %}"
+     data-tx-status="{{ tx.get_status_display }}"
+     data-tx-type="{{ tx.transaction_type }}"
+     {% if tx.order %}data-order-id="{{ tx.order.order_id }}" data-order-url="{% url 'order_detail' tx.order.clean_order_id %}"{% endif %}
+     {% if tx.withdrawal %}data-withdrawal-id="{{ tx.withdrawal.id }}"{% endif %}
+     {% if tx.transaction_type == 'DEPOSIT' %}data-deposit-id="{{ tx.id }}"{% endif %}
+>
+    <div class="mobile-left-col">
+        <div class="mobile-tx-description">
+            {% if tx.order %}
+                Order {{ tx.order.order_id }}
+            {% else %}
+                {{ tx.description }}
+            {% endif %}
+        </div>
+        <div class="mobile-tx-info">
+            {{ tx.created_at|date:"d M, H:i" }} &middot; {{ tx.created_at|timesince }} ago
+        </div>
+        <div>
+            <span class="badge rounded-pill
+                {% if tx.status == 'COMPLETED' %}text-bg-success
+                {% elif tx.status == 'PROCESSING' or tx.status == 'PENDING' %}text-bg-warning
+                {% elif tx.status == 'CANCELLED' or tx.status == 'REFUNDED' %}text-bg-danger
+                {% else %}text-bg-secondary
+                {% endif %}">
+                {{ tx.get_status_display }}
+            </span>
+        </div>
+    </div>
+    <div class="mobile-right-col">
+        <div class="transaction-total">
+            {% if tx.status == 'REFUNDED' %}{% if tx.amount > 0 %}-Rs{{ tx.amount|floatformat:2 }}{% else %}+Rs{{ tx.amount|floatformat:2|cut:"-" }}{% endif %}{% elif tx.transaction_type == 'WITHDRAWAL' and tx.status == 'PENDING' %}<span class="text-muted">Rs0.00 (Pending)</span>{% else %}{% if tx.amount > 0 %}+Rs{{ tx.amount|floatformat:2 }}{% else %}-Rs{{ tx.amount|floatformat:2|cut:"-" }}{% endif %}{% endif %}
+        </div>
+    </div>
+</div>

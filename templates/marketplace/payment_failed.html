@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container text-center mt-5">
+    <div class="alert alert-danger" role="alert">
+        <h4 class="alert-heading">Payment Failed</h4>
+        <p>Unfortunately, there was a problem with your payment. Your order has been cancelled.</p>
+        <hr>
+        {% if messages %}
+            {% for message in messages %}
+                <p class="mb-0">{{ message }}</p>
+            {% endfor %}
+        {% endif %}
+    </div>
+    <a href="{% url 'home' %}" class="btn btn-primary mt-3">Return to Homepage</a>
+</div>
+{% endblock %}
