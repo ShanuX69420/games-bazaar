@@ -1,5 +1,6 @@
 # marketplace/views.py
 import json
+import requests
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponse, Http404
 from datetime import timedelta
 from django.utils import timezone
@@ -2067,3 +2068,34 @@ def check_user_blocked_status(request, user_id):
     except User.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'User not found'})
 
+
+
+
+def cdn_proxy_view(request, path):
+    """
+    Proxy CDN requests to Google Cloud Storage
+    This makes images appear to come from your domain instead of Google's
+    """
+    from django.conf import settings
+    
+    # Construct the Google Storage URL
+    storage_url = f"https://storage.googleapis.com/{settings.GS_BUCKET_NAME}/{path}"
+    
+    try:
+        # Fetch the image from Google Storage
+        response = requests.get(storage_url, stream=True, timeout=10)
+        
+        if response.status_code == 200:
+            # Return the image with proper headers
+            django_response = HttpResponse(
+                response.content,
+                content_type=response.headers.get('content-type', 'application/octet-stream')
+            )
+            # Add caching headers
+            django_response['Cache-Control'] = 'public, max-age=3600'
+            return django_response
+        else:
+            raise Http404("Image not found")
+            
+    except requests.RequestException:
+        raise Http404("Image not available")
