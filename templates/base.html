@@ -313,6 +313,27 @@
         .mobile-profile-dropdown a.support-header:not(.collapsed) i.fa-chevron-down { transform: rotate(-180deg); }
         .mobile-profile-dropdown .support-links .dropdown-item { padding-left: 3.25rem; font-size: 0.9rem; }
 
+        /* --- Mobile Image Preview Modal Styles --- */
+        @media (max-width: 767.98px) {
+            #imagePreviewModal .modal-dialog {
+                margin: 1rem;
+                max-width: none;
+                width: calc(100% - 2rem);
+            }
+            #imagePreviewModal .modal-body {
+                padding: 0.75rem !important;
+            }
+            #imagePreviewModal #image-preview-element {
+                max-height: 40vh !important;
+            }
+            #imagePreviewModal .modal-header {
+                padding: 0.75rem 1rem;
+            }
+            #imagePreviewModal .modal-footer {
+                padding: 0.75rem 1rem;
+            }
+        }
+
         /* --- LIVE SEARCH OVERLAY STYLES --- */
         .search-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.5); z-index: 1040; display: none; opacity: 0; transition: opacity 0.2s ease-in-out; }
         .search-results-container { position: absolute; top: 100%; left: 0; right: 0; background-color: #ffffff; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; box-shadow: 0 8px 16px rgba(0,0,0,0.15); z-index: 1050; display: none; opacity: 0; transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out; transform: translateY(-10px); max-height: 70vh; overflow-y: auto; }
@@ -446,8 +467,8 @@
                     <h5 class="modal-title" id="imagePreviewModalLabel">Image Preview</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body text-center">
-                    <img id="image-preview-element" src="#" alt="Image preview" class="img-fluid rounded" style="max-height: 70vh;">
+                <div class="modal-body text-center" style="padding: 1rem;">
+                    <img id="image-preview-element" src="#" alt="Image preview" class="rounded" style="max-height: 60vh; max-width: 100%; width: auto; height: auto; object-fit: contain; display: block; margin: 0 auto;">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
