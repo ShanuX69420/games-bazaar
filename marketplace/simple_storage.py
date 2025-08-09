@@ -134,6 +134,14 @@ class GoogleCloudChatStorage(GoogleCloudUniversalStorage):
     
     def __init__(self):
         super().__init__(folder_name='chat_images')
+    
+    def deconstruct(self):
+        """Required for Django migrations serialization"""
+        return (
+            'marketplace.simple_storage.GoogleCloudChatStorage',
+            [],
+            {}
+        )
 
 
 class GoogleCloudProfileStorage(GoogleCloudUniversalStorage):
@@ -143,6 +151,14 @@ class GoogleCloudProfileStorage(GoogleCloudUniversalStorage):
     
     def __init__(self):
         super().__init__(folder_name='profile_pics')
+    
+    def deconstruct(self):
+        """Required for Django migrations serialization"""
+        return (
+            'marketplace.simple_storage.GoogleCloudProfileStorage',
+            [],
+            {}
+        )
 
 
 class GoogleCloudProductStorage(GoogleCloudUniversalStorage):
@@ -152,6 +168,14 @@ class GoogleCloudProductStorage(GoogleCloudUniversalStorage):
     
     def __init__(self):
         super().__init__(folder_name='product_images')
+    
+    def deconstruct(self):
+        """Required for Django migrations serialization"""
+        return (
+            'marketplace.simple_storage.GoogleCloudProductStorage',
+            [],
+            {}
+        )
 
 
 # Create storage instances
