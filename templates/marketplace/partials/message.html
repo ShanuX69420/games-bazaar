@@ -23,7 +23,7 @@
             <div>
                 <a href="{% url 'public_profile' message.sender.username %}" class="text-decoration-none text-dark"><strong>{{ message.sender.username }}</strong></a>
                 {% if message.sender.profile.can_moderate %}
-                    <span class="badge bg-warning text-dark ms-1">Support</span>
+                    <span class="badge bg-warning text-dark ms-1" style="font-size: 0.6rem; padding: 0.2rem 0.4rem;">Support</span>
                 {% endif %}
                 {% if message.is_auto_reply %}
                     <span class="badge bg-info text-white ms-1" style="font-size: 0.65em; vertical-align: baseline;">auto-reply</span>

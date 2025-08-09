@@ -4,9 +4,14 @@
     </a>
     <div class="flex-grow-1" style="min-width: 0;">
         <h5 class="mb-0 text-truncate">
-            <a href="{% url 'public_profile' other_user.username %}" class="text-decoration-none text-dark">
-                {{ other_user.username }}
-            </a>
+            <span class="d-inline-flex align-items-center">
+                <a href="{% url 'public_profile' other_user.username %}" class="text-decoration-none text-dark">
+                    {{ other_user.username }}
+                </a>
+                {% if other_user.profile.can_moderate %}
+                    <span class="badge bg-warning text-dark ms-1" style="font-size: 0.6rem; padding: 0.2rem 0.4rem;">Support</span>
+                {% endif %}
+            </span>
         </h5>
         <small class="user-status {% if other_user.profile.is_online %}online{% else %}offline{% endif %}"
                data-username="{{ other_user.username }}"
@@ -19,9 +24,6 @@
                 was active {{ other_user.profile.last_seen|timesince }} ago
             {% else %}
                 Offline
-            {% endif %}
-            {% if other_user.profile.can_moderate %}
-                <span class="badge bg-warning text-dark ms-2">Support</span>
             {% endif %}
             <span class="blocked-user-indicator badge bg-danger ms-2" style="display: none;">Blocked</span>
         </small>

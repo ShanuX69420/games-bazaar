@@ -10,7 +10,7 @@
             <div class="d-flex align-items-center">
                 <p class="mb-0 username">{{ other_user.username }}</p>
                 {% if other_user.profile.can_moderate %}
-                    <span class="badge bg-warning text-dark ms-1" style="font-size: 0.6rem;">Support</span>
+                    <span class="badge bg-warning text-dark ms-1" style="font-size: 0.6rem; padding: 0.2rem 0.4rem;">Support</span>
                 {% endif %}
             </div>
             {% if conversation.messages.last %}

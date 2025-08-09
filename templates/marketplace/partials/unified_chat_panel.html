@@ -107,6 +107,31 @@
 .chat-image-label-js:hover i {
     color: #495057 !important;
 }
+
+/* File icon styling improvements */
+.chat-image-label-js {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.chat-image-label-js i.fa-paperclip {
+    font-size: 1.6em !important;
+}
+
+/* Mobile optimizations for file icon */
+@media (max-width: 480px) {
+    /* Keep paperclip icon size consistent with desktop */
+    .chat-image-label-js i.fa-paperclip {
+        font-size: 1.6em !important;
+    }
+    
+    /* Ensure adequate touch targets */
+    .chat-image-label-js {
+        min-height: 44px !important;
+        min-width: 44px !important;
+    }
+}
 </style>
 
 <div class="chat-panel-card">
