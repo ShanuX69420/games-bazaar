@@ -466,35 +466,31 @@ window.showImagePreview = function(imageUrl, showSendButton = false) {
     const imageElement = document.getElementById('image-preview-element');
     const sendButton = document.getElementById('send-image-upload');
     
-    if (modal && imageElement) {
-        imageElement.src = imageUrl;
+    if (!modal || !imageElement) {
+        console.error('Modal elements not found');
+        return;
+    }
+    
+    // Set the image source
+    imageElement.src = imageUrl;
+    
+    // Show/hide send button
+    if (sendButton) {
         sendButton.style.display = showSendButton ? 'inline-block' : 'none';
-        
-        // Ensure any existing modal instance is properly disposed
-        const existingModal = bootstrap.Modal.getInstance(modal);
-        if (existingModal) {
-            existingModal.dispose();
-        }
-        
-        const bootstrapModal = new bootstrap.Modal(modal, {
+    }
+    
+    // Get or create modal instance
+    let bootstrapModal = bootstrap.Modal.getInstance(modal);
+    if (!bootstrapModal) {
+        bootstrapModal = new bootstrap.Modal(modal, {
             backdrop: true,
             keyboard: true,
             focus: true
         });
-        bootstrapModal.show();
-        
-        // Add event listener to ensure proper cleanup on hide
-        modal.addEventListener('hidden.bs.modal', function() {
-            // Force remove any remaining backdrop
-            const backdrops = document.querySelectorAll('.modal-backdrop');
-            backdrops.forEach(backdrop => backdrop.remove());
-            
-            // Reset body styles
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
-            document.body.style.paddingRight = '';
-        }, { once: true });
     }
+    
+    // Show the modal
+    bootstrapModal.show();
 };
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -512,10 +508,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle product image thumbnails
     document.addEventListener('click', function(e) {
         if (e.target.closest('.image-thumbnail-box')) {
+            e.preventDefault();
             const thumbnail = e.target.closest('.image-thumbnail-box');
-            const imageUrl = thumbnail.getAttribute('data-img-src');
+            const imageUrl = thumbnail ? thumbnail.getAttribute('data-img-src') : null;
             if (imageUrl) {
-                e.preventDefault();
                 showImagePreview(imageUrl, false);
             }
         }
