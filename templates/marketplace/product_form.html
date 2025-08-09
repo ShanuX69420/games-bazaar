@@ -203,7 +203,10 @@
                     {% endif %}
 
                     <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary btn-lg mt-3">{% if is_editing %}Save Changes{% else %}Save{% endif %}</button>
+                        <button type="submit" class="btn btn-primary btn-lg mt-3" id="save-button">
+                            <span id="save-button-text">{% if is_editing %}Save Changes{% else %}Save{% endif %}</span>
+                            <span id="save-button-spinner" class="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true" style="display: none;"></span>
+                        </button>
                         {% if is_editing %}
                             <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteConfirmationModal">
                                 Delete Listing
@@ -487,17 +490,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Add hidden inputs for images to delete when form is submitted
-    document.querySelector('form[enctype="multipart/form-data"]').addEventListener('submit', function(e) {
-        // Add hidden inputs for images to delete
-        imagesToDelete.forEach(imageId => {
-            const hiddenInput = document.createElement('input');
-            hiddenInput.type = 'hidden';
-            hiddenInput.name = 'delete_images';
-            hiddenInput.value = imageId;
-            this.appendChild(hiddenInput);
-        });
-    });
 
     // Stock validation - prevent 0 stock
     const stockInput = document.querySelector('input[name="stock"]');
@@ -534,6 +526,62 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initial check for placeholder visibility on page load (for edit view)
     updatePlaceholderVisibility();
+
+    // Prevent double form submission
+    const form = document.querySelector('form[enctype="multipart/form-data"]');
+    const saveButton = document.getElementById('save-button');
+    const saveButtonText = document.getElementById('save-button-text');
+    const saveButtonSpinner = document.getElementById('save-button-spinner');
+    let isSubmitting = false;
+
+    if (form && saveButton) {
+        form.addEventListener('submit', function(e) {
+            // Prevent any additional submissions if already submitting
+            if (isSubmitting) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+            
+            // Mark as submitting IMMEDIATELY to prevent race conditions
+            isSubmitting = true;
+
+            // Update button state IMMEDIATELY
+            saveButton.disabled = true;
+            saveButton.style.pointerEvents = 'none'; // Extra protection
+            saveButtonText.textContent = '{% if is_editing %}Saving Changes...{% else %}Saving...{% endif %}';
+            saveButtonSpinner.style.display = 'inline-block';
+
+            // Add hidden inputs for images to delete (existing code)
+            imagesToDelete.forEach(imageId => {
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = 'delete_images';
+                hiddenInput.value = imageId;
+                this.appendChild(hiddenInput);
+            });
+
+            // Allow form to submit naturally
+        });
+
+        // Reset button state if form validation fails (client-side)
+        form.addEventListener('invalid', function() {
+            isSubmitting = false;
+            saveButton.disabled = false;
+            saveButton.style.pointerEvents = 'auto';
+            saveButtonText.textContent = '{% if is_editing %}Save Changes{% else %}Save{% endif %}';
+            saveButtonSpinner.style.display = 'none';
+        });
+        
+        // Also reset on page load if there are server-side errors
+        if (document.querySelector('.alert-danger') || document.querySelector('.errorlist')) {
+            isSubmitting = false;
+            saveButton.disabled = false;
+            saveButton.style.pointerEvents = 'auto';
+            saveButtonText.textContent = '{% if is_editing %}Save Changes{% else %}Save{% endif %}';
+            saveButtonSpinner.style.display = 'none';
+        }
+    }
 
     // Clean form submission - debug code removed
 });

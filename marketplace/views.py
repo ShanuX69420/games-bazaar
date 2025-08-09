@@ -141,7 +141,7 @@ def check_rate_limit(request, action, limit=10, period=300):
     if current_count >= limit:
         return False
     
-    # Increment counter
+    # Increment counter immediately to prevent race conditions
     cache.set(cache_key, current_count + 1, period)
     return True
 
@@ -718,6 +718,35 @@ def create_product(request, game_pk, category_pk):
     game_category_link = get_object_or_404(GameCategory, game=game, category=category)
 
     if request.method == 'POST':
+        # Double-click prevention: Check if user has a pending submission
+        processing_key = f'processing_listing_{request.user.id}_{game_pk}_{category_pk}'
+        if cache.get(processing_key):
+            messages.error(request, 'Please wait, your previous submission is still being processed.')
+            form = ProductForm(request.POST, request.FILES, game_category_link=game_category_link)
+            context = {
+                'form': form,
+                'game': game,
+                'category': category,
+            }
+            return render(request, 'marketplace/product_form.html', context)
+        
+        # Set processing lock for 30 seconds
+        cache.set(processing_key, True, 30)
+        
+        # Rate limiting: 5 listing creations per hour per game
+        rate_limit_key = f'create_listing_game_{game_pk}'
+        if not check_rate_limit(request, rate_limit_key, limit=5, period=3600):
+            cache.delete(processing_key)  # Clear lock before returning
+            messages.error(request, f'Too many listing creation attempts for {game.title}. Please try again later.')
+            # Create form without validating to preserve user data
+            form = ProductForm(request.POST, request.FILES, game_category_link=game_category_link)
+            context = {
+                'form': form,
+                'game': game,
+                'category': category,
+            }
+            return render(request, 'marketplace/product_form.html', context)
+        
         form = ProductForm(request.POST, request.FILES, game_category_link=game_category_link)
         if form.is_valid():
             product = form.save(commit=False)
@@ -742,7 +771,12 @@ def create_product(request, game_pk, category_pk):
             if filter_options_to_add:
                 product.filter_options.set(filter_options_to_add)
 
+            # Clear processing lock after successful creation
+            cache.delete(processing_key)
             return redirect('my_listings_in_category', game_pk=game.pk, category_pk=category.pk)
+        else:
+            # Clear processing lock if form validation fails
+            cache.delete(processing_key)
     else:
         form = ProductForm(game_category_link=game_category_link)
 
@@ -759,6 +793,20 @@ def edit_product(request, pk):
     game_category_link = get_object_or_404(GameCategory, game=product.game, category=product.category)
 
     if request.method == 'POST':
+        # Rate limiting: 10 listing edits per hour per game
+        rate_limit_key = f'edit_listing_game_{product.game.pk}'
+        if not check_rate_limit(request, rate_limit_key, limit=10, period=3600):
+            messages.error(request, f'Too many edit attempts for {product.game.title}. Please try again later.')
+            # Stay on the same edit form page
+            form = ProductForm(instance=product, game_category_link=game_category_link)
+            context = {
+                'form': form,
+                'game': product.game,
+                'category': product.category,
+                'product': product,
+                'is_editing': True
+            }
+            return render(request, 'marketplace/product_form.html', context)
         form = ProductForm(request.POST, request.FILES, instance=product, game_category_link=game_category_link)
         if form.is_valid():
             updated_product = form.save()
