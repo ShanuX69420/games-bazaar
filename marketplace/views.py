@@ -11,7 +11,7 @@ from django.views import generic
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db import models
-from django.db.models import Sum, Q, Count, Avg, F, OuterRef, Subquery
+from django.db.models import Sum, Q, Count, Avg, F, OuterRef, Subquery, Prefetch
 from django.db.models.functions import Lower
 from django.contrib.auth.models import User
 import string
@@ -203,8 +203,18 @@ from .forms import (
 
 def live_search(request):
     query = request.GET.get('q', '').strip()
+    
+    # Security: Validate query length to prevent DoS attacks
     if not query or len(query) < 1:
         return JsonResponse([], safe=False)
+    
+    if len(query) > 100:  # Reasonable limit for game search queries
+        return JsonResponse({'error': 'Search query too long'}, status=400)
+    
+    # Security: Basic sanitization - only allow alphanumeric, spaces, and common punctuation
+    import re
+    if not re.match(r'^[a-zA-Z0-9\s\-_:\.\'\"]+$', query):
+        return JsonResponse({'error': 'Invalid characters in search query'}, status=400)
 
     cache_key = f'search_{query.lower()}'
     cached_results = cache.get(cache_key)
@@ -276,16 +286,15 @@ def home(request):
     all_games = cache.get(cache_key)
 
     if all_games is None:
-        # Fetch games and manually order their categories
-        games_queryset = Game.objects.prefetch_related('categories').order_by(Lower('title'))
-        all_games = []
-        for game in games_queryset:
-            # Order categories by GameCategory ID (admin setup order)
-            ordered_categories = game.categories.filter(
-                gamecategory__game=game
-            ).order_by('gamecategory__id')
-            game.ordered_categories = list(ordered_categories)
-            all_games.append(game)
+        # Fetch games with properly ordered categories in a single query
+        games_queryset = Game.objects.prefetch_related(
+            Prefetch(
+                'categories', 
+                queryset=Category.objects.order_by('gamecategory__id'),
+                to_attr='ordered_categories'
+            )
+        ).order_by(Lower('title'))
+        all_games = list(games_queryset)
         cache.set(cache_key, all_games, 600)  # 10 minutes
 
     letters = list(string.ascii_uppercase)
@@ -293,18 +302,38 @@ def home(request):
     return render(request, 'marketplace/home.html', context)
 
 def search_results(request):
-    query = request.GET.get('q', '')
+    query = request.GET.get('q', '').strip()
+    
+    # Security: Validate query to prevent DoS and injection attacks
     if query:
-        # Fetch games and manually order their categories
-        games_queryset = Game.objects.filter(title__icontains=query).prefetch_related('categories').order_by('title')
-        games = []
-        for game in games_queryset:
-            # Order categories by GameCategory ID (admin setup order)
-            ordered_categories = game.categories.filter(
-                gamecategory__game=game
-            ).order_by('gamecategory__id')
-            game.ordered_categories = list(ordered_categories)
-            games.append(game)
+        if len(query) > 100:  # Same limit as live search
+            context = {
+                'query': query,
+                'games': [],
+                'error': 'Search query too long. Please use a shorter search term.'
+            }
+            return render(request, 'marketplace/search_results.html', context)
+        
+        # Security: Basic sanitization - only allow alphanumeric, spaces, and common punctuation
+        import re
+        if not re.match(r'^[a-zA-Z0-9\s\-_:\.\'\"]+$', query):
+            context = {
+                'query': query,
+                'games': [],
+                'error': 'Invalid characters in search query. Please use only letters, numbers, and basic punctuation.'
+            }
+            return render(request, 'marketplace/search_results.html', context)
+    
+    if query:
+        # Fetch games with properly ordered categories in a single query
+        games_queryset = Game.objects.filter(title__icontains=query).prefetch_related(
+            Prefetch(
+                'categories', 
+                queryset=Category.objects.order_by('gamecategory__id'),
+                to_attr='ordered_categories'
+            )
+        ).order_by('title')
+        games = list(games_queryset)
     else:
         games = []
     context = {'query': query, 'games': games}

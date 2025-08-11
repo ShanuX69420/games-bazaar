@@ -254,7 +254,6 @@ CSP_IMG_SRC = [
     "'self'",
     "data:",
     "https:",
-    "http:",
 ]
 CSP_CONNECT_SRC = [
     "'self'",

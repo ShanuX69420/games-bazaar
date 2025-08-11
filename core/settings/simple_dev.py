@@ -2,6 +2,7 @@ from .base import *
 
 # Development-specific settings
 DEBUG = True
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
 
 # Remove Daphne to use Django's built-in server
 INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'daphne']

@@ -2,6 +2,7 @@
 
 import json
 import asyncio
+import logging
 from datetime import timedelta
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
@@ -12,6 +13,9 @@ from django.utils import timezone
 from .models import Conversation, Message, Profile
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+
+# Security logging
+security_logger = logging.getLogger('security.websocket')
 
 
 # --- Database Functions ---
@@ -198,18 +202,44 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.other_user = await self.get_user(other_user_username)
 
         if not self.other_user:
+            # Log suspicious activity - trying to connect to non-existent user
+            security_logger.warning(
+                f"WebSocket connection attempt to non-existent user '{other_user_username}' by {self.user.username} "
+                f"from {self.scope.get('client', ['unknown'])[0]}"
+            )
             await self.close()
             return
 
-        # Security check: Verify the user is authorized to access this conversation
+        # SECURITY: Enhanced authorization checks to prevent unauthorized access
+        # 1. Check if conversation exists and user is authorized
         self.conversation = await self.get_existing_conversation(self.user, self.other_user)
         if not self.conversation:
-            # No existing conversation means they shouldn't have access yet
+            # Log unauthorized access attempt - no existing conversation
+            security_logger.warning(
+                f"Unauthorized WebSocket connection attempt by {self.user.username} to chat with {other_user_username} "
+                f"(no existing conversation) from {self.scope.get('client', ['unknown'])[0]}"
+            )
             await self.close()
             return
 
-        # Additional security check: Verify user is a legitimate participant
+        # 2. Verify user is a legitimate participant (including moderator support)
         if not await self.is_user_participant(self.conversation, self.user):
+            # Log critical security violation - trying to access conversation they're not part of
+            security_logger.error(
+                f"CRITICAL: User {self.user.username} attempted to access conversation {self.conversation.id} "
+                f"where they are not a participant from {self.scope.get('client', ['unknown'])[0]}"
+            )
+            await self.close()
+            return
+
+        # 3. Additional business logic authorization: verify user can access this conversation
+        # This prevents users from connecting to conversations they shouldn't see
+        if not await self.user_has_conversation_access(self.user, self.conversation):
+            # Log authorization failure
+            security_logger.error(
+                f"CRITICAL: User {self.user.username} failed business logic authorization for conversation "
+                f"{self.conversation.id} from {self.scope.get('client', ['unknown'])[0]}"
+            )
             await self.close()
             return
 
@@ -315,6 +345,32 @@ class ChatConsumer(AsyncWebsocketConsumer):
         Verify that the user is a legitimate participant in the conversation.
         """
         return conversation.is_participant(user)
+
+    @database_sync_to_async
+    def user_has_conversation_access(self, user, conversation):
+        """
+        Enhanced authorization check: Verify the user has legitimate business reason 
+        to access this conversation. This prevents unauthorized connection attempts.
+        
+        A user has access if they are:
+        1. participant1 or participant2 of the conversation
+        2. A moderator assigned to the conversation
+        3. Staff/superuser (for admin purposes)
+        """
+        # Allow staff/superuser access for moderation purposes
+        if user.is_staff or user.is_superuser:
+            return True
+            
+        # Check if user is one of the direct participants
+        if user == conversation.participant1 or user == conversation.participant2:
+            return True
+            
+        # Check if user is assigned as a moderator for this conversation
+        if conversation.moderator and user == conversation.moderator:
+            return True
+            
+        # If none of the above, deny access
+        return False
 
     @database_sync_to_async
     def get_or_create_conversation(self, user1, user2):
