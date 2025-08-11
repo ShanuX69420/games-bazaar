@@ -110,7 +110,7 @@ class SecurityMiddleware(MiddlewareMixin):
         if not settings.DEBUG:
             response['Content-Security-Policy'] = (
                 "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://accounts.google.com https://connect.facebook.net https://www.facebook.com; "
+                "script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://accounts.google.com https://connect.facebook.net https://www.facebook.com https://static.cloudflareinsights.com; "
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                 "font-src 'self' https://fonts.gstatic.com; "
                 "img-src 'self' data: https: blob:; "
