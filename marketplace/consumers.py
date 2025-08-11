@@ -9,9 +9,13 @@ from channels.db import database_sync_to_async
 from django.db.models import Q
 from django.db import models
 from django.utils import timezone
-from .models import Conversation, Message, Profile
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+
+# NOTE: All model imports have been removed from the top level to prevent the AppRegistryNotReady error.
+# They are now "lazily" imported inside the functions that need them.
+# from django.contrib.auth.models import User  <-- REMOVED
+# from .models import Conversation, Message, Profile <-- REMOVED
 
 # Security logging
 security_logger = logging.getLogger('security.websocket')
@@ -24,6 +28,7 @@ def update_user_last_seen(user):
     """
     Safely updates the last_seen field and resets offline broadcast tracking.
     """
+    from .models import Profile  # LAZY IMPORT
     if user.is_authenticated:
         Profile.objects.filter(user=user).update(
             last_seen=timezone.now(),
@@ -36,9 +41,10 @@ def get_unread_conversation_count(user):
     Calculates the number of conversations with at least one unread message for a user.
     Optimized to use a single query instead of subquery.
     """
+    from .models import Message  # LAZY IMPORT
     if not user.is_authenticated:
         return 0
-    
+
     return Message.objects.filter(
         Q(conversation__participant1=user) | Q(conversation__participant2=user) | Q(conversation__moderator=user),
         is_read=False
@@ -52,9 +58,10 @@ def mark_message_as_read_in_db(message_id, user):
     Marks a specific message as read in the database and returns the message object.
     Ensures the user receiving the message is the one marking it as read.
     """
+    from .models import Message  # LAZY IMPORT
     try:
         message = Message.objects.select_related('conversation__participant1', 'conversation__participant2').get(id=message_id)
-        
+
         # Security check: Make sure the user is a participant (including moderator) and not the sender
         is_participant = message.conversation.is_participant(user)
         if is_participant and message.sender != user and not message.is_read:
@@ -72,6 +79,7 @@ async def broadcast_presence(user, status_data, channel_layer):
     Broadcasts a user's online status to all their conversation partners.
     This version is optimized to avoid instantiating Conversation objects.
     """
+    from .models import Conversation  # LAZY IMPORT
     @database_sync_to_async
     def get_participant_usernames(u):
         # Get conversations where the user is participant1
@@ -81,10 +89,10 @@ async def broadcast_presence(user, status_data, channel_layer):
         # Get conversations where the user is a moderator
         mod_convs_p1 = Conversation.objects.filter(moderator=u).values_list('participant1__username', flat=True)
         mod_convs_p2 = Conversation.objects.filter(moderator=u).values_list('participant2__username', flat=True)
-        
+
         # Combine all unique usernames into a set
         all_participants = set(p1_convs) | set(p2_convs) | set(mod_convs_p1) | set(mod_convs_p2)
-        
+
         return all_participants
 
     # Get the unique set of usernames to notify
@@ -125,9 +133,10 @@ async def notify_read_receipt(message, user, channel_layer):
 def get_recently_offline_users():
     """Get users who should be marked offline (last seen > 5 minutes ago)
     but haven't been broadcasted as offline recently"""
+    from .models import Profile  # LAZY IMPORT
     five_minutes_ago = timezone.now() - timedelta(minutes=5)
     one_minute_ago = timezone.now() - timedelta(minutes=1)
-    
+
     # Get users who:
     # 1. Have last_seen older than 5 minutes (should be offline)
     # 2. Either have no offline_broadcast_at OR it was more than 1 minute ago
@@ -136,14 +145,15 @@ def get_recently_offline_users():
         last_seen__lt=five_minutes_ago
     ).filter(
         # Only broadcast if we haven't done it recently
-        models.Q(offline_broadcast_at__isnull=True) | 
+        models.Q(offline_broadcast_at__isnull=True) |
         models.Q(offline_broadcast_at__lt=one_minute_ago)
     ).select_related('user')
-    
+
     return list(recently_offline)
 
 async def broadcast_offline_status_for_user(user, channel_layer):
     """Broadcast offline status for a specific user to their conversation partners"""
+    from .models import Conversation, Profile  # LAZY IMPORTS
     @database_sync_to_async
     def get_participant_usernames(u):
         # Get conversations where the user is participant1
@@ -153,12 +163,12 @@ async def broadcast_offline_status_for_user(user, channel_layer):
         # Get conversations where the user is a moderator
         mod_convs_p1 = Conversation.objects.filter(moderator=u).values_list('participant1__username', flat=True)
         mod_convs_p2 = Conversation.objects.filter(moderator=u).values_list('participant2__username', flat=True)
-        
+
         # Combine all unique usernames into a set
         all_participants = set(p1_convs) | set(p2_convs) | set(mod_convs_p1) | set(mod_convs_p2)
-        
+
         return all_participants
-    
+
     @database_sync_to_async
     def mark_offline_broadcasted(u):
         """Mark that we've broadcasted this user's offline status"""
@@ -182,7 +192,7 @@ async def broadcast_offline_status_for_user(user, channel_layer):
                     }
                 }
             )
-    
+
     # Mark that we've broadcasted this user's offline status
     await mark_offline_broadcasted(user)
 
@@ -268,23 +278,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     updated_message = await mark_message_as_read_in_db(message_id, self.user)
                     if updated_message:
                         # Send read receipt notification to update UI
-                        unread_count = await get_unread_conversation_count(self.user)
-                        await self.channel_layer.group_send(
-                            f"notifications_{self.user.username}",
-                            {
-                                "type": "send_notification",
-                                "notification_type": "read_receipt_update",
-                                "data": {
-                                    'unread_conversations_count': unread_count,
-                                    'conversation_id': updated_message.conversation.id
-                                },
-                            }
-                        )
-            
+                        await notify_read_receipt(updated_message, self.user, self.channel_layer)
+
             elif event_type == 'mark_conversation_as_read' and self.user.is_authenticated:
                 # Mark all unread messages in this conversation as read (when user returns to tab)
                 await self.mark_messages_as_read(self.conversation, self.user)
-                
+
             elif event_type == 'ping':
                 # Handle heartbeat ping - respond with pong
                 await self.send(text_data=json.dumps({
@@ -303,11 +302,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """
         message_html = event.get('message_html')
         message_id = event.get('message_id')
-        
+
         # Don't auto-mark messages as read here - let the client decide
         # based on page visibility. This allows proper notifications when
         # the tab is not active or browser is minimized
-        
+
         # The event now contains the pre-rendered HTML, which we forward directly.
         await self.send(text_data=json.dumps({
             'type': 'new_message',
@@ -319,7 +318,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_user(self, username):
-        from django.contrib.auth.models import User
+        from django.contrib.auth.models import User  # LAZY IMPORT
         try:
             return User.objects.get(username=username)
         except User.DoesNotExist:
@@ -331,6 +330,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         Get an existing conversation between two users (doesn't create new ones).
         Returns None if no conversation exists.
         """
+        from .models import Conversation  # LAZY IMPORT
         # Canonical ordering for participants to prevent duplicate conversations
         if user1.id > user2.id:
             user1, user2 = user2, user1
@@ -349,9 +349,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def user_has_conversation_access(self, user, conversation):
         """
-        Enhanced authorization check: Verify the user has legitimate business reason 
+        Enhanced authorization check: Verify the user has legitimate business reason
         to access this conversation. This prevents unauthorized connection attempts.
-        
+
         A user has access if they are:
         1. participant1 or participant2 of the conversation
         2. A moderator assigned to the conversation
@@ -360,20 +360,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Allow staff/superuser access for moderation purposes
         if user.is_staff or user.is_superuser:
             return True
-            
+
         # Check if user is one of the direct participants
         if user == conversation.participant1 or user == conversation.participant2:
             return True
-            
+
         # Check if user is assigned as a moderator for this conversation
         if conversation.moderator and user == conversation.moderator:
             return True
-            
+
         # If none of the above, deny access
         return False
 
     @database_sync_to_async
     def get_or_create_conversation(self, user1, user2):
+        from .models import Conversation  # LAZY IMPORT
         # Canonical ordering for participants to prevent duplicate conversations
         if user1.id > user2.id:
             user1, user2 = user2, user1
@@ -386,7 +387,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         @database_sync_to_async
         def batch_update_messages():
             return conversation.messages.filter(is_read=False).exclude(sender=user).update(is_read=True)
-        
+
         updated_count = await batch_update_messages()
 
         # If any messages were updated, we need to send a notification
@@ -395,7 +396,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             @database_sync_to_async
             def get_last_message():
                 return conversation.messages.select_related('conversation').last()
-            
+
             last_message = await get_last_message()
             if last_message:
                 await notify_read_receipt(last_message, user, self.channel_layer)
@@ -407,11 +408,11 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         if not self.user.is_authenticated:
             await self.close()
             return
-        
+
         self.room_group_name = f"notifications_{self.user.username}"
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
-        
+
         # Update presence on connection
         await update_user_last_seen(self.user)
         await broadcast_presence(self.user, {
@@ -419,7 +420,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'is_online': True,
             'last_seen_iso': timezone.now().isoformat()
         }, self.channel_layer)
-        
+
         # Check for recently offline users on connection
         recently_offline = await get_recently_offline_users()
         for profile in recently_offline:
@@ -429,10 +430,10 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         if hasattr(self, 'user') and self.user.is_authenticated:
             # Update last_seen on disconnect
             await update_user_last_seen(self.user)
-            
+
             # Note: We don't broadcast offline status immediately anymore
             # Users will appear offline after 5 minutes of inactivity
-            
+
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def receive(self, text_data):
@@ -444,19 +445,19 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             if data.get('type') == 'heartbeat':
                 # Update last_seen timestamp
                 await update_user_last_seen(self.user)
-                
+
                 # Broadcast current online status to conversation partners
                 await broadcast_presence(self.user, {
                     'username': self.user.username,
                     'is_online': True,
                     'last_seen_iso': timezone.now().isoformat()
                 }, self.channel_layer)
-                
+
                 # Check for recently offline users and broadcast their status
                 recently_offline = await get_recently_offline_users()
                 for profile in recently_offline:
                     await broadcast_offline_status_for_user(profile.user, self.channel_layer)
-                
+
         except (json.JSONDecodeError, Exception) as e:
             print(f"WebSocket receive error for {self.user.username}: {e}")
             pass
