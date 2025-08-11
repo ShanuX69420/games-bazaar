@@ -10,6 +10,7 @@ from django.contrib.auth import forms as auth_forms
 from django.views import generic
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.db import models
 from django.db.models import Sum, Q, Count, Avg, F, OuterRef, Subquery
 from django.db.models.functions import Lower
 from django.contrib.auth.models import User
@@ -214,14 +215,19 @@ def live_search(request):
     # DEV NOTE: For a more scalable solution at a larger scale,
     # a dedicated search index (e.g., Elasticsearch or PostgreSQL's trigram index)
     # on the 'title' field of the Game model is recommended.
-    games = Game.objects.filter(title__istartswith=query).prefetch_related('categories')[:6]
+    games_queryset = Game.objects.filter(title__istartswith=query).prefetch_related('categories')[:6]
     
     results = []
-    for game in games:
+    for game in games_queryset:
         try:
+            # Order categories by GameCategory ID (admin setup order)
+            ordered_categories = game.categories.filter(
+                gamecategory__game=game
+            ).order_by('gamecategory__id')
+            
             game_url = reverse_lazy('game_detail', kwargs={'pk': game.pk})
             categories_data = []
-            for cat in game.categories.all():
+            for cat in ordered_categories:
                 try:
                     cat_url = reverse_lazy('listing_page', kwargs={'game_pk': game.pk, 'category_pk': cat.pk})
                     categories_data.append({'name': cat.name, 'url': cat_url})
@@ -270,7 +276,16 @@ def home(request):
     all_games = cache.get(cache_key)
 
     if all_games is None:
-        all_games = list(Game.objects.prefetch_related('categories').order_by(Lower('title')))
+        # Fetch games and manually order their categories
+        games_queryset = Game.objects.prefetch_related('categories').order_by(Lower('title'))
+        all_games = []
+        for game in games_queryset:
+            # Order categories by GameCategory ID (admin setup order)
+            ordered_categories = game.categories.filter(
+                gamecategory__game=game
+            ).order_by('gamecategory__id')
+            game.ordered_categories = list(ordered_categories)
+            all_games.append(game)
         cache.set(cache_key, all_games, 600)  # 10 minutes
 
     letters = list(string.ascii_uppercase)
@@ -280,9 +295,18 @@ def home(request):
 def search_results(request):
     query = request.GET.get('q', '')
     if query:
-        games = Game.objects.filter(title__icontains=query).prefetch_related('categories').order_by('title')
+        # Fetch games and manually order their categories
+        games_queryset = Game.objects.filter(title__icontains=query).prefetch_related('categories').order_by('title')
+        games = []
+        for game in games_queryset:
+            # Order categories by GameCategory ID (admin setup order)
+            ordered_categories = game.categories.filter(
+                gamecategory__game=game
+            ).order_by('gamecategory__id')
+            game.ordered_categories = list(ordered_categories)
+            games.append(game)
     else:
-        games = Game.objects.none()
+        games = []
     context = {'query': query, 'games': games}
     return render(request, 'marketplace/search_results.html', context)
 
@@ -358,7 +382,10 @@ def game_detail_view(request, pk):
 
     if cached_data is None:
         game = get_object_or_404(Game, pk=pk)
-        categories = list(game.categories.all())
+        # Get categories in admin panel setup order (by GameCategory ID)
+        categories = list(game.categories.filter(
+            gamecategory__game=game
+        ).order_by('gamecategory__id'))
         cached_data = {'game': game, 'categories': categories}
         cache.set(cache_key, cached_data, 300)  # 5 minutes
 
@@ -430,13 +457,16 @@ def listing_page_view(request, game_pk, category_pk):
     page_number = request.GET.get('page')
     listings = paginator.get_page(page_number)
 
-    all_categories = game.categories.all().annotate(
+    # Get categories in admin panel setup order (by GameCategory ID)
+    all_categories = game.categories.filter(
+        gamecategory__game=game
+    ).annotate(
         listing_count=Count('product', filter=Q(
             product__game=game,
             product__is_active=True,
             product__seller__profile__show_listings_on_site=True
         ))
-    )
+    ).order_by('gamecategory__id')
 
     context = {
         'game': game,
@@ -548,35 +578,34 @@ def public_profile_view(request, username):
         else:
             p_form = ProfilePictureForm(instance=request.user.profile)
 
-    products_qs = Product.objects.filter(
-        seller=profile_user, is_active=True, game__isnull=False, category__isnull=False
-    ).select_related('game', 'category', 'seller__profile').prefetch_related(
-        'filter_options__filter',
-        'images'
-    ).order_by('game__title', 'category__name')
+    # Get unique game-category combinations with proper ordering
+    # First get all GameCategory objects for this seller's products, ordered by creation (ID)
+    seller_game_categories = GameCategory.objects.filter(
+        game__listings__seller=profile_user,
+        game__listings__is_active=True
+    ).select_related('game', 'category', 'primary_filter').distinct().order_by('game__title', 'id')
 
-    # Efficiently fetch GameCategory objects
-    game_cat_pks = products_qs.values_list('game_id', 'category_id').distinct()
-    game_category_links = GameCategory.objects.filter(
-        game_id__in=[pk[0] for pk in game_cat_pks],
-        category_id__in=[pk[1] for pk in game_cat_pks]
-    ).select_related('primary_filter')
-
-    game_category_map = {
-        (gc.game_id, gc.category_id): gc for gc in game_category_links
-    }
-
-    # Group listings and attach the GameCategory link
+    # Build grouped listings efficiently by iterating through GameCategory objects in correct order
     grouped_listings = []
-    for game, game_products_iterator in groupby(products_qs, key=attrgetter('game')):
-        for category, cat_products_iterator in groupby(list(game_products_iterator), key=attrgetter('category')):
-            products_list = list(cat_products_iterator)
-            game_category_link = game_category_map.get((game.id, category.id))
+    for game_category in seller_game_categories:
+        # Fetch products for this specific game-category combination
+        products_for_combo = Product.objects.filter(
+            seller=profile_user, 
+            is_active=True, 
+            game=game_category.game,
+            category=game_category.category
+        ).select_related('game', 'category', 'seller__profile').prefetch_related(
+            'filter_options__filter',
+            'images'
+        ).order_by('created_at')
+        
+        # Only include if there are products for this combination
+        if products_for_combo.exists():
             grouped_listings.append({
-                'game': game,
-                'category': category,
-                'products': products_list,
-                'game_category_link': game_category_link
+                'game': game_category.game,
+                'category': game_category.category,
+                'products': list(products_for_combo),
+                'game_category_link': game_category
             })
 
     all_reviews = Review.objects.filter(seller=profile_user).select_related(

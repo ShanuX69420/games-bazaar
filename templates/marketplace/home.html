@@ -54,12 +54,12 @@
                 <div class="col">
                     <div class="game-cell">
                         <h5 class="game-cell-title mb-0">
-                            <a href="{% if game.categories.first %}{% url 'listing_page' game_pk=game.pk category_pk=game.categories.first.pk %}{% else %}#{% endif %}">
+                            <a href="{% if game.ordered_categories %}{% url 'listing_page' game_pk=game.pk category_pk=game.ordered_categories.0.pk %}{% else %}#{% endif %}">
                                 {{ game.title }}
                             </a>
                         </h5>
                         <div class="game-cell-categories">
-                            {% for category in game.categories.all %}
+                            {% for category in game.ordered_categories %}
                                 <a href="{% url 'listing_page' game_pk=game.pk category_pk=category.pk %}">{{ category.name }}</a>
                             {% endfor %}
                         </div>

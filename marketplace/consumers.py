@@ -201,7 +201,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
-        self.conversation = await self.get_or_create_conversation(self.user, self.other_user)
+        # Security check: Verify the user is authorized to access this conversation
+        self.conversation = await self.get_existing_conversation(self.user, self.other_user)
+        if not self.conversation:
+            # No existing conversation means they shouldn't have access yet
+            await self.close()
+            return
+
+        # Additional security check: Verify user is a legitimate participant
+        if not await self.is_user_participant(self.conversation, self.user):
+            await self.close()
+            return
+
         self.room_group_name = f'chat_{self.conversation.id}'
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
@@ -283,6 +294,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return User.objects.get(username=username)
         except User.DoesNotExist:
             return None
+
+    @database_sync_to_async
+    def get_existing_conversation(self, user1, user2):
+        """
+        Get an existing conversation between two users (doesn't create new ones).
+        Returns None if no conversation exists.
+        """
+        # Canonical ordering for participants to prevent duplicate conversations
+        if user1.id > user2.id:
+            user1, user2 = user2, user1
+        try:
+            return Conversation.objects.get(participant1=user1, participant2=user2)
+        except Conversation.DoesNotExist:
+            return None
+
+    @database_sync_to_async
+    def is_user_participant(self, conversation, user):
+        """
+        Verify that the user is a legitimate participant in the conversation.
+        """
+        return conversation.is_participant(user)
 
     @database_sync_to_async
     def get_or_create_conversation(self, user1, user2):

@@ -198,7 +198,7 @@
 
         <div class="filter-label mt-4 mb-1">DESCRIPTION</div>
         <div class="filter-value" style="font-weight: normal; font-size: 14px;">
-            {{ product.description|linebreaksbr }}
+            {{ product.description|escape|linebreaksbr }}
         </div>
         
         {# --- Images Section --- #}
