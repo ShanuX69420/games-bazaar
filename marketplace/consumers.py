@@ -6,7 +6,6 @@ import logging
 from datetime import timedelta
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from django.contrib.auth.models import User
 from django.db.models import Q
 from django.db import models
 from django.utils import timezone
@@ -320,6 +319,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_user(self, username):
+        from django.contrib.auth.models import User
         try:
             return User.objects.get(username=username)
         except User.DoesNotExist:
