@@ -54,7 +54,7 @@ CHANNEL_LAYERS = {
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'
 
-# Enhanced production logging with security and performance monitoring
+# Simplified production logging (temporary fix for permission issues)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -67,78 +67,26 @@ LOGGING = {
             'format': '{levelname} {message}',
             'style': '{',
         },
-        'security': {
-            'format': 'SECURITY {levelname} {asctime} {message}',
-            'style': '{',
-        },
-        'performance': {
-            'format': 'PERF {levelname} {asctime} {message}',
-            'style': '{',
-        },
     },
     'handlers': {
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'django.log',
-            'formatter': 'verbose',
-            'maxBytes': 10485760,  # 10MB
-            'backupCount': 5,
-        },
         'console': {
-            'level': 'ERROR',
+            'level': 'INFO',
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },
-        'error_file': {
-            'level': 'ERROR',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'error.log',
-            'formatter': 'verbose',
-            'maxBytes': 10485760,  # 10MB
-            'backupCount': 5,
-        },
-        'security_file': {
-            'level': 'WARNING',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'security.log',
-            'formatter': 'security',
-            'maxBytes': 10485760,  # 10MB
-            'backupCount': 10,  # Keep more security logs
-        },
     },
     'root': {
-        'handlers': ['console', 'file'],
+        'handlers': ['console'],
         'level': 'WARNING',
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'INFO',
-            'propagate': False,
-        },
-        'django.security': {
-            'handlers': ['error_file', 'security_file'],
-            'level': 'ERROR',
-            'propagate': False,
-        },
-        'django.db.backends': {
-            'handlers': ['file'],
-            'level': 'ERROR',  # Only log slow queries
             'propagate': False,
         },
         'marketplace': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'marketplace.security': {
-            'handlers': ['error_file', 'security_file'],
-            'level': 'WARNING',
-            'propagate': False,
-        },
-        'marketplace.access': {
-            'handlers': ['file'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
         },
