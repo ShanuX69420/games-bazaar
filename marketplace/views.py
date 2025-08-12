@@ -415,8 +415,17 @@ def search_results(request):
     return render(request, 'marketplace/search_results.html', context)
 
 def product_detail(request, pk):
-    product = get_object_or_404(Product.objects.with_full_details(), pk=pk)
-    seller = product.seller
+    # Cache product details for 5 minutes since they don't change frequently
+    cache_key = f'product_detail_{pk}'
+    cached_data = cache.get(cache_key)
+    
+    if cached_data:
+        product, seller = cached_data
+    else:
+        product = get_object_or_404(Product.objects.with_full_details(), pk=pk)
+        seller = product.seller
+        cache.set(cache_key, (product, seller), 300)  # 5 minutes
+    
     messages = []
     active_conversation = None
     is_blocked = False
@@ -499,10 +508,17 @@ def game_detail_view(request, pk):
 
 
 def listing_page_view(request, game_pk, category_pk):
-    game = get_object_or_404(Game, pk=game_pk)
-    current_category = get_object_or_404(Category, pk=category_pk)
-
-    game_category_link = get_object_or_404(GameCategory, game=game, category=current_category)
+    # Cache game and category data for 10 minutes
+    cache_key = f'game_category_{game_pk}_{category_pk}'
+    cached_data = cache.get(cache_key)
+    
+    if cached_data:
+        game, current_category, game_category_link = cached_data
+    else:
+        game = get_object_or_404(Game, pk=game_pk)
+        current_category = get_object_or_404(Category, pk=category_pk)
+        game_category_link = get_object_or_404(GameCategory, game=game, category=current_category)
+        cache.set(cache_key, (game, current_category, game_category_link), 600)  # 10 minutes
 
     filter_online_only = request.GET.get('online_only')
     filter_auto_delivery = request.GET.get('auto_delivery_only')
