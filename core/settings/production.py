@@ -54,7 +54,7 @@ CHANNEL_LAYERS = {
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'
 
-# Simplified production logging (temporary fix for permission issues)
+# Production logging with sensitive data protection
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -68,11 +68,44 @@ LOGGING = {
             'style': '{',
         },
     },
+    'filters': {
+        'sensitive_data_filter': {
+            '()': 'core.logging_filters.SensitiveDataFilter',
+        },
+        'payment_callback_filter': {
+            '()': 'core.logging_filters.PaymentCallbackFilter',
+        },
+        'auth_filter': {
+            '()': 'core.logging_filters.AuthenticationFilter',
+        },
+        'request_data_filter': {
+            '()': 'core.logging_filters.RequestDataFilter',
+        },
+    },
     'handlers': {
         'console': {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
+            'filters': ['sensitive_data_filter'],
+        },
+        'security_console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+            'filters': ['sensitive_data_filter', 'request_data_filter'],
+        },
+        'payment_console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+            'filters': ['sensitive_data_filter', 'payment_callback_filter'],
+        },
+        'auth_console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+            'filters': ['sensitive_data_filter', 'auth_filter'],
         },
     },
     'root': {
@@ -87,6 +120,26 @@ LOGGING = {
         },
         'marketplace': {
             'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'marketplace.security': {
+            'handlers': ['security_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'marketplace.access': {
+            'handlers': ['security_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'marketplace.payment': {
+            'handlers': ['payment_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.contrib.auth': {
+            'handlers': ['auth_console'],
             'level': 'INFO',
             'propagate': False,
         },

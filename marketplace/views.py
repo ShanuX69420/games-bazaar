@@ -1794,6 +1794,9 @@ def jazzcash_payment(request, product_id):
     }
     return render(request, 'marketplace/jazzcash_payment_form.html', context)
 
+import logging
+payment_logger = logging.getLogger('marketplace.payment')
+
 @csrf_exempt  # Only exempt for external JazzCash callbacks, with additional security
 @transaction.atomic
 def jazzcash_callback(request):
@@ -1843,6 +1846,9 @@ def jazzcash_callback(request):
             client_ip=client_ip,
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]  # Truncate user agent
         )
+        
+        # Log payment callback with sensitive data protection
+        payment_logger.info(f"Payment callback processed - TxnRef: {transaction_ref}, ResponseCode: {pp_ResponseCode}, IP: {client_ip}")
 
         if pp_ResponseCode == '000':
             # Payment successful - create order now

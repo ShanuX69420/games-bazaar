@@ -18,6 +18,12 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
+# CSRF Protection Configuration
+CSRF_TRUSTED_ORIGINS = [
+    'https://gamesbazaarpk.com',
+    'https://www.gamesbazaarpk.com',
+]
+
 # Application definition
 INSTALLED_APPS = [
     'daphne',
@@ -42,6 +48,8 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'core.middleware.CSPMiddleware',
+    'django_permissions_policy.PermissionsPolicyMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -74,7 +82,16 @@ WSGI_APPLICATION = 'core.wsgi.application'
 ASGI_APPLICATION = 'core.asgi.application'
 
 # Database with enhanced configuration for performance and security
-DATABASE_URL = config('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
+# Production safety: Never allow SQLite fallback in production
+if not DEBUG:
+    # In production, DATABASE_URL must be explicitly set to a PostgreSQL database
+    DATABASE_URL = config('DATABASE_URL')  # Will raise ImproperlyConfigured if missing
+    if not DATABASE_URL.startswith(('postgres://', 'postgresql://')):
+        raise Exception("Production requires PostgreSQL database. SQLite is not allowed in production.")
+else:
+    # Development fallback to SQLite is allowed
+    DATABASE_URL = config('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
+
 DATABASES = {
     'default': dj_database_url.parse(DATABASE_URL)
 }
@@ -248,12 +265,16 @@ SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool
 CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
+# Cookie SameSite settings for enhanced security
+SESSION_COOKIE_SAMESITE = 'Lax'  # Allows navigation from external sites
+CSRF_COOKIE_SAMESITE = 'Lax'     # Required for CSRF protection to work with forms
+SESSION_COOKIE_HTTPONLY = True   # Prevent XSS access to session cookies
+
 # Content Security Policy
 CSP_DEFAULT_SRC = ["'self'"]
 CSP_SCRIPT_SRC = [
     "'self'",
     "'unsafe-inline'",
-    "'unsafe-eval'",
     "https://apis.google.com",
     "https://connect.facebook.net",
     "https://www.google.com/recaptcha/",
@@ -291,12 +312,9 @@ CSP_FRAME_SRC = [
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 PERMISSIONS_POLICY = {
     "accelerometer": [],
-    "ambient-light-sensor": [],
     "autoplay": [],
-    "battery": [],
     "camera": [],
     "display-capture": [],
-    "document-domain": [],
     "encrypted-media": [],
     "fullscreen": [],
     "geolocation": [],

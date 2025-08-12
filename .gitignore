@@ -37,11 +37,18 @@ Thumbs.db
 logs/
 *.log
 
-# Security
+# Security - ALL sensitive files
 *.pem
 *.key
 *.crt
+*.p12
+*.pfx
+*.keystore
 gcs-credentials.json
+service-account*.json
+*-credentials.json
+.env*
+!.env.example
 
 # Cache
 .cache/

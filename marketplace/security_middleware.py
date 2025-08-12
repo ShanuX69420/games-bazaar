@@ -3,7 +3,7 @@
 import logging
 import json
 from datetime import datetime
-from django.http import HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponseBadRequest, HttpResponse, JsonResponse
 from django.utils.deprecation import MiddlewareMixin
 from django.conf import settings
 from django.core.cache import cache
@@ -54,7 +54,12 @@ class SecurityMiddleware(MiddlewareMixin):
                     'event_type': 'admin_rate_limit_exceeded',
                     'request_count': admin_count
                 }))
-                return HttpResponseBadRequest("Admin rate limit exceeded")
+                response = HttpResponse("Admin rate limit exceeded", status=429)
+                response['Retry-After'] = '3600'
+                response['X-RateLimit-Limit'] = '200'
+                response['X-RateLimit-Remaining'] = '0'
+                response['X-RateLimit-Reset'] = str(int(datetime.now().timestamp()) + 3600)
+                return response
             cache.set(admin_cache_key, admin_count + 1, 3600)
         
         # API rate limiting
@@ -68,7 +73,12 @@ class SecurityMiddleware(MiddlewareMixin):
                     'event_type': 'api_rate_limit_exceeded',
                     'request_count': api_count
                 }))
-                return HttpResponseBadRequest("API rate limit exceeded")
+                response = HttpResponse("API rate limit exceeded", status=429)
+                response['Retry-After'] = '3600'
+                response['X-RateLimit-Limit'] = '1000'
+                response['X-RateLimit-Remaining'] = '0'
+                response['X-RateLimit-Reset'] = str(int(datetime.now().timestamp()) + 3600)
+                return response
             cache.set(api_cache_key, api_count + 1, 3600)
         
         # General rate limiting
@@ -81,7 +91,12 @@ class SecurityMiddleware(MiddlewareMixin):
                 'event_type': 'rate_limit_exceeded',
                 'request_count': request_count
             }))
-            return HttpResponseBadRequest("Rate limit exceeded")
+            response = HttpResponse("Rate limit exceeded", status=429)
+            response['Retry-After'] = '3600'
+            response['X-RateLimit-Limit'] = '5000'
+            response['X-RateLimit-Remaining'] = '0'
+            response['X-RateLimit-Reset'] = str(int(datetime.now().timestamp()) + 3600)
+            return response
         
         # Block requests with suspicious patterns
         suspicious_patterns = [
