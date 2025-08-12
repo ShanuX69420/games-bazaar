@@ -106,14 +106,6 @@ LOGGING = {
             'maxBytes': 10485760,  # 10MB
             'backupCount': 10,  # Keep more security logs
         },
-        'performance_file': {
-            'level': 'INFO',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'performance.log',
-            'formatter': 'performance',
-            'maxBytes': 10485760,  # 10MB
-            'backupCount': 3,
-        },
     },
     'root': {
         'handlers': ['console', 'file'],
@@ -147,11 +139,6 @@ LOGGING = {
         },
         'marketplace.access': {
             'handlers': ['file'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'marketplace.performance': {
-            'handlers': ['performance_file'],
             'level': 'INFO',
             'propagate': False,
         },
