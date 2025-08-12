@@ -31,12 +31,21 @@ class GoogleCloudUniversalStorage(Storage):
             return self.default_storage.save(name, content, max_length)
     
     def _save_to_gcs(self, name, content, max_length=None):
-        """Save file directly to Google Cloud Storage and return the name"""
+        """Save file directly to Google Cloud Storage with WebP optimization"""
         from google.cloud import storage
         import mimetypes
+        from PIL import Image
+        import io
         
         # Generate a clean filename
         filename = self.get_available_name(name, max_length)
+        
+        # Convert to WebP for performance optimization
+        webp_filename, webp_content = self._convert_to_webp(filename, content)
+        if webp_filename and webp_content:
+            filename = webp_filename
+            content = webp_content
+        
         blob_name = f"{self.folder_name}/{os.path.basename(filename)}"
         
         # Determine content type
@@ -70,6 +79,54 @@ class GoogleCloudUniversalStorage(Storage):
         
         # Return the filename (without the folder prefix for Django)
         return os.path.basename(filename)
+    
+    def _convert_to_webp(self, filename, content):
+        """Convert image to WebP format for better performance"""
+        try:
+            from PIL import Image
+            import io
+            
+            # Skip conversion for GIFs (preserve animation)
+            if filename.lower().endswith('.gif'):
+                return None, None
+            
+            # Only convert common image formats
+            if not filename.lower().endswith(('.jpg', '.jpeg', '.png')):
+                return None, None
+            
+            # Reset content position
+            if hasattr(content, 'seek'):
+                content.seek(0)
+            
+            # Open and convert image
+            image = Image.open(content)
+            
+            # Convert to RGB if necessary (WebP doesn't support RGBA for all modes)
+            if image.mode in ('RGBA', 'LA', 'P'):
+                # Create a white background for transparency
+                background = Image.new('RGB', image.size, (255, 255, 255))
+                if image.mode == 'P':
+                    image = image.convert('RGBA')
+                background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                image = background
+            elif image.mode != 'RGB':
+                image = image.convert('RGB')
+            
+            # Create WebP content
+            webp_content = io.BytesIO()
+            image.save(webp_content, format='WEBP', quality=85, optimize=True)
+            webp_content.seek(0)
+            
+            # Generate WebP filename
+            base_name = os.path.splitext(filename)[0]
+            webp_filename = f"{base_name}.webp"
+            
+            print(f"Converted {filename} to WebP format")
+            return webp_filename, webp_content
+            
+        except Exception as e:
+            print(f"WebP conversion failed for {filename}: {e}")
+            return None, None
     
     def delete(self, name):
         """Delete from both GCS and local storage"""

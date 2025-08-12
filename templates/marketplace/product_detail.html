@@ -207,7 +207,7 @@
             <div class="image-gallery-container">
                 {% for image in product.images.all %}
                     <div class="image-thumbnail-box" data-bs-toggle="modal" data-bs-target="#imagePreviewModal" data-img-src="{{ image.image.url }}">
-                        <img src="{{ image.image.url }}" alt="Product image {{ forloop.counter }}">
+                        <img src="{{ image.image.url }}" alt="Product image {{ forloop.counter }}" loading="lazy">
                     </div>
                 {% endfor %}
             </div>

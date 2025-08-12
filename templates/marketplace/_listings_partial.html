@@ -27,7 +27,7 @@
         {# Column 3: Seller. This is not a link, as the whole row is clickable. #}
         <div class="listing-seller">
             <div class="seller-avatar-container">
-                <img src="{{ listing.seller.profile.image_url }}" alt="{{ listing.seller.username }}" class="seller-avatar">
+                <img src="{{ listing.seller.profile.image_url }}" alt="{{ listing.seller.username }}" class="seller-avatar" loading="lazy">
                 <span class="status-dot {% if listing.seller.profile.is_online %}online{% endif %}"></span>
             </div>
             <div class="seller-info">
