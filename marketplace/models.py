@@ -372,11 +372,15 @@ class ProductImage(models.Model):
 
     @property
     def image_url(self):
-        """Return CDN URL - the storage backend handles URL generation"""
+        """Return CDN URL with fallback for missing images"""
         if self.image and hasattr(self.image, 'url'): 
-            return self.image.url
+            try:
+                return self.image.url
+            except Exception as e:
+                print(f"Error generating URL for image {self.image.name}: {e}")
+                return '/static/images/default.jpg'
         else: 
-            return None
+            return '/static/images/default.jpg'
 
     def __str__(self):
         return f"Image for {self.product.listing_title}"

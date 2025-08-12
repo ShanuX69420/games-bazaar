@@ -150,13 +150,20 @@ class GoogleCloudUniversalStorage(Storage):
         return self.default_storage.exists(name)
     
     def url(self, name):
-        """Return Google Cloud Storage URL directly"""
+        """Return appropriate URL based on configuration and file location"""
+        # If GCS is disabled, always use local storage
         if not settings.USE_GCS_FOR_NEW_IMAGES:
             return self.default_storage.url(name)
-            
-        # Return GCS URL directly
-        blob_name = f"{self.folder_name}/{os.path.basename(name)}"
-        return f"{settings.GS_CUSTOM_ENDPOINT}/{blob_name}"
+        
+        # If GCS is enabled and we have a custom endpoint
+        if settings.GS_CUSTOM_ENDPOINT:
+            # For new WebP files, assume they're in GCS
+            if name.lower().endswith('.webp'):
+                blob_name = f"{self.folder_name}/{os.path.basename(name)}"
+                return f"{settings.GS_CUSTOM_ENDPOINT}/{blob_name}"
+        
+        # For existing files or when GCS is not properly configured, use local storage
+        return self.default_storage.url(name)
     
     def size(self, name):
         """Get file size from local storage"""
