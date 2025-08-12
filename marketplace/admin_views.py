@@ -100,28 +100,50 @@ def admin_resolve_dispute(request, conversation_id):
     return redirect('/admin/marketplace/conversation/')
 
 @staff_member_required
-@csrf_exempt
 def admin_send_message(request, conversation_id):
-    """Send message as admin in conversation"""
+    """Send message as admin in conversation - CSRF protected"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid method'})
     
     try:
+        # Verify CSRF token manually for AJAX requests
+        from django.middleware.csrf import get_token
+        csrf_token = request.META.get('HTTP_X_CSRFTOKEN')
+        if not csrf_token:
+            return JsonResponse({'success': False, 'error': 'CSRF token missing'})
+        
         data = json.loads(request.body)
         content = data.get('message', '').strip()
         
+        # Enhanced input validation and sanitization
         if not content:
             return JsonResponse({'success': False, 'error': 'Message cannot be empty'})
         
+        if len(content) > 2000:  # Limit message length
+            return JsonResponse({'success': False, 'error': 'Message too long (max 2000 characters)'})
+        
+        # Basic XSS protection - escape dangerous characters
+        import html
+        content = html.escape(content)
+        
         conversation = get_object_or_404(Conversation, id=conversation_id)
         
-        # Create message
+        # Verify admin has permission to moderate this conversation
+        if not (request.user.is_staff or request.user.is_superuser):
+            return JsonResponse({'success': False, 'error': 'Permission denied'})
+        
+        # Create message with additional security logging
         message = Message.objects.create(
             conversation=conversation,
             sender=request.user,
             content=content,
             is_system_message=False
         )
+        
+        # Log admin action for audit trail
+        import logging
+        logger = logging.getLogger('marketplace.security')
+        logger.info(f"Admin message sent: User {request.user.username} in conversation {conversation_id}")
         
         return JsonResponse({
             'success': True,
@@ -135,7 +157,11 @@ def admin_send_message(request, conversation_id):
         })
         
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+        # Enhanced error logging for security
+        import logging
+        logger = logging.getLogger('marketplace.security')
+        logger.error(f"Admin message error: {str(e)} for user {request.user.username}")
+        return JsonResponse({'success': False, 'error': 'Failed to send message'})
 
 @staff_member_required
 def support_dashboard(request):

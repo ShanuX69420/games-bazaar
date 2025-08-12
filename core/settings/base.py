@@ -73,20 +73,40 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 ASGI_APPLICATION = 'core.asgi.application'
 
-# Database
-# Use environment variable for database URL (PostgreSQL for production)
+# Database with enhanced configuration for performance and security
 DATABASE_URL = config('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
 DATABASES = {
     'default': dj_database_url.parse(DATABASE_URL)
 }
 
-# Password validation
+# Enhanced database configuration for production
+if 'postgresql' in DATABASES['default']['ENGINE']:
+    DATABASES['default'].update({
+        'CONN_MAX_AGE': 600,  # Keep connections alive for 10 minutes
+        'OPTIONS': {
+            'MAX_CONNS': 20,  # Connection pooling
+            'connect_timeout': 10,
+            'options': '-c default_transaction_isolation=read_committed'
+        }
+    })
+
+# Database query optimization settings
+DATABASE_QUERY_TIMEOUT = 30  # 30 seconds timeout for slow queries
+
+# Enhanced password validation for better security
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'OPTIONS': {
+            'user_attributes': ['username', 'email', 'first_name', 'last_name'],
+            'max_similarity': 0.7,
+        }
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 12,  # Increased from default 8 to 12
+        }
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -95,6 +115,10 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+# Additional security settings for authentication
+LOGIN_ATTEMPTS_LIMIT = 5
+LOGIN_ATTEMPTS_TIMEOUT = 300  # 5 minutes lockout
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'

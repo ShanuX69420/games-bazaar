@@ -54,7 +54,7 @@ CHANNEL_LAYERS = {
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'
 
-# Production logging
+# Enhanced production logging with security and performance monitoring
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -67,13 +67,23 @@ LOGGING = {
             'format': '{levelname} {message}',
             'style': '{',
         },
+        'security': {
+            'format': 'SECURITY {levelname} {asctime} {message}',
+            'style': '{',
+        },
+        'performance': {
+            'format': 'PERF {levelname} {asctime} {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'file': {
             'level': 'INFO',
-            'class': 'logging.FileHandler',
+            'class': 'logging.handlers.RotatingFileHandler',
             'filename': BASE_DIR / 'logs' / 'django.log',
             'formatter': 'verbose',
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 5,
         },
         'console': {
             'level': 'ERROR',
@@ -82,9 +92,27 @@ LOGGING = {
         },
         'error_file': {
             'level': 'ERROR',
-            'class': 'logging.FileHandler',
+            'class': 'logging.handlers.RotatingFileHandler',
             'filename': BASE_DIR / 'logs' / 'error.log',
             'formatter': 'verbose',
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 5,
+        },
+        'security_file': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'security.log',
+            'formatter': 'security',
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 10,  # Keep more security logs
+        },
+        'performance_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'performance.log',
+            'formatter': 'performance',
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 3,
         },
     },
     'root': {
@@ -98,8 +126,13 @@ LOGGING = {
             'propagate': False,
         },
         'django.security': {
-            'handlers': ['error_file'],
+            'handlers': ['error_file', 'security_file'],
             'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['performance_file'],
+            'level': 'ERROR',  # Only log slow queries
             'propagate': False,
         },
         'marketplace': {
@@ -108,12 +141,17 @@ LOGGING = {
             'propagate': False,
         },
         'marketplace.security': {
-            'handlers': ['error_file'],
+            'handlers': ['error_file', 'security_file'],
             'level': 'WARNING',
             'propagate': False,
         },
         'marketplace.access': {
             'handlers': ['file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'marketplace.performance': {
+            'handlers': ['performance_file'],
             'level': 'INFO',
             'propagate': False,
         },
@@ -131,6 +169,25 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_BROWSER_XSS_FILTER = True
 
+# Performance and reliability settings
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
+DATA_UPLOAD_MAX_NUMBER_FILES = 20
+
+# Error handling for production
+ADMINS = [
+    ('Admin', config('ADMIN_EMAIL', default='admin@gamesbazaarpk.com')),
+]
+MANAGERS = ADMINS
+
+# Server error logging
+SERVER_EMAIL = config('SERVER_EMAIL', default='server@gamesbazaarpk.com')
+
+# Custom error pages
+CUSTOM_500_ERROR_VIEW = True
+
+# Database backup settings
+DATABASE_BACKUP_ENABLED = config('DATABASE_BACKUP_ENABLED', default=True, cast=bool)
+DATABASE_BACKUP_SCHEDULE = config('DATABASE_BACKUP_SCHEDULE', default='daily')
 
 # Add security middleware
 MIDDLEWARE = [

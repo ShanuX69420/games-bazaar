@@ -31,14 +31,75 @@ def validate_quantity(quantity_str, max_quantity=1000):
     Returns validated quantity or raises ValidationError.
     """
     try:
-        quantity = int(quantity_str)
+        # Strip whitespace and check for empty/None values
+        if not quantity_str or str(quantity_str).strip() == '':
+            raise ValidationError("Quantity is required")
+        
+        quantity = int(str(quantity_str).strip())
         if quantity < 1:
             raise ValidationError("Quantity must be at least 1")
         if quantity > max_quantity:
             raise ValidationError(f"Quantity cannot exceed {max_quantity}")
         return quantity
     except (ValueError, TypeError):
-        raise ValidationError("Invalid quantity format")
+        raise ValidationError("Invalid quantity format - must be a valid number")
+
+def validate_text_input(text, field_name, min_length=1, max_length=500, allow_html=False):
+    """
+    Enhanced text input validation with XSS protection.
+    Returns sanitized text or raises ValidationError.
+    """
+    if not text:
+        if min_length > 0:
+            raise ValidationError(f"{field_name} is required")
+        return ""
+    
+    text = str(text).strip()
+    
+    if len(text) < min_length:
+        raise ValidationError(f"{field_name} must be at least {min_length} characters")
+    
+    if len(text) > max_length:
+        raise ValidationError(f"{field_name} cannot exceed {max_length} characters")
+    
+    # Check for suspicious patterns
+    suspicious_patterns = ['<script', 'javascript:', 'onload=', 'onerror=', 'data:text/html']
+    if not allow_html:
+        for pattern in suspicious_patterns:
+            if pattern.lower() in text.lower():
+                raise ValidationError(f"{field_name} contains prohibited content")
+    
+    # Basic XSS protection if HTML is not allowed
+    if not allow_html:
+        import html
+        text = html.escape(text)
+    
+    return text
+
+def validate_price(price_str, min_price=1, max_price=999999):
+    """
+    Validate and sanitize price input with proper decimal handling.
+    """
+    try:
+        if not price_str:
+            raise ValidationError("Price is required")
+        
+        from decimal import Decimal, InvalidOperation
+        price = Decimal(str(price_str).strip())
+        
+        if price < Decimal(str(min_price)):
+            raise ValidationError(f"Price must be at least {min_price}")
+        
+        if price > Decimal(str(max_price)):
+            raise ValidationError(f"Price cannot exceed {max_price}")
+        
+        # Check for reasonable decimal places (max 2)
+        if price.as_tuple().exponent < -2:
+            raise ValidationError("Price cannot have more than 2 decimal places")
+        
+        return price
+    except (InvalidOperation, ValueError, TypeError):
+        raise ValidationError("Invalid price format - must be a valid number")
 
 def validate_uploaded_file(uploaded_file, max_size_mb=5, allowed_types=None):
     """

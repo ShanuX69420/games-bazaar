@@ -34,10 +34,45 @@ class SecurityMiddleware(MiddlewareMixin):
                 'event_type': 'sensitive_access'
             }))
         
-        # Rate limiting for suspicious IPs
-        cache_key = f'suspicious_requests_{client_ip}'
+        # Enhanced rate limiting with multiple tiers
+        cache_key = f'requests_{client_ip}'
+        admin_cache_key = f'admin_requests_{client_ip}'
+        api_cache_key = f'api_requests_{client_ip}'
+        
         request_count = cache.get(cache_key, 0)
-        if request_count > 8000:  # More than 8000 requests per hour from same IP (130+ per minute)
+        admin_count = cache.get(admin_cache_key, 0)
+        api_count = cache.get(api_cache_key, 0)
+        
+        # Stricter rate limiting for admin endpoints
+        if request.path.startswith('/admin'):
+            if admin_count > 200:  # 200 admin requests per hour (3+ per minute)
+                logger.critical(json.dumps({
+                    'timestamp': datetime.now().isoformat(),
+                    'ip': client_ip,
+                    'path': request.path,
+                    'user_agent': user_agent[:200],
+                    'event_type': 'admin_rate_limit_exceeded',
+                    'request_count': admin_count
+                }))
+                return HttpResponseBadRequest("Admin rate limit exceeded")
+            cache.set(admin_cache_key, admin_count + 1, 3600)
+        
+        # API rate limiting
+        if '/api/' in request.path or request.path.startswith('/jazzcash'):
+            if api_count > 1000:  # 1000 API requests per hour
+                logger.critical(json.dumps({
+                    'timestamp': datetime.now().isoformat(),
+                    'ip': client_ip,
+                    'path': request.path,
+                    'user_agent': user_agent[:200],
+                    'event_type': 'api_rate_limit_exceeded',
+                    'request_count': api_count
+                }))
+                return HttpResponseBadRequest("API rate limit exceeded")
+            cache.set(api_cache_key, api_count + 1, 3600)
+        
+        # General rate limiting
+        if request_count > 5000:  # Reduced from 8000 to 5000 for better security
             logger.critical(json.dumps({
                 'timestamp': datetime.now().isoformat(),
                 'ip': client_ip,
@@ -106,12 +141,19 @@ class SecurityMiddleware(MiddlewareMixin):
         # Add Cross-Origin-Opener-Policy for better browser compatibility
         response['Cross-Origin-Opener-Policy'] = 'same-origin'
         
-        # Enhanced CSP for better security
+        # Enhanced CSP for better security with nonce support
         if not settings.DEBUG:
+            # Generate CSP nonce for inline scripts if not already set
+            nonce = getattr(request, 'csp_nonce', None)
+            if not nonce:
+                import secrets
+                nonce = secrets.token_urlsafe(16)
+                request.csp_nonce = nonce
+            
             response['Content-Security-Policy'] = (
                 "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://accounts.google.com https://connect.facebook.net https://www.facebook.com https://static.cloudflareinsights.com; "
-                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                f"script-src 'self' 'nonce-{nonce}' https://www.google.com https://www.gstatic.com https://accounts.google.com https://connect.facebook.net https://www.facebook.com https://static.cloudflareinsights.com; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "  # Keep unsafe-inline for Bootstrap compatibility
                 "font-src 'self' https://fonts.gstatic.com; "
                 "img-src 'self' data: https: blob:; "
                 "frame-src 'self' https://www.google.com https://accounts.google.com https://www.facebook.com; "
@@ -120,7 +162,8 @@ class SecurityMiddleware(MiddlewareMixin):
                 "object-src 'none'; "
                 "base-uri 'self'; "
                 "form-action 'self' https://sandbox.jazzcash.com.pk https://jazzcash.com.pk https://accounts.google.com https://www.facebook.com; "
-                "upgrade-insecure-requests;"
+                "upgrade-insecure-requests; "
+                "block-all-mixed-content;"
             )
         
         return response
