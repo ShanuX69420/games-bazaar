@@ -18,10 +18,11 @@ def safe_system_html(value):
     # First escape everything to be safe
     safe_content = escape(value)
     
-    # Now selectively un-escape only the allowed HTML patterns
+    # Now selectively un-escape only the allowed HTML patterns with strict validation
     # Pattern 1: <a href="/path/" class="class-name">text</a>
+    # Only allow internal URLs (starting with /)
     safe_content = re.sub(
-        r'&lt;a href=&quot;([^&]+?)&quot; class=&quot;([^&]+?)&quot;&gt;([^&]+?)&lt;/a&gt;',
+        r'&lt;a href=&quot;(/[^&"<>]*?)&quot; class=&quot;([a-zA-Z0-9\-_ ]+?)&quot;&gt;([^&<>]+?)&lt;/a&gt;',
         r'<a href="\1" class="\2">\3</a>',
         safe_content,
         flags=re.IGNORECASE
@@ -29,7 +30,7 @@ def safe_system_html(value):
     
     # Pattern 2: <strong>text</strong>
     safe_content = re.sub(
-        r'&lt;strong&gt;([^&]+?)&lt;/strong&gt;',
+        r'&lt;strong&gt;([^&<>]+?)&lt;/strong&gt;',
         r'<strong>\1</strong>',
         safe_content,
         flags=re.IGNORECASE
@@ -37,7 +38,7 @@ def safe_system_html(value):
     
     # Pattern 3: <em>text</em>
     safe_content = re.sub(
-        r'&lt;em&gt;([^&]+?)&lt;/em&gt;',
+        r'&lt;em&gt;([^&<>]+?)&lt;/em&gt;',
         r'<em>\1</em>',
         safe_content,
         flags=re.IGNORECASE

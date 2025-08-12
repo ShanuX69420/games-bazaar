@@ -61,14 +61,16 @@ def validate_uploaded_file(uploaded_file, max_size_mb=5, allowed_types=None):
     if not uploaded_file.name or len(uploaded_file.name) > 255:
         raise ValidationError("Invalid filename")
     
-    # Check for dangerous filenames
+    # Check for dangerous filenames and path traversal
+    import os
+    filename = os.path.basename(uploaded_file.name)
     dangerous_patterns = ['..', '/', '\\', '<', '>', ':', '"', '|', '?', '*', '\x00']
-    if any(pattern in uploaded_file.name for pattern in dangerous_patterns):
+    if any(pattern in filename for pattern in dangerous_patterns):
         raise ValidationError("Filename contains dangerous characters")
     
     # Check file extension (stricter validation)
     allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
-    file_ext = uploaded_file.name.lower().split('.')[-1] if '.' in uploaded_file.name else ''
+    file_ext = filename.lower().split('.')[-1] if '.' in filename else ''
     if f'.{file_ext}' not in allowed_extensions:
         raise ValidationError(f"File extension .{file_ext} not allowed")
     
@@ -80,13 +82,16 @@ def validate_uploaded_file(uploaded_file, max_size_mb=5, allowed_types=None):
         'image/webp': ['.webp']
     }
     
+    if uploaded_file.content_type not in allowed_types:
+        raise ValidationError(f"Content type {uploaded_file.content_type} not allowed")
+    
     if uploaded_file.content_type in mime_ext_mapping:
         if f'.{file_ext}' not in mime_ext_mapping[uploaded_file.content_type]:
             raise ValidationError("File extension doesn't match content type")
     
     # Enhanced magic byte validation
     uploaded_file.seek(0)
-    file_start = uploaded_file.read(16)  # Read more bytes for better detection
+    file_start = uploaded_file.read(512)  # Read more bytes for better detection
     uploaded_file.seek(0)
     
     # Comprehensive image signatures
@@ -103,14 +108,23 @@ def validate_uploaded_file(uploaded_file, max_size_mb=5, allowed_types=None):
     
     # Additional WebP validation
     if uploaded_file.content_type == 'image/webp':
-        if b'WEBP' not in file_start:
+        if b'WEBP' not in file_start[:20]:
             raise ValidationError("Invalid WebP file format")
     
-    # Check for embedded scripts in image metadata (basic check)
+    # Check for embedded scripts in image metadata (more comprehensive check)
     file_content_lower = file_start.lower()
-    script_patterns = [b'<script', b'javascript:', b'vbscript:', b'onload=', b'onerror=']
+    script_patterns = [
+        b'<script', b'javascript:', b'vbscript:', b'onload=', b'onerror=',
+        b'onclick=', b'onmouseover=', b'<?php', b'<%', b'<jsp:', b'eval('
+    ]
     if any(pattern in file_content_lower for pattern in script_patterns):
         raise ValidationError("File contains potentially malicious content")
+    
+    # Check for EXIF and metadata attacks
+    if b'<x:xmpmeta' in file_content_lower or b'<rdf:rdf' in file_content_lower:
+        # Additional validation for XMP/RDF metadata
+        if any(pattern in file_content_lower for pattern in [b'<script', b'javascript:', b'data:']):
+            raise ValidationError("Malicious content detected in image metadata")
     
     return True
 
@@ -752,6 +766,27 @@ def facebook_data_deletion(request):
     Facebook data deletion callback endpoint for app review compliance.
     """
     if request.method == 'POST':
+        # Validate the request is actually from Facebook
+        import hmac
+        
+        # Get the signature from headers
+        fb_signature = request.headers.get('X-Hub-Signature-256', '')
+        
+        if fb_signature and hasattr(settings, 'FACEBOOK_APP_SECRET'):
+            # Verify the signature
+            expected_signature = 'sha256=' + hmac.new(
+                settings.FACEBOOK_APP_SECRET.encode('utf-8'),
+                request.body,
+                hashlib.sha256
+            ).hexdigest()
+            
+            if not hmac.compare_digest(fb_signature, expected_signature):
+                return HttpResponseForbidden('Invalid signature')
+        
+        # Rate limit to prevent abuse
+        if not check_rate_limit(request, 'fb_deletion', limit=10, period=3600):
+            return HttpResponseForbidden('Rate limit exceeded')
+        
         # For production, you would handle actual data deletion here
         # For now, just acknowledge the request
         return JsonResponse({
@@ -1338,7 +1373,17 @@ def messages_view(request, username=None):
     if username and username.lower() == request.user.username.lower():
         return redirect('my_messages')
 
-    conversations = Conversation.objects.filter(Q(participant1=request.user) | Q(participant2=request.user)).annotate(message_count=Count('messages')).filter(message_count__gt=0).exclude(participant1=F('participant2')).order_by('-updated_at')
+    conversations = Conversation.objects.filter(
+        Q(participant1=request.user) | Q(participant2=request.user)
+    ).select_related(
+        'participant1__profile', 'participant2__profile'
+    ).annotate(
+        message_count=Count('messages')
+    ).filter(
+        message_count__gt=0
+    ).exclude(
+        participant1=F('participant2')
+    ).order_by('-updated_at')
     unread_conversation_ids = set(Message.objects.filter(conversation__in=conversations, is_read=False).exclude(sender=request.user).values_list('conversation_id', flat=True))
     active_conversation, messages, other_user = None, [], None
     if username:
