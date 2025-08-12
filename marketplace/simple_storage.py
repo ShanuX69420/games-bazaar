@@ -75,7 +75,6 @@ class GoogleCloudUniversalStorage(Storage):
             content.seek(0)
             
         blob.upload_from_file(content)
-        print(f"Saved to GCS: {blob_name} (Content-Type: {content_type})")
         
         # Return the filename (without the folder prefix for Django)
         return os.path.basename(filename)
@@ -121,7 +120,6 @@ class GoogleCloudUniversalStorage(Storage):
             base_name = os.path.splitext(filename)[0]
             webp_filename = f"{base_name}.webp"
             
-            print(f"Converted {filename} to WebP format")
             return webp_filename, webp_content
             
         except Exception as e:
