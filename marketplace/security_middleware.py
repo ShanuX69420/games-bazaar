@@ -141,19 +141,12 @@ class SecurityMiddleware(MiddlewareMixin):
         # Add Cross-Origin-Opener-Policy for better browser compatibility
         response['Cross-Origin-Opener-Policy'] = 'same-origin'
         
-        # Enhanced CSP for better security with nonce support
+        # Relaxed CSP for chat functionality (temporary fix)
         if not settings.DEBUG:
-            # Generate CSP nonce for inline scripts if not already set
-            nonce = getattr(request, 'csp_nonce', None)
-            if not nonce:
-                import secrets
-                nonce = secrets.token_urlsafe(16)
-                request.csp_nonce = nonce
-            
             response['Content-Security-Policy'] = (
                 "default-src 'self'; "
-                f"script-src 'self' 'nonce-{nonce}' https://www.google.com https://www.gstatic.com https://accounts.google.com https://connect.facebook.net https://www.facebook.com https://static.cloudflareinsights.com; "
-                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "  # Keep unsafe-inline for Bootstrap compatibility
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://accounts.google.com https://connect.facebook.net https://www.facebook.com https://static.cloudflareinsights.com; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                 "font-src 'self' https://fonts.gstatic.com; "
                 "img-src 'self' data: https: blob:; "
                 "frame-src 'self' https://www.google.com https://accounts.google.com https://www.facebook.com; "
@@ -162,8 +155,7 @@ class SecurityMiddleware(MiddlewareMixin):
                 "object-src 'none'; "
                 "base-uri 'self'; "
                 "form-action 'self' https://sandbox.jazzcash.com.pk https://jazzcash.com.pk https://accounts.google.com https://www.facebook.com; "
-                "upgrade-insecure-requests; "
-                "block-all-mixed-content;"
+                "upgrade-insecure-requests;"
             )
         
         return response
