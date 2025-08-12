@@ -123,7 +123,7 @@ LOGGING = {
             'propagate': False,
         },
         'django.db.backends': {
-            'handlers': ['performance_file'],
+            'handlers': ['file'],
             'level': 'ERROR',  # Only log slow queries
             'propagate': False,
         },
