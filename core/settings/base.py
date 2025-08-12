@@ -84,7 +84,6 @@ if 'postgresql' in DATABASES['default']['ENGINE']:
     DATABASES['default'].update({
         'CONN_MAX_AGE': 600,  # Keep connections alive for 10 minutes
         'OPTIONS': {
-            'MAX_CONNS': 20,  # Connection pooling
             'connect_timeout': 10,
             'options': '-c default_transaction_isolation=read_committed'
         }
