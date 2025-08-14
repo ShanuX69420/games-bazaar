@@ -21,7 +21,7 @@
                         {{ review.order.product.game.title }}
                     {% else %}
                         {{ review.order.game_snapshot.title }}
-                    {% endif %}, Rs{{ review.order.total_price|floatformat:2 }}
+                    {% endif %}, Rs {{ review.order.total_price|floatformat:0|intcomma }}
                 </div>
             </div>
             <div class="review-rating">

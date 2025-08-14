@@ -680,9 +680,9 @@ class ConversationAdmin(admin.ModelAdmin):
     assign_moderator.short_description = "Assign yourself as moderator"
 
 # ==== ADMIN SITE CUSTOMIZATION ====
-admin.site.site_header = "Gamers Market Admin"
-admin.site.site_title = "Gamers Market"
-admin.site.index_title = "Welcome to Gamers Market Administration"
+admin.site.site_header = "GamesBazaar Admin"
+admin.site.site_title = "GamesBazaar"
+admin.site.index_title = "Welcome to GamesBazaar Administration"
 
 # Add custom admin view for support dashboard
 from django.urls import path

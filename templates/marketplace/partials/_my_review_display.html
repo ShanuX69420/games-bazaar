@@ -1,4 +1,4 @@
-{% load time_filters %}
+{% load time_filters humanize %}
 <div class="review-card" id="review-{{ review.pk }}">
     <div class="review-avatar">
         <img src="{{ review.buyer.profile.image_url }}" alt="{{ review.buyer.username }}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">
@@ -14,7 +14,7 @@
                         {{ review.order.product.game.title }}
                     {% else %}
                         {{ review.order.game_snapshot.title }}
-                    {% endif %}, {{ review.order.total_price|floatformat:2 }} $
+                    {% endif %}, Rs {{ review.order.total_price|floatformat:0|intcomma }}
                 </div>
             </div>
             <div class="review-rating">

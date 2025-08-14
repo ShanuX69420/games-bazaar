@@ -3,6 +3,7 @@
 {% load time_filters %}
 {% load math_filters %}
 {% load cdn_tags %}
+{% load humanize %}
 
 {% block content %}
 
@@ -232,28 +233,28 @@
                     <span>Not selected</span>
                 </div>
                 <div class="payment-option-end">
-                    <span class="payment-option-price">from Rs{{ product.price|floatformat:2 }}</span>
+                    <span class="payment-option-price">from Rs {{ product.price|floatformat:0|intcomma }}</span>
                     <i class="fas fa-chevron-down dropdown-caret"></i>
                 </div>
             </div>
             <div class="dropdown-options">
-                <div class="dropdown-option" data-value="Easypaisa" data-img-src="{% static 'images/easypaisa_logo.png' %}" data-price="Rs{{ product.price|floatformat:2 }}">
+                <div class="dropdown-option" data-value="Easypaisa" data-img-src="{% static 'images/easypaisa_logo.png' %}" data-price="Rs{{ product.price|floatformat:0 }}">
                     <div class="payment-option-details">
                         <img src="{% static 'images/easypaisa_logo.png' %}" alt="Easypaisa Logo">
                         <span>Easypaisa</span>
                     </div>
                     <div class="payment-option-end">
-                        <span class="payment-option-price">Rs{{ product.price|floatformat:2 }}</span>
+                        <span class="payment-option-price">Rs {{ product.price|floatformat:0|intcomma }}</span>
                         <i class="fas fa-chevron-down dropdown-caret invisible"></i>
                     </div>
                 </div>
-                <div class="dropdown-option" data-value="Jazzcash" data-img-src="{% static 'images/jazzcash_logo.png' %}" data-price="Rs{{ product.price|floatformat:2 }}">
+                <div class="dropdown-option" data-value="Jazzcash" data-img-src="{% static 'images/jazzcash_logo.png' %}" data-price="Rs{{ product.price|floatformat:0 }}">
                     <div class="payment-option-details">
                         <img src="{% static 'images/jazzcash_logo.png' %}" alt="Jazzcash Logo">
                         <span>Jazzcash</span>
                     </div>
                     <div class="payment-option-end">
-                        <span class="payment-option-price">Rs{{ product.price|floatformat:2 }}</span>
+                        <span class="payment-option-price">Rs {{ product.price|floatformat:0|intcomma }}</span>
                         <i class="fas fa-chevron-down dropdown-caret invisible"></i>
                     </div>
                 </div>
@@ -295,9 +296,9 @@
                         <button type="submit" id="buy-now-btn" class="btn btn-success btn-lg w-100">Buy Now</button>
                         <small id="payment-helper-text" class="form-text text-muted d-block text-center mt-1">
                             {% if user.profile.available_balance >= product.price %}
-                                Will be paid from your balance (Rs {{ user.profile.available_balance|floatformat:2 }} available)
+                                Will be paid from your balance (Rs {{ user.profile.available_balance|floatformat:0|intcomma }} available)
                             {% else %}
-                                Balance: Rs {{ user.profile.available_balance|floatformat:2 }} | Need: Rs {{ product.price|sub:user.profile.available_balance|floatformat:2 }} via payment method
+                                Balance: Rs {{ user.profile.available_balance|floatformat:0|intcomma }} | Need: Rs {{ product.price|sub:user.profile.available_balance|floatformat:0|intcomma }} via payment method
                             {% endif %}
                         </small>
                     </form>

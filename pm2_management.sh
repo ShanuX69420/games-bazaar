@@ -1,5 +1,5 @@
 #!/bin/bash
-# PM2 Management Script for Games Bazaar
+# PM2 Management Script for GamesBazaar
 # Server response time optimized from 660ms to 30ms!
 
 case "$1" in
@@ -12,15 +12,15 @@ case "$1" in
         pm2 logs games-bazaar --lines 20
         ;;
     restart)
-        echo "=== Restarting Games Bazaar ==="
+        echo "=== Restarting GamesBazaar ==="
         pm2 restart games-bazaar
         ;;
     stop)
-        echo "=== Stopping Games Bazaar ==="
+        echo "=== Stopping GamesBazaar ==="
         pm2 stop games-bazaar
         ;;
     start)
-        echo "=== Starting Games Bazaar ==="
+        echo "=== Starting GamesBazaar ==="
         pm2 start ecosystem.config.js
         ;;
     monitor)
@@ -28,7 +28,7 @@ case "$1" in
         pm2 monit
         ;;
     reload)
-        echo "=== Reloading Games Bazaar (zero downtime) ==="
+        echo "=== Reloading GamesBazaar (zero downtime) ==="
         pm2 reload games-bazaar
         ;;
     test)

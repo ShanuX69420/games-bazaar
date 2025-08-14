@@ -1,4 +1,4 @@
-# Comprehensive Test Suite for Gamers Market
+# Comprehensive Test Suite for GamesBazaar
 
 ## Overview
 This test suite was created to replace outdated tests and matches the current secure codebase after comprehensive manual security testing.

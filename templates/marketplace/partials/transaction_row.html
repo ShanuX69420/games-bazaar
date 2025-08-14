@@ -6,7 +6,7 @@
      data-bs-target="#transactionDetailModal"
      data-tx-date="{{ tx.created_at|date:"d F Y, H:i" }}"
      data-tx-description="{{ tx.description }}"
-     data-tx-total="{% if tx.status == 'REFUNDED' %}{% if tx.amount > 0 %}-Rs{{ tx.amount|floatformat:2 }}{% else %}+Rs{{ tx.amount|floatformat:2|cut:'-' }}{% endif %}{% elif tx.transaction_type == 'WITHDRAWAL' and tx.status == 'PENDING' %}Rs0.00 (Pending){% else %}{% if tx.amount > 0 %}+Rs{{ tx.amount|floatformat:2 }}{% else %}-Rs{{ tx.amount|floatformat:2|cut:'-' }}{% endif %}{% endif %}"
+     data-tx-total="{% if tx.status == 'REFUNDED' %}{% if tx.amount > 0 %}-Rs{{ tx.amount|floatformat:0 }}{% else %}+Rs{{ tx.amount|floatformat:0|cut:'-' }}{% endif %}{% elif tx.transaction_type == 'WITHDRAWAL' and tx.status == 'PENDING' %}Rs0.00 (Pending){% else %}{% if tx.amount > 0 %}+Rs{{ tx.amount|floatformat:0 }}{% else %}-Rs{{ tx.amount|floatformat:0|cut:'-' }}{% endif %}{% endif %}"
      data-tx-status="{{ tx.get_status_display }}"
      data-tx-type="{{ tx.transaction_type }}"
      {% if tx.order %}data-order-id="{{ tx.order.order_id }}" data-order-url="{% url 'order_detail' tx.order.clean_order_id %}"{% endif %}
@@ -29,7 +29,7 @@
         </span>
     </div>
     <div class="text-end transaction-total fw-bold">
-        {% if tx.status == 'REFUNDED' %}{% if tx.amount > 0 %}-Rs{{ tx.amount|floatformat:2 }}{% else %}+Rs{{ tx.amount|floatformat:2|cut:"-" }}{% endif %}{% elif tx.transaction_type == 'WITHDRAWAL' and tx.status == 'PENDING' %}<span class="text-muted">Rs0.00 (Pending)</span>{% else %}{% if tx.amount > 0 %}+Rs{{ tx.amount|floatformat:2 }}{% else %}-Rs{{ tx.amount|floatformat:2|cut:"-" }}{% endif %}{% endif %}
+        {% if tx.status == 'REFUNDED' %}{% if tx.amount > 0 %}-Rs{{ tx.amount|floatformat:0 }}{% else %}+Rs{{ tx.amount|floatformat:0|cut:"-" }}{% endif %}{% elif tx.transaction_type == 'WITHDRAWAL' and tx.status == 'PENDING' %}<span class="text-muted">Rs0.00 (Pending)</span>{% else %}{% if tx.amount > 0 %}+Rs{{ tx.amount|floatformat:0 }}{% else %}-Rs{{ tx.amount|floatformat:0|cut:"-" }}{% endif %}{% endif %}
     </div>
 </div>
 
@@ -39,7 +39,7 @@
      data-bs-target="#transactionDetailModal"
      data-tx-date="{{ tx.created_at|date:"d F Y, H:i" }}"
      data-tx-description="{{ tx.description }}"
-     data-tx-total="{% if tx.status == 'REFUNDED' %}{% if tx.amount > 0 %}-Rs{{ tx.amount|floatformat:2 }}{% else %}+Rs{{ tx.amount|floatformat:2|cut:'-' }}{% endif %}{% elif tx.transaction_type == 'WITHDRAWAL' and tx.status == 'PENDING' %}Rs0.00 (Pending){% else %}{% if tx.amount > 0 %}+Rs{{ tx.amount|floatformat:2 }}{% else %}-Rs{{ tx.amount|floatformat:2|cut:'-' }}{% endif %}{% endif %}"
+     data-tx-total="{% if tx.status == 'REFUNDED' %}{% if tx.amount > 0 %}-Rs{{ tx.amount|floatformat:0 }}{% else %}+Rs{{ tx.amount|floatformat:0|cut:'-' }}{% endif %}{% elif tx.transaction_type == 'WITHDRAWAL' and tx.status == 'PENDING' %}Rs0.00 (Pending){% else %}{% if tx.amount > 0 %}+Rs{{ tx.amount|floatformat:0 }}{% else %}-Rs{{ tx.amount|floatformat:0|cut:'-' }}{% endif %}{% endif %}"
      data-tx-status="{{ tx.get_status_display }}"
      data-tx-type="{{ tx.transaction_type }}"
      {% if tx.order %}data-order-id="{{ tx.order.order_id }}" data-order-url="{% url 'order_detail' tx.order.clean_order_id %}"{% endif %}
@@ -70,7 +70,7 @@
     </div>
     <div class="mobile-right-col">
         <div class="transaction-total">
-            {% if tx.status == 'REFUNDED' %}{% if tx.amount > 0 %}-Rs{{ tx.amount|floatformat:2 }}{% else %}+Rs{{ tx.amount|floatformat:2|cut:"-" }}{% endif %}{% elif tx.transaction_type == 'WITHDRAWAL' and tx.status == 'PENDING' %}<span class="text-muted">Rs0.00 (Pending)</span>{% else %}{% if tx.amount > 0 %}+Rs{{ tx.amount|floatformat:2 }}{% else %}-Rs{{ tx.amount|floatformat:2|cut:"-" }}{% endif %}{% endif %}
+            {% if tx.status == 'REFUNDED' %}{% if tx.amount > 0 %}-Rs{{ tx.amount|floatformat:0 }}{% else %}+Rs{{ tx.amount|floatformat:0|cut:"-" }}{% endif %}{% elif tx.transaction_type == 'WITHDRAWAL' and tx.status == 'PENDING' %}<span class="text-muted">Rs0.00 (Pending)</span>{% else %}{% if tx.amount > 0 %}+Rs{{ tx.amount|floatformat:0 }}{% else %}-Rs{{ tx.amount|floatformat:0|cut:"-" }}{% endif %}{% endif %}
         </div>
     </div>
 </div>

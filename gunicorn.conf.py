@@ -1,4 +1,4 @@
-# Gunicorn configuration file for Games Bazaar
+# Gunicorn configuration file for GamesBazaar
 
 # Server socket
 bind = "0.0.0.0:8080"

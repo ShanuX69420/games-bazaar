@@ -121,12 +121,12 @@
 
 <div class="row">
     <div class="col-12 col-md-8">
-        <h1 class="balance-display mb-1"><span class="currency">Rs</span> {{ available_balance|floatformat:2 }}</h1>
+        <h1 class="balance-display mb-1"><span class="currency">Rs</span> {{ available_balance|floatformat:0 }}</h1>
         <p class="text-muted">Available Balance</p>
         {% if held_balance > 0 %}
         <div class="alert alert-info py-2 mt-2">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <small><strong>Rs{{ held_balance|floatformat:2 }}</strong> is currently held from recent sales</small>
+                <small><strong>Rs{{ held_balance|floatformat:0 }}</strong> is currently held from recent sales</small>
                 {% if not show_details %}
                 <a href="?show_held_details=1{{ request.GET.filter|yesno:'&filter='}}{{ request.GET.filter }}" class="btn btn-sm btn-outline-info">
                     View Details
@@ -145,7 +145,7 @@
                 <div class="col-6">
                     <div class="card border-0 bg-light">
                         <div class="card-body p-2 text-center">
-                            <div class="fw-bold text-primary">Rs{{ summary_item.total_amount|floatformat:2 }}</div>
+                            <div class="fw-bold text-primary">Rs{{ summary_item.total_amount|floatformat:0 }}</div>
                             <small class="text-muted">
                                 {% if summary_item.label == 'available_now' %}
                                     Available now
@@ -174,7 +174,7 @@
                     <div class="d-flex justify-content-between align-items-center border-bottom py-1">
                         <div>
                             <small class="text-muted">Order {{ held_fund.order.order_id }}</small><br>
-                            <strong>Rs{{ held_fund.amount|floatformat:2 }}</strong>
+                            <strong>Rs{{ held_fund.amount|floatformat:0 }}</strong>
                         </div>
                         <div class="text-end">
                             <small class="{% if held_fund.can_be_released %}text-success{% else %}text-muted{% endif %}">
@@ -193,7 +193,7 @@
             {% endif %}
         </div>
         {% endif %}
-        <small class="text-muted">Total Balance: Rs{{ balance|floatformat:2 }}</small>
+        <small class="text-muted">Total Balance: Rs{{ balance|floatformat:0 }}</small>
     </div>
     <div class="col-md-4 text-md-end d-none d-md-block">
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#withdrawModal">Withdraw</button>
@@ -332,9 +332,9 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <p>Your available balance is <strong>Rs{{ available_balance|floatformat:2 }}</strong>.</p>
+        <p>Your available balance is <strong>Rs{{ available_balance|floatformat:0 }}</strong>.</p>
         {% if held_balance > 0 %}
-        <p class="text-muted small">Note: Rs{{ held_balance|floatformat:2 }} from recent sales is currently held. Each sale becomes available 72 hours after order completion.</p>
+        <p class="text-muted small">Note: Rs{{ held_balance|floatformat:0 }} from recent sales is currently held. Each sale becomes available 72 hours after order completion.</p>
         {% endif %}
         <form method="post" action="{% url 'funds' %}" id="withdrawalForm">
             {% csrf_token %}

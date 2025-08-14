@@ -1,4 +1,4 @@
-{% load time_filters grouping_filters %}
+{% load time_filters grouping_filters humanize %}
 
 {% for listing in listings %}
     <a href="{% url 'product_detail' listing.pk %}" class="listing-grid listing-row-item">
@@ -53,7 +53,7 @@
         {# Column 4: Price #}
         <div class="listing-price-wrapper">
             <div class="listing-price">
-                Rs{{ listing.price|floatformat:2 }}
+                Rs {{ listing.price|floatformat:0|intcomma }}
             </div>
             {% if listing.automatic_delivery %}
                 <div class="auto-delivery-indicator">

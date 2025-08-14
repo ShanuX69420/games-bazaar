@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load grouping_filters %}
+{% load grouping_filters humanize %}
 
 {% block content %}
 <div class="container-fluid">
@@ -213,7 +213,7 @@
                             <div class="listing-stock text-end">{{ listing.stock_count|default:"N/A" }}</div>
                             <div class="listing-price-wrapper">
                                 <div class="listing-price">
-                                    Rs{{ listing.price|floatformat:2 }}
+                                    Rs {{ listing.price|floatformat:0|intcomma }}
                                 </div>
                                 {% if listing.automatic_delivery %}
                                     <div class="auto-delivery-indicator">
@@ -238,7 +238,7 @@
                             <div class="mobile-right-col">
                                 <div class="listing-price-wrapper">
                                     <div class="listing-price">
-                                        Rs{{ listing.price|floatformat:2 }}
+                                        Rs {{ listing.price|floatformat:0|intcomma }}
                                     </div>
                                     {% if listing.automatic_delivery %}
                                         <div class="auto-delivery-indicator">

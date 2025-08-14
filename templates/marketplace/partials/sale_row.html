@@ -58,7 +58,7 @@
         </span>
     </div>
     {# Total #}
-    <div data-label="Total" class="fw-bold text-end">Rs{{ order.total_price|floatformat:2 }}</div>
+    <div data-label="Total" class="fw-bold text-end">Rs {{ order.total_price|floatformat:0|intcomma }}</div>
 </div>
 
 {# Mobile View - visible only on small screens #}
@@ -112,6 +112,6 @@
         </div>
     </div>
     <div class="mobile-right-col">
-        Rs{{ order.total_price|floatformat:2 }}
+        Rs {{ order.total_price|floatformat:0|intcomma }}
     </div>
 </a>

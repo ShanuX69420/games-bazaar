@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load math_filters %}
 {% load time_filters %}
-{% load grouping_filters %}
+{% load grouping_filters humanize %}
 
 {% block body_class %}bg-light-gray{% endblock %}
 
@@ -519,7 +519,7 @@
                     </div>
                     <div class="offer-list-container">
                         <div class="listing-grid-header" 
-                             style="grid-template-columns: {% if group.game_category_link.primary_filter %}1.5fr 7fr 1fr{% else %}9fr 1fr{% endif %};">
+                             style="grid-template-columns: {% if group.game_category_link.primary_filter %}120px 1fr 120px{% else %}1fr 120px{% endif %};">
                             {% if group.game_category_link.primary_filter %}
                             <div>{{ group.game_category_link.primary_filter.name }}</div>
                             {% endif %}
@@ -528,7 +528,7 @@
                         </div>
                         {% for product in group.products %}
                             <a href="{% url 'product_detail' product.pk %}" class="listing-grid listing-row-item"
-                               style="grid-template-columns: {% if group.game_category_link.primary_filter %}1.5fr 7fr 1fr{% else %}9fr 1fr{% endif %};">
+                               style="grid-template-columns: {% if group.game_category_link.primary_filter %}120px 1fr 120px{% else %}1fr 120px{% endif %};">
                                 
                                 {% if group.game_category_link.primary_filter %}
                                 <div class="listing-primary-filter">
@@ -539,7 +539,7 @@
                                 {% endif %}
                                 <div class="listing-description">{{ product.listing_title }}</div>
                                 <div class="listing-price-wrapper">
-                                    <div class="listing-price">Rs{{ product.price|floatformat:2 }}</div>
+                                    <div class="listing-price">Rs {{ product.price|floatformat:0|intcomma }}</div>
                                     {% if product.automatic_delivery %}
                                         <div class="auto-delivery-indicator">
                                             <i class="fas fa-bolt" title="Automatic Delivery"></i>

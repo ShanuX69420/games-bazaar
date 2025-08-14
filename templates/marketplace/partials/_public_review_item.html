@@ -1,4 +1,4 @@
-{% load time_filters %}
+{% load time_filters humanize %}
 <div class="review-card">
     <div class="review-avatar">
         {# Using a static path to a default image #}
@@ -16,7 +16,7 @@
                                 {{ review.order.product.game.title }}
                             {% else %}
                                 {{ review.order.game_snapshot.title }}
-                            {% endif %}, Rs {{ review.order.total_price|floatformat:0 }}</span>
+                            {% endif %}, Rs {{ review.order.total_price|floatformat:0|intcomma }}</span>
                     </div>
                 </div>
             </div>

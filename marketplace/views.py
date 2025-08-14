@@ -1007,6 +1007,10 @@ def edit_product(request, pk):
             if filter_options_to_add:
                 updated_product.filter_options.set(filter_options_to_add)
 
+            # Clear product detail cache to show updated data immediately
+            cache_key = f'product_detail_{updated_product.pk}'
+            cache.delete(cache_key)
+
             messages.success(request, 'Your listing has been updated.')
             return redirect('product_detail', pk=updated_product.pk)
     else:

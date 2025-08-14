@@ -9,7 +9,7 @@ class Command(BaseCommand):
         try:
             site = Site.objects.get(pk=1)
             site.domain = 'gamesbazaarpk.com'
-            site.name = 'Games Bazaar'
+            site.name = 'GamesBazaar'
             site.save()
             
             self.stdout.write(
@@ -21,7 +21,7 @@ class Command(BaseCommand):
             site = Site.objects.create(
                 pk=1,
                 domain='gamesbazaarpk.com',
-                name='Games Bazaar'
+                name='GamesBazaar'
             )
             self.stdout.write(
                 self.style.SUCCESS(

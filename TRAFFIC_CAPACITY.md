@@ -1,4 +1,4 @@
-# 🚀 Gamers Market - Traffic Capacity Analysis
+# 🚀 GamesBazaar - Traffic Capacity Analysis
 
 ## 📊 Current Traffic Handling Capacity
 

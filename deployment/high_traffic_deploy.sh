@@ -1,5 +1,5 @@
 #!/bin/bash
-# High Traffic Deployment Script for Gamers Market
+# High Traffic Deployment Script for GamesBazaar
 # Supports 10,000+ concurrent users
 
 echo "🚀 Starting HIGH TRAFFIC deployment..."
