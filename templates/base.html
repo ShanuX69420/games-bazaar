@@ -47,12 +47,12 @@
         .far{font-family:"Font Awesome 6 Free";font-weight:400;font-style:normal}
     </style>
     
-    <!-- Preload critical font to prevent layout shifts -->
+    <!-- Preload critical resources for first-visit performance -->
     <link rel="preload" href="{% static 'webfonts/fa-solid-900.woff2' %}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="{% static 'css/bootstrap.min.css' %}" as="style">
     
-    <!-- Load remaining Bootstrap asynchronously -->
-    <link rel="preload" href="{% static 'css/bootstrap.min.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}"></noscript>
+    <!-- Load Bootstrap synchronously to prevent layout shifts -->
+    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
 
     <style>
     .auth-container {
@@ -470,7 +470,7 @@
                             {% if unread_conversations_count > 0 %}<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.6em; padding: .25em .4em;">{{ unread_conversations_count }}</span>{% endif %}
                         </a>
                         <div class="nav-item dropdown mobile-profile-dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"><img src="{{ user.profile.image_url }}" alt="p" width="32" height="32" class="rounded-circle"></a>
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"><img src="{{ user.profile.image_url }}" alt="p" width="32" height="32" class="rounded-circle" loading="lazy"></a>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li><a class="dropdown-item" href="{% url 'public_profile' user.username %}"><i class="fas fa-user-circle fa-fw"></i> Profile</a></li>
                                 <li><a class="dropdown-item support-header collapsed" data-bs-toggle="collapse" href="#support-collapse-mobile" role="button" aria-expanded="false" aria-controls="support-collapse-mobile"><i class="fas fa-question-circle fa-fw"></i> Support <i class="fas fa-chevron-down ms-auto"></i></a></li>
