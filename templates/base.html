@@ -34,7 +34,7 @@
         .mt-4{margin-top:1.5rem!important}.mb-4{margin-bottom:1.5rem!important}.border-bottom{border-bottom:1px solid #dee2e6!important}
         
         /* Essential FontAwesome icons only */
-        @font-face{font-family:"Font Awesome 6 Free";font-style:normal;font-weight:900;font-display:swap;src:url("{% static 'webfonts/fa-solid-900.woff2' %}") format("woff2")}
+        @font-face{font-family:"Font Awesome 6 Free";font-style:normal;font-weight:900;font-display:fallback;src:url("{% static 'webfonts/fa-solid-900.woff2' %}") format("woff2")}
         .fas{font-family:"Font Awesome 6 Free";font-weight:900;font-style:normal}
         .fa-search:before{content:"\f002"}.fa-envelope:before{content:"\f0e0"}.fa-user:before{content:"\f007"}
         .fa-user-circle:before{content:"\f2bd"}.fa-sign-in-alt:before{content:"\f2f6"}.fa-sign-out-alt:before{content:"\f2f5"}
@@ -46,6 +46,9 @@
         .fa-camera:before{content:"\f030"}.fa-pencil-alt:before,.fa-pencil:before{content:"\f303"}
         .far{font-family:"Font Awesome 6 Free";font-weight:400;font-style:normal}
     </style>
+    
+    <!-- Preload critical font to prevent layout shifts -->
+    <link rel="preload" href="{% static 'webfonts/fa-solid-900.woff2' %}" as="font" type="font/woff2" crossorigin>
     
     <!-- Load remaining Bootstrap asynchronously -->
     <link rel="preload" href="{% static 'css/bootstrap.min.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -410,13 +413,28 @@
         
         /* Logo constraints */
         .navbar-brand img { max-width: 200px; object-fit: contain; }
+        
+        /* Prevent layout shift during font loading */
+        .fas, .far { font-display: swap; }
+        
+        /* Stable dimensions for key UI elements */
+        .navbar { min-height: 72px; }
+        .mobile-nav { min-height: 60px; }
+        
+        /* Reserve space for dynamic content */
+        .search-results-container { transform: translateY(0); opacity: 0; }
+        .search-backdrop { opacity: 0; }
     </style>
 </head>
 <body class="{% block body_class %}{% endblock %}">
     <!-- Only load audio on desktop devices, not mobile -->
     <script>
         if (!/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-            document.write('<audio id="notification-sound" src="{% static 'sounds/notification.mp3' %}" preload="auto"></audio>');
+            const audio = document.createElement('audio');
+            audio.id = 'notification-sound';
+            audio.src = '{% static "sounds/notification.mp3" %}';
+            audio.preload = 'auto';
+            document.body.appendChild(audio);
         }
     </script>
     <div class="search-backdrop"></div>
@@ -425,7 +443,7 @@
         <div class="container">
             <div class="d-none d-lg-flex justify-content-between align-items-center w-100">
                 <a class="navbar-brand" href="{% url 'home' %}">
-        <img src="{% static 'images/logo.png' %}" alt="GamesBazaar Logo" style="height: 55px;">
+        <img src="{% static 'images/logo.png' %}" alt="GamesBazaar Logo" width="55" height="55" style="height: 55px; width: 55px;">
     </a>
                 <div class="mx-auto me-3" style="position: relative; width: 180px;">
                     <form class="search-bar-container" action="{% url 'search_results' %}" method="get" role="search">
@@ -438,7 +456,7 @@
             <div class="d-lg-none mobile-nav">
                 <div class="mobile-nav-left">
                     <a class="navbar-brand" href="{% url 'home' %}">
-            <img src="{% static 'images/logo.png' %}" alt="GamesBazaar Logo" style="height: 48px;">
+            <img src="{% static 'images/logo.png' %}" alt="GamesBazaar Logo" width="48" height="48" style="height: 48px; width: 48px;">
     </a>
                     <form class="mobile-nav-search search-bar-container" action="{% url 'search_results' %}" method="get" role="search">
                         <input id="live-search-input-mobile" class="form-control live-search-input" type="search" name="q" placeholder="Search by {{ total_games_count }} games" aria-label="Search" autocomplete="off">
