@@ -1,4 +1,4 @@
-{% load time_filters grouping_filters humanize %}
+{% load time_filters grouping_filters humanize math_filters %}
 
 {% for listing in listings %}
     <a href="{% url 'product_detail' listing.pk %}" class="listing-grid listing-row-item">
@@ -35,9 +35,7 @@
                 <div class="seller-rating">
                     {% with rating=listing.seller_avg_rating|default:0 %}
                         <span class="seller-rating-stars" title="{{ rating|floatformat:2 }} out of 5 stars">
-                        {% for i in "12345" %}
-                            <i class="fa-star {% if i|add:0 <= rating %}fas{% else %}far{% endif %}"></i>
-                        {% endfor %}
+                            {% include 'marketplace/partials/_star_rating.html' with rating=rating %}
                         </span>
                         <span class="seller-rating-count">
                             {{ listing.seller_review_count }}

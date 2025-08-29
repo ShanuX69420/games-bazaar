@@ -26,9 +26,7 @@
             </div>
             <div class="review-rating">
                 <div class="review-stars">
-                    {% for i in "12345" %}
-                        <i class="fa-star {% if i|add:0 <= review.rating %}fas{% else %}far{% endif %}"></i>
-                    {% endfor %}
+                    {% include 'marketplace/partials/_star_rating.html' with rating=review.rating css_class="review-stars" %}
                 </div>
             </div>
         </div>

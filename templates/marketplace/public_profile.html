@@ -484,9 +484,7 @@
                             <div class="rating-number-large">{{ average_rating|default:0|floatformat:1 }}</div>
                             <div class="rating-details">
                                 <div class="rating-stars-row">
-                                    {% for i in "12345" %}
-                                        <i class="fa-star {% if i|add:0 <= average_rating|default:0 %}fas{% else %}far{% endif %}"></i>
-                                    {% endfor %}
+                                    {% include 'marketplace/partials/_star_rating.html' with rating=average_rating|default:0 css_class="review-stars" %}
                                 </div>
                                 <div class="rating-total-text">{{ review_count }} reviews total</div>
                             </div>
@@ -567,9 +565,7 @@
                         </div>
                         <div>
                             <div class="rating-stars">
-                                {% for i in "12345" %}
-                                    <i class="fa-star {% if i|add:0 <= average_rating|default:0 %}fas text-warning{% else %}far text-muted{% endif %}"></i>
-                                {% endfor %}
+                                {% include 'marketplace/partials/_star_rating.html' with rating=average_rating|default:0 css_class="review-stars" %}
                             </div>
                             <div class="review-count">
                                 Based on {{ review_count }} review{{ review_count|pluralize }}
@@ -597,9 +593,9 @@
                             {% for i in "54321" %}
                             <li>
                                 <a class="dropdown-item {% if current_rating_filter == i %}active{% endif %}" href="?rating={{ i }}#reviews-section">
-                                    <span class="text-warning">
-                                        {% with rating_int=i|add:0 %}{% for j in "12345" %}<i class="fa-star {% if j|add:0 <= rating_int %}fas{% else %}far{% endif %}"></i>{% endfor %}{% endwith %}
-                                    </span>
+                                    {% with rating_int=i|add:0 %}
+                                        {% include 'marketplace/partials/_star_rating.html' with rating=rating_int css_class="review-stars" %}
+                                    {% endwith %}
                                 </a>
                             </li>
                             {% endfor %}

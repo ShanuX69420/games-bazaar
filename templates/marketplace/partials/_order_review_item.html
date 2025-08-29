@@ -1,4 +1,4 @@
-{% load time_filters humanize %}
+{% load time_filters humanize math_filters %}
 <div class="review-card">
     <div class="review-avatar">
         <img src="{{ review.buyer.profile.image_url }}" alt="{{ review.buyer.username }}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">
@@ -22,9 +22,7 @@
             </div>
             <div class="review-rating">
                 <div class="review-stars">
-                    {% for i in "12345" %}
-                        <i class="fa-star {% if i|add:0 <= review.rating %}fas{% else %}far{% endif %}"></i>
-                    {% endfor %}
+                    {% include 'marketplace/partials/_star_rating.html' with rating=review.rating css_class="review-stars" %}
                 </div>
             </div>
         </div>

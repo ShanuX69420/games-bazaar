@@ -1,0 +1,16 @@
+{% load math_filters %}
+<span class="star-rating-display {{ css_class|default:'' }}">
+    <span class="stars-container">
+        {# Empty stars background #}
+        <span class="stars-empty">
+            <i class="fa-star far"></i><i class="fa-star far"></i><i class="fa-star far"></i><i class="fa-star far"></i><i class="fa-star far"></i>
+        </span>
+        {# Filled stars overlay #}
+        <span class="stars-filled" style="width: {{ rating|star_fill_percentage }}%;">
+            <i class="fa-star fas"></i><i class="fa-star fas"></i><i class="fa-star fas"></i><i class="fa-star fas"></i><i class="fa-star fas"></i>
+        </span>
+    </span>
+    {% if show_count and review_count %}
+        <span class="review-count">{{ review_count }}</span>
+    {% endif %}
+</span>
