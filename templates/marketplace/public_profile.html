@@ -6,7 +6,7 @@
 {% block body_class %}bg-light-gray{% endblock %}
 
 {% block main_content_wrapper %}
-<style>
+<style nonce="{{ request.csp_nonce }}">
     /* --- Styles for individual listing groups within the card --- */
     .offer-card { 
         background-color: #fff;
@@ -676,7 +676,7 @@
     {% include 'marketplace/partials/unified_chat_script.html' %}
 {% endif %}
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     // --- Load More Reviews Logic ---
     const loadMoreButton = document.getElementById('load-more-reviews');

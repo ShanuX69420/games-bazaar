@@ -38,7 +38,7 @@
     {{ other_user.username|json_script:"other-user-username" }}
     {{ request.user.username|json_script:"current-user-username" }}
 
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
 const otherUserUsername = JSON.parse(document.getElementById('other-user-username').textContent);
 const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent);
 const chatLog = document.querySelector('#chat-log');

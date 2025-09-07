@@ -146,9 +146,10 @@ class SecurityMiddleware(MiddlewareMixin):
     def process_response(self, request, response):
         """Add security headers to responses"""
         
-        # Add security headers (Edge-compatible)
+        # Add security headers
         response['X-Content-Type-Options'] = 'nosniff'
-        response['X-Frame-Options'] = 'SAMEORIGIN'  # Changed from DENY to SAMEORIGIN for Edge compatibility
+        # Align with Django settings to avoid conflicts
+        response['X-Frame-Options'] = getattr(settings, 'X_FRAME_OPTIONS', 'DENY')
         response['X-XSS-Protection'] = '1; mode=block'
         response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         response['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
@@ -156,22 +157,8 @@ class SecurityMiddleware(MiddlewareMixin):
         # Add Cross-Origin-Opener-Policy for better browser compatibility
         response['Cross-Origin-Opener-Policy'] = 'same-origin'
         
-        # Relaxed CSP for chat functionality (temporary fix)
-        if not settings.DEBUG:
-            response['Content-Security-Policy'] = (
-                "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://accounts.google.com https://connect.facebook.net https://www.facebook.com https://static.cloudflareinsights.com; "
-                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-                "font-src 'self' https://fonts.gstatic.com; "
-                "img-src 'self' data: https: blob:; "
-                "frame-src 'self' https://www.google.com https://accounts.google.com https://www.facebook.com; "
-                "connect-src 'self' https: wss: ws:; "
-                "media-src 'self'; "
-                "object-src 'none'; "
-                "base-uri 'self'; "
-                "form-action 'self' https://sandbox.jazzcash.com.pk https://jazzcash.com.pk https://accounts.google.com https://www.facebook.com; "
-                "upgrade-insecure-requests;"
-            )
+        # CSP is centrally handled by core.middleware.CSPMiddleware.
+        # Do not set Content-Security-Policy here to avoid conflicts/overrides.
         
         return response
     

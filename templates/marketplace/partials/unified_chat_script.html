@@ -1,4 +1,4 @@
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     {% if user.is_authenticated %}
     

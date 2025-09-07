@@ -6,7 +6,7 @@
 
 {% block content %}
 
-<style>
+<style nonce="{{ request.csp_nonce }}">
     /* Add this new style for the sticky sidebar */
     .sidebar-sticky {
         position: -webkit-sticky;
@@ -386,7 +386,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>var activeConversationId = {{ active_conversation.id|default:'null' }};</script>
+<script nonce="{{ request.csp_nonce }}">var activeConversationId = {{ active_conversation.id|default:'null' }};</script>
 {% if user.is_authenticated and user != order.seller and user != order.buyer %}
     {# No chat if user is not part of the order #}
 {% elif user.is_authenticated %}
@@ -395,7 +395,7 @@
     {% include 'marketplace/partials/unified_chat_script.html' %}
 {% endif %}
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const reviewContainer = document.getElementById('review-container');
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;

@@ -1,6 +1,6 @@
-<script>
+{# current-user-username JSON script is injected in base.html for authenticated users #}
+<script nonce="{{ request.csp_nonce }}">
     {% if user.is_authenticated %}
-    {{ request.user.username|json_script:"current-user-username" }}
     function updateBadge(selector, count) {
         const link = document.querySelector(selector);
         if (!link) return;

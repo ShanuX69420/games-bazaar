@@ -3,7 +3,7 @@
 
 {% block extrahead %}
 {{ block.super }}
-<style>
+<style nonce="{{ request.csp_nonce }}">
     .chat-widget {
         background: #f8f9fa;
         border: 1px solid #dee2e6;
@@ -183,7 +183,7 @@
 
 <!-- Chat Widget -->
 <div class="chat-widget">
-    <div class="chat-header" onclick="toggleChat()">
+    <div class="chat-header">
         💬 User Conversations
         <span class="expand-icon">▼</span>
     </div>
@@ -234,7 +234,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function toggleChat() {
     const content = document.getElementById('chatContent');
     const header = document.querySelector('.chat-header');
@@ -248,8 +248,12 @@ function toggleChat() {
     }
 }
 
-// Auto-expand if there are disputed conversations
+// Bind click handler and auto-expand disputed conversations
 document.addEventListener('DOMContentLoaded', function() {
+    const header = document.querySelector('.chat-header');
+    if (header) {
+        header.addEventListener('click', toggleChat);
+    }
     const disputedConversations = document.querySelectorAll('.dispute-badge');
     if (disputedConversations.length > 0) {
         toggleChat();

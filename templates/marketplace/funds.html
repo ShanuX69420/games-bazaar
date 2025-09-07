@@ -2,7 +2,7 @@
 {% load time_filters %}
 
 {% block content %}
-<style>
+<style nonce="{{ request.csp_nonce }}">
     /* Styling for the new funds page layout */
     .balance-display {
         font-size: 2.5rem;
@@ -423,7 +423,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const loadMoreButton = document.getElementById('load-more-btn');
     if (loadMoreButton) {

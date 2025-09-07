@@ -23,7 +23,7 @@
                 </div>
             {% endif %}
 
-            <style>
+            <style nonce="{{ request.csp_nonce }}">
                 .header-actions {
                     display: flex;
                     gap: 0.5rem; /* Reduced gap for mobile */

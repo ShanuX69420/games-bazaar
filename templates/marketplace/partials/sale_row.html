@@ -1,7 +1,7 @@
 {% load time_filters humanize %}
 
 {# Desktop View - visible on medium screens and up #}
-<div class="sale-row status-{{ order.status|lower }} d-none d-md-grid" onclick="window.location.href='{% url 'order_detail' order.clean_order_id %}';">
+<div class="sale-row status-{{ order.status|lower }} d-none d-md-grid" data-href="{% url 'order_detail' order.clean_order_id %}">
     {# Date #}
     <div data-label="Date">
         <div class="fw-bold">{{ order.created_at|date:"d M, H:i" }}</div>
@@ -22,11 +22,11 @@
     {# Buyer #}
     <div data-label="Buyer">
         <div class="buyer-info">
-            <a href="{% url 'public_profile' order.buyer.username %}" onclick="event.stopPropagation();">
+            <a href="{% url 'public_profile' order.buyer.username %}">
                 <img src="{{ order.buyer.profile.image_url }}" alt="{{ order.buyer.username }}">
             </a>
             <div>
-                <a href="{% url 'public_profile' order.buyer.username %}" class="text-decoration-none" style="color: inherit;" onclick="event.stopPropagation();">
+                <a href="{% url 'public_profile' order.buyer.username %}" class="text-decoration-none" style="color: inherit;">
                     <div class="fw-bold username-text">{{ order.buyer.username }}</div>
                 </a>
                 <div class="user-status {% if order.buyer.profile.is_online %}online{% else %}offline{% endif %}"

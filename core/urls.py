@@ -3,8 +3,6 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-# Add this new import
-from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 urlpatterns = [
     # Our custom admin chat URLs MUST come before the default admin
@@ -14,17 +12,7 @@ urlpatterns = [
     path('accounts/', include('allauth.urls')),
 ]
 
-# This handles user-uploaded media files
+# Media files: only served by Django in development
+# In production, media must be served by Nginx/GCS/CDN (no Django routing)
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-else:
-    # In production, serve media files through Django with explicit view
-    from django.views.static import serve
-    from django.urls import re_path
-    import os
-    
-    urlpatterns += [
-        re_path(r'^media/(?P<path>.*)$', serve, {
-            'document_root': settings.MEDIA_ROOT,
-        }),
-    ]

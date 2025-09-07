@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<style>
+<style nonce="{{ request.csp_nonce }}">
     .policy-container {
         max-width: 900px;
         margin: 0 auto;

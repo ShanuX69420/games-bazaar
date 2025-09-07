@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<style>
+<style nonce="{{ request.csp_nonce }}">
     .rules-table {
         width: 100%;
         border-collapse: collapse;

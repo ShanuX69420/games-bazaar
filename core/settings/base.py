@@ -152,7 +152,8 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 
 # Media files
-MEDIA_URL = '/media/'
+# Allow override via env (e.g., CDN/GCS domain in production)
+MEDIA_URL = config('MEDIA_URL', default='/media/')
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Google Cloud Storage Configuration
@@ -278,38 +279,46 @@ SESSION_COOKIE_HTTPONLY = True   # Prevent XSS access to session cookies
 CSP_DEFAULT_SRC = ["'self'"]
 CSP_SCRIPT_SRC = [
     "'self'",
-    "'unsafe-inline'",
+    "'nonce-{nonce}'",
     "https://apis.google.com",
     "https://connect.facebook.net",
     "https://www.google.com/recaptcha/",
     "https://www.gstatic.com/recaptcha/",
     "https://js.stripe.com",
+    "https://cdn.jsdelivr.net",
 ]
 CSP_STYLE_SRC = [
     "'self'",
-    "'unsafe-inline'",
+    "'unsafe-inline'",  # Keep inline styles allowed for now to avoid breakage
     "https://fonts.googleapis.com",
+    "https://cdnjs.cloudflare.com",
     "https://cdn.jsdelivr.net",
 ]
 CSP_FONT_SRC = [
     "'self'",
     "https://fonts.gstatic.com",
+    "https://cdnjs.cloudflare.com",
     "https://cdn.jsdelivr.net",
 ]
 CSP_IMG_SRC = [
     "'self'",
     "data:",
     "https:",
+    "blob:",
 ]
 CSP_CONNECT_SRC = [
     "'self'",
     "https://api.stripe.com",
     "https://www.google-analytics.com",
+    "wss:",
+    "ws:",
 ]
 CSP_FRAME_SRC = [
     "https://www.google.com/recaptcha/",
     "https://recaptcha.google.com/recaptcha/",
     "https://js.stripe.com",
+    "https://www.facebook.com",
+    "https://accounts.google.com",
 ]
 
 # Additional Security Headers

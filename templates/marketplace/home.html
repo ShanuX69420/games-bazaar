@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<style>
+<style nonce="{{ request.csp_nonce }}">
     /*
       These styles will position the alphabet bar on the left,
       perfectly aligned with the content below the header.

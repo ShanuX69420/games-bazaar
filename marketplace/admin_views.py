@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_protect
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
@@ -100,18 +100,13 @@ def admin_resolve_dispute(request, conversation_id):
     return redirect('/admin/marketplace/conversation/')
 
 @staff_member_required
+@csrf_protect
 def admin_send_message(request, conversation_id):
     """Send message as admin in conversation - CSRF protected"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid method'})
     
     try:
-        # Verify CSRF token manually for AJAX requests
-        from django.middleware.csrf import get_token
-        csrf_token = request.META.get('HTTP_X_CSRFTOKEN')
-        if not csrf_token:
-            return JsonResponse({'success': False, 'error': 'CSRF token missing'})
-        
         data = json.loads(request.body)
         content = data.get('message', '').strip()
         

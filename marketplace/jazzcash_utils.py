@@ -1,6 +1,7 @@
 # experiment/marketplace/jazzcash_utils.py
 
 import hashlib
+import hmac
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.utils.html import escape
@@ -40,11 +41,16 @@ def get_jazzcash_payment_params(amount, order_id):
     # Create a string for hashing by sorting dictionary values alphabetically by key
     sorted_params_list = [str(hash_params[key]) for key in sorted(hash_params) if hash_params[key]]
     
-    hash_string = settings.JAZZCASH_INTEGERITY_SALT + '&' + '&'.join(sorted_params_list)
+    # Build the message string without the integrity salt; use salt as HMAC key
+    hash_string = '&'.join(sorted_params_list)
     
     # Only add password to final params after hash calculation
     params['pp_Password'] = settings.JAZZCASH_PASSWORD
-    params['pp_SecureHash'] = hashlib.sha256(hash_string.encode()).hexdigest()
+    params['pp_SecureHash'] = hmac.new(
+        settings.JAZZCASH_INTEGERITY_SALT.encode('utf-8'),
+        hash_string.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
 
     return params
 
@@ -54,17 +60,23 @@ def verify_jazzcash_response(response_data):
 
     received_hash = response_data.get('pp_SecureHash', '')
     
-    # Try excluding empty parameters from hash calculation
+    # Exclude signature fields and empty parameters from hash calculation
     sorted_params_list = []
     for key in sorted(response_data.keys()):
-        if key != 'pp_SecureHash' and response_data[key]:  # Only include non-empty values
+        if key and key.lower().startswith('pp_securehash'):
+            continue
+        if response_data.get(key):  # Only include non-empty values
             sorted_params_list.append(str(response_data[key]))
 
-    # Prepend the Integrity Salt
-    hash_string = settings.JAZZCASH_INTEGERITY_SALT + '&' + '&'.join(sorted_params_list)
+    # Build the message string without the integrity salt; use salt as HMAC key
+    hash_string = '&'.join(sorted_params_list)
     
-    # Generate the hash
-    generated_hash = hashlib.sha256(hash_string.encode()).hexdigest()
+    # Generate the HMAC-SHA256 hash using the integrity salt as key
+    generated_hash = hmac.new(
+        settings.JAZZCASH_INTEGERITY_SALT.encode('utf-8'),
+        hash_string.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
 
 
     # Compare the generated hash with the one received from Jazzcash

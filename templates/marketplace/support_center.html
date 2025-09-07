@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<style>
+<style nonce="{{ request.csp_nonce }}">
     .support-section-card {
         background-color: #fff;
         border: 1px solid #dee2e6;

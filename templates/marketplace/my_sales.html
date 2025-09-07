@@ -2,7 +2,7 @@
 {% load time_filters %}
 
 {% block content %}
-<style>
+<style nonce="{{ request.csp_nonce }}">
     .sales-container {
         border: 1px solid #e0e0e0;
         border-radius: .25rem;
@@ -222,7 +222,7 @@
     {% endif %}
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const loadMoreButton = document.getElementById('load-more-btn');
     if (loadMoreButton) {

@@ -1,6 +1,6 @@
 {% load time_filters %}
 
-<style>
+<style nonce="{{ request.csp_nonce }}">
 .chat-panel-card {
     height: 70vh;
     display: flex;
@@ -173,7 +173,7 @@
                     </div>
                 {% else %}
                     <!-- Message form - shown when users are not blocked -->
-                    <form class="chat-form-js" enctype="multipart/form-data" action="#" onsubmit="return false;">
+                    <form class="chat-form-js" enctype="multipart/form-data" action="#">
                         {% csrf_token %}
                         <div class="input-group">
                             <input name="message" type="text" class="form-control chat-message-input-js" placeholder="Type a message..." autocomplete="off">

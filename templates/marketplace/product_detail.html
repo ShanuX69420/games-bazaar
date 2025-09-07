@@ -7,7 +7,7 @@
 
 {% block content %}
 
-<style>
+<style nonce="{{ request.csp_nonce }}">
     /* Add this new style for the sticky sidebar */
     .sidebar-sticky {
         position: -webkit-sticky;
@@ -446,7 +446,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
     var activeConversationId = {{ active_conversation.id|default:'null' }};
 </script>
 {% if user.is_authenticated %}
@@ -457,7 +457,7 @@
     {% include 'marketplace/partials/unified_chat_script.html' %}
 {% endif %}
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     
     // --- Custom Payment Dropdown & Multiple Purchase Logic ---

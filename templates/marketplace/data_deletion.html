@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<style>
+<style nonce="{{ request.csp_nonce }}">
     .deletion-container {
         max-width: 800px;
         margin: 2rem auto;

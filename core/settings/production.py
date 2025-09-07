@@ -181,6 +181,7 @@ DATABASE_BACKUP_SCHEDULE = config('DATABASE_BACKUP_SCHEDULE', default='daily')
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'core.middleware.CSPMiddleware',
     'marketplace.security_middleware.SecurityMiddleware',  # Custom security middleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',

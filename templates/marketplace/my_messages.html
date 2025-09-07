@@ -4,7 +4,7 @@
 {% block main_content_wrapper %}
 <main class="container mt-4 mb-4" id="messages-main-container">
     {% block content %}
-<style>
+<style nonce="{{ request.csp_nonce }}">
     /* --- Main Page Adjustments --- */
     main.container {
         margin-top: 1rem !important;
@@ -710,7 +710,7 @@
             
             <div class="chat-panel-footer">
                 {% if request.user.is_authenticated %}
-                    <form class="chat-form-js" enctype="multipart/form-data" action="#" onsubmit="return false;">
+                    <form class="chat-form-js" enctype="multipart/form-data" action="#">
                         {% csrf_token %}
                         <div class="input-group">
                             <input name="message" type="text" class="form-control chat-message-input-js" placeholder="Type a message..." autocomplete="off">
@@ -761,7 +761,7 @@
 {% endblock main_content_wrapper %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
     // Make the active conversation ID globally available.
     var activeConversationId = {{ active_conversation.id|default:'null' }};
 

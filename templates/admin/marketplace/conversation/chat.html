@@ -79,8 +79,8 @@
         {{ request.user.username|json_script:"current-user-username" }}
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
+    <script nonce="{{ request.csp_nonce }}" src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script nonce="{{ request.csp_nonce }}">
     // Copy exact main site functionality
     const otherUserUsername = JSON.parse(document.getElementById('other-user-username').textContent);
     const currentUserUsername = JSON.parse(document.getElementById('current-user-username').textContent);

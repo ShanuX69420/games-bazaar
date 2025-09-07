@@ -64,13 +64,10 @@ LOGGING = {
     },
 }
 
-# Email backend for development (SMTP for testing)
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp-relay.brevo.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = '93f7d0001@smtp-brevo.com'
-EMAIL_HOST_PASSWORD = '16AdJ3IkNnVh2rvG'
+# Email backend for development
+# Use console backend by default to avoid sending real emails.
+# Can be overridden via EMAIL_BACKEND env var (e.g., to SMTP) if needed.
+EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
 
 # Site configuration for password reset links  
 DEFAULT_FROM_EMAIL = 'no-reply@gamesbazaarpk.com'

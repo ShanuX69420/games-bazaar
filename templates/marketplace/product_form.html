@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<style>
+<style nonce="{{ request.csp_nonce }}">
     /* Custom styling for the new listing page */
     .new-offer-container {
         max-width: 700px; /* Or your preferred width */
@@ -253,7 +253,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     // JS for automatic delivery checkbox
     {% if form.automatic_delivery %}
