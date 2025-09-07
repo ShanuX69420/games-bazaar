@@ -753,24 +753,38 @@ document.addEventListener('DOMContentLoaded', function() {
                             const parser = new DOMParser();
                             const doc = parser.parseFromString(data.message_html, 'text/html');
                             const newMessageElement = doc.body.firstElementChild;
-                            
+
                             if (!newMessageElement) {
                                 console.error('Could not parse message HTML');
                                 return;
                             }
-                            
-                            // Add the message to the log first
+
+                            // Pre-compute grouping BEFORE insertion to avoid flicker
+                            const existingMessages = log.querySelectorAll('.mb-3:not(.date-separator)');
+                            const lastMessage = existingMessages.length > 0 ? existingMessages[existingMessages.length - 1] : null;
+                            const newSender = newMessageElement.getAttribute('data-sender');
+                            const newTs = newMessageElement.getAttribute('data-timestamp');
+                            let shouldGroup = false;
+                            if (lastMessage && newSender && newTs) {
+                                const lastSender = lastMessage.getAttribute('data-sender');
+                                const lastTs = lastMessage.getAttribute('data-timestamp');
+                                if (lastSender && lastTs) {
+                                    const newTime = new Date(newTs);
+                                    const lastTime = new Date(lastTs);
+                                    shouldGroup = (lastSender === newSender) && ((newTime - lastTime) <= 5 * 60 * 1000);
+                                }
+                            }
+                            newMessageElement.classList.add(shouldGroup ? 'grouped' : 'group-start');
+
+                            // Append the message
                             log.appendChild(newMessageElement);
-                            
-                            // Then check if we need to add a date separator before this message
+
+                            // Insert date separator if needed
                             addDateSeparatorIfNeeded(log, newMessageElement);
-                            
-                            // Apply message grouping after adding the new message
-                            requestAnimationFrame(() => {
-                                applyMessageGrouping(log);
-                                scrollToBottom(log, { smooth: true, newMessage: true });
-                            });
-                            
+
+                            // Maintain scroll position smoothly
+                            scrollToBottom(log, { smooth: true, newMessage: true });
+
                         } catch (domError) {
                             console.error('Error processing message DOM:', domError);
                             // Fallback: just append the raw HTML

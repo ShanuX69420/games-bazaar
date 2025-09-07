@@ -788,14 +788,27 @@ document.addEventListener('DOMContentLoaded', function() {
         if (timestampElement) { 
             timestampElement.textContent = formatTimeSince(data.last_message_timestamp); 
         } 
-        // Always show yellow indicator for messages from other users
-        if (data.sender_username !== currentUserUsername) { 
+        // Add yellow indicator only if not actively viewing this conversation
+        const isActiveConversation = conversationLink.classList.contains('active');
+        const pageHidden = document.hidden;
+        if (data.sender_username !== currentUserUsername && (!isActiveConversation || pageHidden)) { 
             conversationLink.classList.add('unread', 'unread-highlight'); 
         } 
         const parentList = conversationLink.parentNode; 
-        if (parentList) { 
+        if (parentList && parentList.firstElementChild !== conversationLink) { 
             parentList.prepend(conversationLink); 
         } 
+    }
+    function getActiveConversationId() {
+        const activeLink = document.querySelector('.conversation-link.active');
+        if (!activeLink) return null;
+        const id = activeLink.getAttribute('data-conversation-id');
+        return id ? parseInt(id) : null;
+    }
+    function isViewingConversation(conversationId) {
+        const activeId = getActiveConversationId();
+        if (activeId === null) return false;
+        return Number(activeId) === Number(conversationId);
     }
     {% if user.is_authenticated %}
     function updateBadge(selector, count) { const link = document.querySelector(selector); if (!link) return; let badge = link.querySelector('.badge'); if (!badge) { badge = document.createElement('span'); badge.className = 'badge bg-danger ms-1'; link.appendChild(badge); } if (count > 0) { badge.textContent = count; badge.style.display = ''; } else { if (badge) badge.remove(); } }
@@ -825,10 +838,20 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (notificationType === 'new_message') {
                 updateConversationLink(data);
-                updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
-                
+
+                const isSelf = data.sender_username === currentUserUsername;
+                const viewingActive = !document.hidden && isViewingConversation(data.conversation_id);
+
+                // Suppress badge bump if user is actively viewing this conversation
+                if (!(viewingActive && !isSelf)) {
+                    updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
+                } else {
+                    const activeLink = document.querySelector(`.list-group-item[data-conversation-id="${data.conversation_id}"]`);
+                    if (activeLink) activeLink.classList.remove('unread', 'unread-highlight');
+                }
+
                 // Only play sound if page is not visible (minimized/different tab)
-                if (document.hidden && data.sender_username !== currentUserUsername) {
+                if (document.hidden && !isSelf) {
                     playNotificationSound();
                 }
             } else if (notificationType === 'read_receipt_update') {
