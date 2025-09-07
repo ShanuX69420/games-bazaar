@@ -11,6 +11,7 @@ from django.db import models
 from django.utils import timezone
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from django.core.cache import cache
 
 # NOTE: All model imports have been removed from the top level to prevent the AppRegistryNotReady error.
 # They are now "lazily" imported inside the functions that need them.
@@ -67,6 +68,8 @@ def mark_message_as_read_in_db(message_id, user):
         if is_participant and message.sender != user and not message.is_read:
             message.is_read = True
             message.save(update_fields=['is_read'])
+            # Clear the cached notification counts so a quick refresh shows the latest numbers
+            cache.delete(f'user_notifications_{user.id}')
             return message
         return None # Return None if no update was needed
     except Message.DoesNotExist:

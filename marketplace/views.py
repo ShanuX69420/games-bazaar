@@ -1465,7 +1465,10 @@ def messages_view(request, username=None):
     ).exclude(
         participant1=F('participant2')
     ).order_by('-updated_at')
-    unread_conversation_ids = set(Message.objects.filter(conversation__in=conversations, is_read=False).exclude(sender=request.user).values_list('conversation_id', flat=True))
+    unread_conversation_ids = set(Message.objects.filter(
+        conversation__in=conversations,
+        is_read=False
+    ).exclude(sender=request.user).values_list('conversation_id', flat=True))
     active_conversation, messages, other_user = None, [], None
     if username:
         try:
@@ -1477,8 +1480,38 @@ def messages_view(request, username=None):
                 message_count = get_cached_message_count(active_conversation)
                 messages = message_manager.order_by('timestamp')[max(0, message_count - 100):]
                 has_more_messages = message_count > 100
-                active_conversation.messages.exclude(sender=request.user).update(is_read=True)
-                if active_conversation.id in unread_conversation_ids: unread_conversation_ids.remove(active_conversation.id)
+
+                # Mark unread messages from the other user as read and get how many were updated
+                updated_count = active_conversation.messages.exclude(sender=request.user).filter(is_read=False).update(is_read=True)
+                if updated_count:
+                    # Immediately push a read-receipt update to navbar and invalidate cached counts
+                    from channels.layers import get_channel_layer
+                    from asgiref.sync import async_to_sync
+                    channel_layer = get_channel_layer()
+
+                    # Recompute unread conversations count for this user
+                    unread_count = Message.objects.filter(
+                        Q(conversation__participant1=request.user) | Q(conversation__participant2=request.user),
+                        is_read=False
+                    ).exclude(sender=request.user).values('conversation').distinct().count()
+
+                    # Clear cached navbar counters so a refresh also shows correct numbers
+                    cache.delete(f'user_notifications_{request.user.id}')
+
+                    async_to_sync(channel_layer.group_send)(
+                        f'notifications_{request.user.username}',
+                        {
+                            "type": "send_notification",
+                            "notification_type": "read_receipt_update",
+                            "data": {
+                                'unread_conversations_count': unread_count,
+                                'conversation_id': active_conversation.id,
+                            }
+                        }
+                    )
+
+                if active_conversation.id in unread_conversation_ids:
+                    unread_conversation_ids.remove(active_conversation.id)
         except User.DoesNotExist: pass
     context = { 'conversations': conversations, 'active_conversation': active_conversation, 'other_user_profile': other_user, 'messages': messages, 'unread_conversation_ids': unread_conversation_ids, 'has_more_messages': has_more_messages if 'has_more_messages' in locals() else False, }
     return render(request, 'marketplace/my_messages.html', context)

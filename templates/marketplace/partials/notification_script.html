@@ -25,18 +25,26 @@
         const notificationSocket = new WebSocket(protocol + window.location.host + '/ws/notifications/');
         notificationSocket.onmessage = function(e) {
     const content = JSON.parse(e.data);
+    const type = content.type;
+    const data = content.data || {};
 
-    if (content.type === 'new_message') {
-        updateBadge('a[href="{% url 'my_messages' %}"]', content.data.unread_conversations_count);
-        // --- > Sound should ONLY be played HERE if the message is not from the current user < ---
-        if (content.data.sender_username !== currentUserUsername) {
+    if (type === 'new_message') {
+        // Update unread conversations badge
+        updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
+        // Play sound only if message is from other user and page is not visible
+        if (document.hidden && data.sender_username !== currentUserUsername) {
             playNotificationSound();
         }
-    } else if (content.type === 'order_update') {
-        updateBadge('a[href="{% url 'seller_dashboard' %}"]', content.data.active_sales_count);
-        updateBadge('a[href="{% url 'my_purchases' %}"]', content.data.active_purchases_count);
-        // --- > AND HERE < ---
-        playNotificationSound();
+    } else if (type === 'read_receipt_update') {
+        // Live update badge when messages are marked as read
+        updateBadge('a[href="{% url 'my_messages' %}"]', data.unread_conversations_count);
+    } else if (type === 'order_update') {
+        // Update purchases/sales counters (correct selectors)
+        updateBadge('a[href="{% url 'my_sales' %}"]', data.active_sales_count);
+        updateBadge('a[href="{% url 'my_purchases' %}"]', data.active_purchases_count);
+        if (document.hidden) {
+            playNotificationSound();
+        }
     }
 };
         notificationSocket.onclose = function(e) {

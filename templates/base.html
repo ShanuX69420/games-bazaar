@@ -837,6 +837,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (conversationLink) {
                     conversationLink.classList.remove('unread', 'unread-highlight');
                 }
+            } else if (notificationType === 'order_update') {
+                // Live update purchases and sales counters in navbar
+                updateBadge('a[href="{% url 'my_sales' %}"]', data.active_sales_count);
+                updateBadge('a[href="{% url 'my_purchases' %}"]', data.active_purchases_count);
+                if (document.hidden) {
+                    playNotificationSound();
+                }
             } else if (notificationType === 'presence_update') {
                 console.log('Processing presence update for:', data.username);
                 updateUserStatusOnPage(data);

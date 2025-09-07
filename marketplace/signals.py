@@ -5,6 +5,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.db.models import Q
 from .models import Order, Review, ReviewReply, Conversation, Message, Transaction, WithdrawalRequest, HeldFund
+from django.core.cache import cache
 from django.template.loader import render_to_string
 from django.urls import reverse
 
@@ -102,6 +103,8 @@ def new_message_handler(sender, instance, created, **kwargs):
             if user:
                 user_context = get_user_context(user)
                 notification_group_name = f'notifications_{user.username}'
+                # Invalidate cached navbar counters for this user so a quick refresh shows correct values
+                cache.delete(f'user_notifications_{user.id}')
                 
                 async_to_sync(channel_layer.group_send)(
                     notification_group_name,
@@ -171,6 +174,8 @@ def order_status_change_handler(sender, instance, created, **kwargs):
         for user, context, message in [(buyer, buyer_context, f"Your order {instance.order_id} status: {instance.get_status_display()}"), 
                                        (seller, seller_context, message_for_ui)]:
             if user:
+                # Invalidate cached navbar counters for these users
+                cache.delete(f'user_notifications_{user.id}')
                 async_to_sync(channel_layer.group_send)(
                     f'notifications_{user.username}',
                     {
