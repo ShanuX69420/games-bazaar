@@ -277,6 +277,10 @@ SESSION_COOKIE_SAMESITE = 'Lax'  # Allows navigation from external sites
 CSRF_COOKIE_SAMESITE = 'Lax'     # Required for CSRF protection to work with forms
 SESSION_COOKIE_HTTPONLY = True   # Prevent XSS access to session cookies
 
+# Share cookies between domain and subdomain
+SESSION_COOKIE_DOMAIN = '.gamesbazaar.pk'  # Notice the dot prefix
+CSRF_COOKIE_DOMAIN = '.gamesbazaar.pk'
+
 # Content Security Policy
 CSP_DEFAULT_SRC = ["'self'"]
 CSP_SCRIPT_SRC = [
