@@ -256,8 +256,8 @@ WHITENOISE_MAX_AGE = 31536000
 ACCOUNT_EMAIL_VERIFICATION = 'optional'
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
-DEFAULT_FROM_EMAIL = 'no-reply@gamesbazaarpk.com'
-SERVER_EMAIL = 'no-reply@gamesbazaarpk.com'
+DEFAULT_FROM_EMAIL = 'no-reply@gamesbazaar.pk'
+SERVER_EMAIL = 'no-reply@gamesbazaar.pk'
 
 # Security Headers Configuration
 SECURE_CONTENT_TYPE_NOSNIFF = True
