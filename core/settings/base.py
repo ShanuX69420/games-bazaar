@@ -22,6 +22,8 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv(
 CSRF_TRUSTED_ORIGINS = [
     'https://gamesbazaarpk.com',
     'https://www.gamesbazaarpk.com',
+    'https://gamesbazaar.pk',
+    'https://www.gamesbazaar.pk',
 ]
 
 # Application definition
