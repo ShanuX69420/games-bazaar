@@ -12,10 +12,6 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST', default='localhost'),
         'PORT': config('DB_PORT', default='5432'),
-        'OPTIONS': {
-            'MAX_CONNS': 20,  # Connection pooling
-            'MIN_CONNS': 5,
-        },
         'CONN_MAX_AGE': 600,  # Keep connections alive for 10 minutes
     }
 }
@@ -43,8 +39,8 @@ CACHES = {
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'
 SESSION_COOKIE_AGE = 30 * 24 * 60 * 60  # 30 days
-SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Don't expire when browser closes  
-SESSION_SAVE_EVERY_REQUEST = True  # Extend session on every request
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Don't expire when browser closes
+SESSION_SAVE_EVERY_REQUEST = False  # Only touch sessions when data changes
 
 # Channels Configuration for WebSocket Scaling
 CHANNEL_LAYERS = {

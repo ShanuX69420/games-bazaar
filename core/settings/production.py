@@ -21,7 +21,7 @@ SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_AGE = 30 * 24 * 60 * 60  # 30 days
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Don't expire when browser closes
-SESSION_SAVE_EVERY_REQUEST = True  # Extend session on every request
+SESSION_SAVE_EVERY_REQUEST = False  # Only touch sessions when data changes
 
 # Frame Options
 X_FRAME_OPTIONS = 'DENY'
@@ -179,6 +179,7 @@ DATABASE_BACKUP_SCHEDULE = config('DATABASE_BACKUP_SCHEDULE', default='daily')
 
 # Add security middleware
 MIDDLEWARE = [
+    'django.middleware.gzip.GZipMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'core.middleware.CSPMiddleware',

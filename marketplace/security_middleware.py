@@ -13,6 +13,19 @@ access_logger = logging.getLogger('marketplace.access')
 
 class SecurityMiddleware(MiddlewareMixin):
     """Enhanced security middleware for production"""
+    RATE_LIMIT_WINDOW = 3600  # seconds
+
+    def _increment_counter(self, key, amount=1, timeout=None):
+        """Increment a cache counter without overwriting existing TTL."""
+        timeout = timeout or self.RATE_LIMIT_WINDOW
+        try:
+            return cache.incr(key, amount)
+        except ValueError:
+            # Key does not exist yet; create it with the requested amount.
+            if cache.add(key, amount, timeout=timeout):
+                return amount
+            # If another process created it concurrently, increment again.
+            return cache.incr(key, amount)
     
     def process_request(self, request):
         """Process incoming requests for security checks with enhanced logging"""
@@ -38,14 +51,17 @@ class SecurityMiddleware(MiddlewareMixin):
         cache_key = f'requests_{client_ip}'
         admin_cache_key = f'admin_requests_{client_ip}'
         api_cache_key = f'api_requests_{client_ip}'
-        
-        request_count = cache.get(cache_key, 0)
-        admin_count = cache.get(admin_cache_key, 0)
-        api_count = cache.get(api_cache_key, 0)
+
+        counters = cache.get_many([cache_key, admin_cache_key, api_cache_key])
+        request_count = counters.get(cache_key, 0)
+        admin_count = counters.get(admin_cache_key, 0)
+        api_count = counters.get(api_cache_key, 0)
+
+        now_ts = int(datetime.now().timestamp())
         
         # Stricter rate limiting for admin endpoints
         if request.path.startswith('/admin'):
-            if admin_count > 200:  # 200 admin requests per hour (3+ per minute)
+            if admin_count >= 200:  # 200 admin requests per hour (3+ per minute)
                 logger.critical(json.dumps({
                     'timestamp': datetime.now().isoformat(),
                     'ip': client_ip,
@@ -55,16 +71,16 @@ class SecurityMiddleware(MiddlewareMixin):
                     'request_count': admin_count
                 }))
                 response = HttpResponse("Admin rate limit exceeded", status=429)
-                response['Retry-After'] = '3600'
+                response['Retry-After'] = str(self.RATE_LIMIT_WINDOW)
                 response['X-RateLimit-Limit'] = '200'
                 response['X-RateLimit-Remaining'] = '0'
-                response['X-RateLimit-Reset'] = str(int(datetime.now().timestamp()) + 3600)
+                response['X-RateLimit-Reset'] = str(now_ts + self.RATE_LIMIT_WINDOW)
                 return response
-            cache.set(admin_cache_key, admin_count + 1, 3600)
+            self._increment_counter(admin_cache_key, timeout=self.RATE_LIMIT_WINDOW)
         
         # API rate limiting
         if '/api/' in request.path:
-            if api_count > 1000:  # 1000 API requests per hour
+            if api_count >= 1000:  # 1000 API requests per hour
                 logger.critical(json.dumps({
                     'timestamp': datetime.now().isoformat(),
                     'ip': client_ip,
@@ -74,15 +90,15 @@ class SecurityMiddleware(MiddlewareMixin):
                     'request_count': api_count
                 }))
                 response = HttpResponse("API rate limit exceeded", status=429)
-                response['Retry-After'] = '3600'
+                response['Retry-After'] = str(self.RATE_LIMIT_WINDOW)
                 response['X-RateLimit-Limit'] = '1000'
                 response['X-RateLimit-Remaining'] = '0'
-                response['X-RateLimit-Reset'] = str(int(datetime.now().timestamp()) + 3600)
+                response['X-RateLimit-Reset'] = str(now_ts + self.RATE_LIMIT_WINDOW)
                 return response
-            cache.set(api_cache_key, api_count + 1, 3600)
+            self._increment_counter(api_cache_key, timeout=self.RATE_LIMIT_WINDOW)
         
         # General rate limiting
-        if request_count > 5000:  # Reduced from 8000 to 5000 for better security
+        if request_count >= 5000:  # Reduced from 8000 to 5000 for better security
             logger.critical(json.dumps({
                 'timestamp': datetime.now().isoformat(),
                 'ip': client_ip,
@@ -92,10 +108,10 @@ class SecurityMiddleware(MiddlewareMixin):
                 'request_count': request_count
             }))
             response = HttpResponse("Rate limit exceeded", status=429)
-            response['Retry-After'] = '3600'
+            response['Retry-After'] = str(self.RATE_LIMIT_WINDOW)
             response['X-RateLimit-Limit'] = '5000'
             response['X-RateLimit-Remaining'] = '0'
-            response['X-RateLimit-Reset'] = str(int(datetime.now().timestamp()) + 3600)
+            response['X-RateLimit-Reset'] = str(now_ts + self.RATE_LIMIT_WINDOW)
             return response
         
         # Block requests with suspicious patterns
@@ -120,7 +136,7 @@ class SecurityMiddleware(MiddlewareMixin):
                     'user': request.user.username if hasattr(request, 'user') and request.user.is_authenticated else 'anonymous'
                 }))
                 # Increment suspicious request counter
-                cache.set(cache_key, request_count + 10, 3600)  # Penalty for suspicious requests
+                self._increment_counter(cache_key, amount=10, timeout=self.RATE_LIMIT_WINDOW)  # Penalty for suspicious requests
                 return HttpResponseBadRequest("Invalid request")
         
         # Check user agent for security scanners
@@ -132,14 +148,14 @@ class SecurityMiddleware(MiddlewareMixin):
                 'ip': client_ip,
                 'path': request.path,
                 'user_agent': user_agent[:200],
-                'event_type': 'security_scanner_blocked',
-                'user': request.user.username if hasattr(request, 'user') and request.user.is_authenticated else 'anonymous'
-            }))
-            cache.set(cache_key, request_count + 20, 3600)  # Heavy penalty for security scanners
+                    'event_type': 'security_scanner_blocked',
+                    'user': request.user.username if hasattr(request, 'user') and request.user.is_authenticated else 'anonymous'
+                }))
+            self._increment_counter(cache_key, amount=20, timeout=self.RATE_LIMIT_WINDOW)  # Heavy penalty for security scanners
             return HttpResponseBadRequest("Access denied")
         
         # Increment request counter for rate limiting
-        cache.set(cache_key, request_count + 1, 3600)
+        self._increment_counter(cache_key, timeout=self.RATE_LIMIT_WINDOW)
         
         return None
     
