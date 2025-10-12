@@ -227,14 +227,6 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
-# JazzCash Settings (using environment variables for security)
-JAZZCASH_MERCHANT_ID = config('JAZZCASH_MERCHANT_ID', default='')
-JAZZCASH_PASSWORD = config('JAZZCASH_PASSWORD', default='')
-JAZZCASH_INTEGERITY_SALT = config('JAZZCASH_INTEGERITY_SALT', default='')
-# Force the correct URL - use sandbox for testing
-JAZZCASH_TRANSACTION_URL = 'https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform'
-JAZZCASH_RETURN_URL = config('JAZZCASH_RETURN_URL', default='http://127.0.0.1:8000/jazzcash/callback/')
-
 # reCAPTCHA Settings (using environment variables for security)
 RECAPTCHA_PUBLIC_KEY = config('RECAPTCHA_PUBLIC_KEY', default='')
 RECAPTCHA_PRIVATE_KEY = config('RECAPTCHA_PRIVATE_KEY', default='')
@@ -259,6 +251,15 @@ ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 DEFAULT_FROM_EMAIL = 'no-reply@gamesbazaar.pk'
 SERVER_EMAIL = 'no-reply@gamesbazaar.pk'
 
+# Manual wallet top-up bank details (override via environment variables in production)
+MANUAL_DEPOSIT_DETAILS = {
+    'bank_name': config('DEPOSIT_BANK_NAME', default='Update bank name'),
+    'account_title': config('DEPOSIT_ACCOUNT_TITLE', default='Update account title'),
+    'account_number': config('DEPOSIT_ACCOUNT_NUMBER', default='Update account number'),
+    'iban': config('DEPOSIT_IBAN', default='Update IBAN'),
+    'branch': config('DEPOSIT_BRANCH', default=''),
+}
+
 # Security Headers Configuration
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
@@ -277,9 +278,13 @@ SESSION_COOKIE_SAMESITE = 'Lax'  # Allows navigation from external sites
 CSRF_COOKIE_SAMESITE = 'Lax'     # Required for CSRF protection to work with forms
 SESSION_COOKIE_HTTPONLY = True   # Prevent XSS access to session cookies
 
-# Share cookies between domain and subdomain
-SESSION_COOKIE_DOMAIN = '.gamesbazaar.pk'  # Notice the dot prefix
-CSRF_COOKIE_DOMAIN = '.gamesbazaar.pk'
+# Share cookies between domain and subdomain (override in dev to allow localhost)
+if DEBUG:
+    SESSION_COOKIE_DOMAIN = None
+    CSRF_COOKIE_DOMAIN = None
+else:
+    SESSION_COOKIE_DOMAIN = config('SESSION_COOKIE_DOMAIN', default='.gamesbazaar.pk')
+    CSRF_COOKIE_DOMAIN = config('CSRF_COOKIE_DOMAIN', default='.gamesbazaar.pk')
 
 # Content Security Policy
 CSP_DEFAULT_SRC = ["'self'"]

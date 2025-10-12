@@ -21,7 +21,7 @@ class SecurityMiddleware(MiddlewareMixin):
         user_agent = request.META.get('HTTP_USER_AGENT', '')
         
         # Log all access attempts for sensitive endpoints
-        sensitive_paths = ['/admin', '/api', '/jazzcash', '/order-confirmation', '/settings']
+        sensitive_paths = ['/admin', '/api', '/order-confirmation', '/settings']
         if any(path in request.path for path in sensitive_paths):
             access_logger.info(json.dumps({
                 'timestamp': datetime.now().isoformat(),
@@ -63,7 +63,7 @@ class SecurityMiddleware(MiddlewareMixin):
             cache.set(admin_cache_key, admin_count + 1, 3600)
         
         # API rate limiting
-        if '/api/' in request.path or request.path.startswith('/jazzcash'):
+        if '/api/' in request.path:
             if api_count > 1000:  # 1000 API requests per hour
                 logger.critical(json.dumps({
                     'timestamp': datetime.now().isoformat(),

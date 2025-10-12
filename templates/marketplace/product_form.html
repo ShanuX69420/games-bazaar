@@ -47,23 +47,28 @@
     }
     .delete-image-btn {
         position: absolute;
-        top: 4px;
-        right: 4px;
-        background-color: rgba(0,0,0,0.6);
-        color: white;
+        top: 6px;
+        right: 6px;
+        background-color: rgba(15, 23, 42, 0.85);
+        color: #fff;
         border: none;
         border-radius: 50%;
-        width: 24px;
-        height: 24px;
-        font-size: 12px;
-        line-height: 24px;
-        text-align: center;
+        width: 28px;
+        height: 28px;
+        font-size: 18px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
         opacity: 0;
-        transition: opacity 0.2s;
+        transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        z-index: 2;
     }
     .image-preview-box:hover .delete-image-btn {
         opacity: 1;
+        transform: scale(1.05);
     }
     .image-upload-placeholder {
         display: flex;
@@ -157,7 +162,7 @@
                                 <div class="image-preview-box existing-image" data-image-id="{{ image.id }}">
                                     <img src="{{ image.image.url }}" alt="Existing product image">
                                     <button type="button" class="delete-image-btn delete-existing-btn" data-image-id="{{ image.id }}">
-                                        <i class="fas fa-trash-alt fa-xs"></i>
+                                        &times;
                                     </button>
                                 </div>
                                 {% endfor %}
@@ -302,7 +307,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'delete-image-btn';
-            btn.innerHTML = '<i class="fas fa-trash-alt fa-xs"></i>';
+            btn.innerHTML = '&times;';
             btn.addEventListener('click', (event) => {
                 event.stopPropagation(); // prevent modal from opening
                 

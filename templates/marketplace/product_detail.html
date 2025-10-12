@@ -15,11 +15,6 @@
         top: 1.5rem;
     }
 
-    /* New style to highlight the payment dropdown when needed */
-    .custom-dropdown-container.is-invalid {
-        border-color: var(--bs-danger) !important;
-    }
-    
     /* --- NEW STYLES FOR IMAGE GALLERY --- */
     .image-gallery-container {
         display: flex;
@@ -80,74 +75,37 @@
         color: #212529;
         line-height: 1.4;
     }
-    .custom-dropdown-container {
-    position: relative;
-    border: 2px solid #e9ecef;
-    border-radius: 10px;
-    background-color: #fff;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-}
-.custom-dropdown-container:hover {
-    border-color: #2ABF64;
-    box-shadow: 0 4px 8px rgba(42, 191, 100, 0.15);
-}
-.dropdown-selected {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1.25rem;
-    font-weight: 550;
-}
-.dropdown-caret {
-    color: #6c757d;
-    margin-left: 1rem;
-    transition: transform 0.2s ease-in-out;
-}
-.custom-dropdown-container.open .dropdown-caret {
-    transform: rotate(180deg);
-}
-.dropdown-options {
-    display: none; /* Hidden by default */
-    position: absolute;
-    top: calc(100% + 5px);
-    left: 0;
-    right: 0;
-    background-color: #fff;
-    border: 1px solid #dee2e6;
-    border-radius: .375rem;
-    z-index: 10;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-.dropdown-option {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 1rem;
-}
-.dropdown-option:hover {
-    background-color: #f8f9fa;
-}
-.payment-option-details {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-weight: 500;
-}
-.payment-option-details img {
-    width: 24px;
-    height: 24px;
-    object-fit: contain;
-}
-.payment-option-price {
-    font-weight: 600;
-}
-.payment-option-end {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
+    .price-highlight {
+        border-radius: .5rem;
+        background: #f8f9fa;
+        padding: 1rem 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border: 1px solid #e9ecef;
+    }
+    .price-highlight .label {
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    .price-highlight .amount {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #212529;
+        margin: 0;
+    }
+    .insufficient-balance-alert {
+        background: #fff9eb;
+        border: 1px solid #ffe4a1;
+        border-radius: .5rem;
+        padding: .75rem 1rem;
+        font-size: 0.9rem;
+        color: #7a5609;
+    }
 </style>
 
 <div class="row">
@@ -226,39 +184,24 @@
         </div>
 
         {# --- Block B: Payment & Purchase Section --- #}
-        <div class="filter-label mt-4 mb-1">PAYMENT METHOD</div>
-        <div class="custom-dropdown-container" id="payment-method-dropdown">
-            <div class="dropdown-selected">
-                <div class="payment-option-details">
-                    <span>Not selected</span>
-                </div>
-                <div class="payment-option-end">
-                    <span class="payment-option-price">from Rs {{ product.price|floatformat:0|intcomma }}</span>
-                    <i class="fas fa-chevron-down dropdown-caret"></i>
-                </div>
+        <div class="price-highlight mt-3">
+            <div>
+                <div class="label">Price</div>
+                <p class="amount mb-0">Rs {{ product.price|floatformat:0|intcomma }}</p>
             </div>
-            <div class="dropdown-options">
-                <div class="dropdown-option" data-value="Easypaisa" data-img-src="{% static 'images/easypaisa_logo.png' %}" data-price="Rs{{ product.price|floatformat:0 }}">
-                    <div class="payment-option-details">
-                        <img src="{% static 'images/easypaisa_logo.png' %}" alt="Easypaisa Logo">
-                        <span>Easypaisa</span>
-                    </div>
-                    <div class="payment-option-end">
-                        <span class="payment-option-price">Rs {{ product.price|floatformat:0|intcomma }}</span>
-                        <i class="fas fa-chevron-down dropdown-caret invisible"></i>
-                    </div>
-                </div>
-                <div class="dropdown-option" data-value="Jazzcash" data-img-src="{% static 'images/jazzcash_logo.png' %}" data-price="Rs{{ product.price|floatformat:0 }}">
-                    <div class="payment-option-details">
-                        <img src="{% static 'images/jazzcash_logo.png' %}" alt="Jazzcash Logo">
-                        <span>Jazzcash</span>
-                    </div>
-                    <div class="payment-option-end">
-                        <span class="payment-option-price">Rs {{ product.price|floatformat:0|intcomma }}</span>
-                        <i class="fas fa-chevron-down dropdown-caret invisible"></i>
-                    </div>
-                </div>
+            <div class="text-end small text-muted">
+                {% if product.stock_count %}
+                    In stock: {{ product.stock_count }}
+                {% else %}
+                    Secure wallet checkout
+                {% endif %}
             </div>
+        </div>
+
+        <div class="filter-label mt-4 mb-1">PAYMENT</div>
+        <div class="border rounded p-3 bg-light">
+            <p class="mb-1 fw-semibold"><i class="fas fa-wallet me-2"></i>Pay using your wallet balance</p>
+            <p class="mb-0 text-muted small">Top up your wallet from the Funds page before purchasing. Manual bank transfers are reviewed by the team before funds appear in your balance.</p>
         </div>
         
         <div class="mt-3">
@@ -291,17 +234,22 @@
                 {% if user != product.seller %}
                     <form id="payment-form" method="post" action="{% url 'create_order' pk=product.pk %}">
                         {% csrf_token %}
-                        <input type="hidden" name="payment_method" id="selected-payment-method" value="">
                         <input type="hidden" name="quantity" id="selected-quantity" value="1">
                         <button type="submit" id="buy-now-btn" class="btn btn-success btn-lg w-100">Buy Now</button>
                         <small id="payment-helper-text" class="form-text text-muted d-block text-center mt-1">
                             {% if user.profile.available_balance >= product.price %}
-                                Will be paid from your balance (Rs {{ user.profile.available_balance|floatformat:0|intcomma }} available)
+                                Entire amount will be deducted from your wallet (Rs {{ user.profile.available_balance|floatformat:0|intcomma }} available)
                             {% else %}
-                                Balance: Rs {{ user.profile.available_balance|floatformat:0|intcomma }} | Need: Rs {{ product.price|sub:user.profile.available_balance|floatformat:0|intcomma }} via payment method
+                                Wallet balance: Rs {{ user.profile.available_balance|floatformat:0|intcomma }}. <a href="{% url 'funds' %}" class="text-decoration-none">Add funds</a> to complete this purchase.
                             {% endif %}
                         </small>
                     </form>
+                    {% if user.profile.available_balance < product.price %}
+                        <div class="insufficient-balance-alert mt-3 text-center">
+                            Not enough balance for this listing. Add funds now and come back to finish the order.
+                        </div>
+                        <a href="{% url 'funds' %}" class="btn btn-outline-primary w-100 mt-2">Add Funds</a>
+                    {% endif %}
                     <p class="text-muted text-center small mt-2">
                         Your payment is held securely. The seller will not receive the funds until you have confirmed successful delivery of your order.
                     </p>
@@ -460,13 +408,14 @@
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     
-    // --- Custom Payment Dropdown & Multiple Purchase Logic ---
-    const dropdownContainer = document.getElementById('payment-method-dropdown');
+    // --- Multiple Purchase & Wallet Validation ---
     const multiplePurchaseToggle = document.getElementById('multiple-purchase-toggle');
     const multiplePurchaseSection = document.getElementById('multiple-purchase-section');
     const quantityInput = document.getElementById('quantity-input');
     const totalPriceDisplay = document.getElementById('total-price-display');
     const productPrice = parseFloat("{{ product.price }}");
+    const userBalance = parseFloat("{{ user.profile.available_balance|default:'0' }}") || 0;
+    const paymentHelperText = document.getElementById('payment-helper-text');
 
     const updateTotalPrice = () => {
         let quantity = parseInt(quantityInput.value, 10);
@@ -475,55 +424,20 @@ document.addEventListener('DOMContentLoaded', function() {
             quantityInput.value = 0;
         }
         totalPriceDisplay.value = (quantity * productPrice).toFixed(2);
+
+        if (paymentHelperText) {
+            if (quantity * productPrice > userBalance) {
+                const shortfall = (quantity * productPrice - userBalance).toFixed(2);
+                paymentHelperText.innerHTML = `Wallet balance: Rs {{ user.profile.available_balance|floatformat:0|intcomma }} | Additional Rs ${shortfall} required. Please top up before purchasing.`;
+            } else {
+                paymentHelperText.innerHTML = `Total of Rs ${(quantity * productPrice).toFixed(2)} will be deducted from your wallet.`;
+            }
+        }
     };
 
     // Payment form handling
     const paymentForm = document.getElementById('payment-form');
     const buyNowBtn = document.getElementById('buy-now-btn');
-    let selectedPaymentMethod = null;
-
-    if (dropdownContainer) {
-        const selected = dropdownContainer.querySelector('.dropdown-selected');
-        const optionsContainer = dropdownContainer.querySelector('.dropdown-options');
-        const options = optionsContainer.querySelectorAll('.dropdown-option');
-        const selectedDetails = selected.querySelector('.payment-option-details');
-        const selectedPrice = selected.querySelector('.payment-option-price');
-
-        selected.addEventListener('click', (event) => {
-            event.stopPropagation();
-            optionsContainer.style.display = optionsContainer.style.display === 'block' ? 'none' : 'block';
-            dropdownContainer.classList.toggle('open');
-        });
-
-        options.forEach(option => {
-            option.addEventListener('click', function() {
-                selectedPaymentMethod = this.dataset.value;
-                const imgSrc = this.dataset.imgSrc;
-                const value = this.dataset.value;
-                const price = this.dataset.price;
-                selectedDetails.innerHTML = `<img src="${imgSrc}" alt="${value} Logo"><span>${value}</span>`;
-                selectedPrice.textContent = price;
-                optionsContainer.style.display = 'none';
-                dropdownContainer.classList.remove('open');
-                
-                // Update helper text to show selected payment method
-                const paymentHelperText = document.getElementById('payment-helper-text');
-                if (paymentHelperText) {
-                    paymentHelperText.innerHTML = `Payment method selected: ${value}`;
-                }
-                
-                // Update hidden form field
-                document.getElementById('selected-payment-method').value = value;
-            });
-        });
-
-        document.addEventListener('click', function() {
-            if (optionsContainer.style.display === 'block') {
-                optionsContainer.style.display = 'none';
-                dropdownContainer.classList.remove('open');
-            }
-        });
-    }
 
     if (multiplePurchaseToggle) {
         multiplePurchaseToggle.addEventListener('click', function(e) {
@@ -539,6 +453,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update hidden quantity field
             document.getElementById('selected-quantity').value = quantityInput.value;
         });
+
+        updateTotalPrice();
     }
 
     // Handle form submission - validate before submitting
@@ -553,13 +469,15 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update hidden fields
             document.getElementById('selected-quantity').value = quantity;
             
-            // Check if payment method is selected (for external payment)
-            const userBalance = parseFloat("{{ user.profile.available_balance }}");
             const totalPrice = productPrice * quantity;
             
-            if (totalPrice > userBalance && !selectedPaymentMethod) {
+            if (totalPrice > userBalance) {
                 e.preventDefault();
-                alert('Please select a payment method for the amount that exceeds your balance.');
+                alert('Your wallet balance is not sufficient. Please top up before purchasing.');
+                if (buyNowBtn) {
+                    buyNowBtn.disabled = false;
+                    buyNowBtn.textContent = 'Buy Now';
+                }
                 return;
             }
             

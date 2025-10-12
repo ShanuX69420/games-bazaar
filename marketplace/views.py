@@ -263,15 +263,14 @@ def get_cached_review_stats(seller):
         # Cache for 10 minutes - reviews don't change very frequently
         cache.set(cache_key, stats, 600)
     return stats
-from .jazzcash_utils import get_jazzcash_payment_params, verify_jazzcash_response
 from django.conf import settings
 
 from .models import (
     Game, Category, Product, Order, Review, ReviewReply, FlatPage,
-    Conversation, Message, WithdrawalRequest, SupportTicket, SiteConfiguration, Profile, Transaction, GameCategory, UserGameBoost, ProductImage, BlockedUser
+    Conversation, Message, WithdrawalRequest, DepositRequest, SupportTicket, SiteConfiguration, Profile, Transaction, GameCategory, UserGameBoost, ProductImage, BlockedUser
 )
 from .forms import (
-    ProductForm, ReviewForm, ReviewReplyForm, WithdrawalRequestForm, SupportTicketForm,
+    ProductForm, ReviewForm, ReviewReplyForm, WithdrawalRequestForm, DepositRequestForm, SupportTicketForm,
     ProfilePictureForm, ProfileUpdateForm, CustomUserCreationForm
 )
 
@@ -1039,7 +1038,7 @@ def delete_product(request, pk):
 
 @login_required
 def create_order(request, pk):
-    """Redirect to checkout page with payment method and quantity"""
+    """Redirect to checkout page after validating balance-based purchase"""
     if request.method != 'POST':
         messages.error(request, 'Invalid request method.')
         return redirect('product_detail', pk=pk)
@@ -1064,21 +1063,7 @@ def create_order(request, pk):
         messages.error(request, f"Invalid quantity: {str(e)}")
         return redirect('product_detail', pk=pk)
 
-    payment_method = request.POST.get('payment_method', '')
-    
-    # Validate payment method - only allow specific values
-    valid_payment_methods = ['Jazzcash', 'Easypaisa', 'balance', '']
-    if payment_method not in valid_payment_methods:
-        messages.error(request, 'Invalid payment method selected.')
-        return redirect('product_detail', pk=pk)
-    
-    # Check for Easypaisa and show message, then continue with JazzCash
-    if payment_method == 'Easypaisa':
-        # Store info message for checkout page
-        request.session['easypaisa_message'] = 'Easypaisa payment is coming soon! Continuing with JazzCash for now.'
-        payment_method = 'Jazzcash'
-    
-    # Calculate pricing to check if payment method is required
+    # Calculate pricing to ensure the buyer has sufficient balance
     total_price = product.price * quantity
     user_balance = request.user.profile.available_balance
     
@@ -1086,20 +1071,18 @@ def create_order(request, pk):
     user_balance = Decimal(str(user_balance))
     total_price = Decimal(str(total_price))
     
-    # If total price exceeds balance and no payment method selected, show error
-    if total_price > user_balance and not payment_method:
-        messages.error(request, 'Please select a payment method for the amount that exceeds your balance.')
-        return redirect('product_detail', pk=pk)
-    
-    # If user has sufficient balance and no payment method, set to balance
-    if total_price <= user_balance and not payment_method:
-        payment_method = 'balance'
+    if total_price > user_balance:
+        messages.error(
+            request,
+            'You do not have enough wallet balance to complete this purchase. '
+            'Please top up your funds using the manual payment instructions.'
+        )
+        return redirect('funds')
     
     # Store data in session and redirect to checkout
     request.session['checkout_data'] = {
         'product_id': product.id,
         'quantity': quantity,
-        'payment_method': payment_method,
         'total_price': float(total_price)
     }
     
@@ -1531,7 +1514,7 @@ def funds_view(request):
     if show_details:
         held_funds_details = request.user.profile.get_held_funds_details()[:20]  # Limit to 20 most recent
     
-    transactions_list = Transaction.objects.filter(user=request.user)
+    transactions_list = Transaction.objects.filter(user=request.user).select_related('order', 'withdrawal', 'deposit')
     filter_by = request.GET.get('filter')
     if filter_by == 'deposits': transactions_list = transactions_list.filter(transaction_type='DEPOSIT')
     elif filter_by == 'withdrawals': transactions_list = transactions_list.filter(transaction_type='WITHDRAWAL')
@@ -1540,19 +1523,63 @@ def funds_view(request):
     paginator = Paginator(transactions_list, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+    withdrawal_form = WithdrawalRequestForm(user=request.user, balance=available_balance)
+    deposit_form = DepositRequestForm()
+    
     if request.method == 'POST':
-        form = WithdrawalRequestForm(request.POST, user=request.user, balance=available_balance)
-        if form.is_valid():
-            withdrawal_request = form.save(commit=False)
-            withdrawal_request.user = request.user
-            withdrawal_request.save()
-            messages.success(request, 
-                f'Your withdrawal request of Rs{withdrawal_request.amount:.2f} via {withdrawal_request.get_payment_method_display()} has been received! '
-                f'It will be processed within 24-48 hours. You will receive the funds in your {withdrawal_request.account_title} account.'
-            )
-            return redirect('funds')
-    else:
-        form = WithdrawalRequestForm(user=request.user, balance=available_balance)
+        form_type = request.POST.get('form_type')
+        
+        if form_type == 'withdrawal':
+            withdrawal_form = WithdrawalRequestForm(request.POST, user=request.user, balance=available_balance)
+            if withdrawal_form.is_valid():
+                withdrawal_request = withdrawal_form.save(commit=False)
+                withdrawal_request.user = request.user
+                withdrawal_request.save()
+                messages.success(
+                    request,
+                    (
+                        f'Your withdrawal request of Rs{withdrawal_request.amount:.2f} via '
+                        f'{withdrawal_request.get_payment_method_display()} has been received! '
+                        'It will be processed within 24-48 hours. You will receive the funds in your '
+                        f'{withdrawal_request.account_title} account.'
+                    )
+                )
+                return redirect('funds')
+        elif form_type == 'deposit':
+            deposit_form = DepositRequestForm(request.POST, request.FILES)
+            if deposit_form.is_valid():
+                with transaction.atomic():
+                    deposit_request = deposit_form.save(commit=False)
+                    deposit_request.user = request.user
+                    deposit_request.save()
+                    
+                    Transaction.objects.create(
+                        user=request.user,
+                        amount=deposit_request.amount,
+                        transaction_type='DEPOSIT',
+                        status='PENDING',
+                        description=f"Manual deposit #{deposit_request.id} awaiting review",
+                        deposit=deposit_request
+                    )
+                
+                messages.success(
+                    request,
+                    'Your deposit request has been submitted. Funds will be added within 2-4 hours.'
+                )
+                return redirect('funds')
+        else:
+            messages.error(request, 'Unable to process your request. Please try again.')
+    
+    bank_details = getattr(settings, 'MANUAL_DEPOSIT_DETAILS', {
+        'account_title': 'Update account title',
+        'account_number': 'Update account number',
+        'iban': 'Update IBAN',
+        'bank_name': 'Update bank name',
+        'branch': '',
+    })
+    
+    pending_deposits = request.user.deposit_requests.filter(status=DepositRequest.STATUS_PENDING).count()
+    
     context = {
         'balance': total_balance,
         'available_balance': available_balance,
@@ -1561,13 +1588,16 @@ def funds_view(request):
         'held_funds_details': held_funds_details,
         'show_details': show_details,
         'transactions': page_obj,
-        'withdrawal_form': form,
+        'withdrawal_form': withdrawal_form,
+        'deposit_form': deposit_form,
+        'bank_details': bank_details,
+        'pending_deposits': pending_deposits,
         'current_filter': filter_by,
     }
     return render(request, 'marketplace/funds.html', context)
 
 def load_more_transactions(request):
-    transactions_list = Transaction.objects.filter(user=request.user)
+    transactions_list = Transaction.objects.filter(user=request.user).select_related('order', 'withdrawal', 'deposit')
     filter_by = request.GET.get('filter')
     if filter_by == 'deposits': transactions_list = transactions_list.filter(transaction_type='DEPOSIT')
     elif filter_by == 'withdrawals': transactions_list = transactions_list.filter(transaction_type='WITHDRAWAL')
@@ -1781,220 +1811,6 @@ def boost_listings(request, game_pk):
     return redirect(request.META.get('HTTP_REFERER', reverse_lazy('game_detail', kwargs={'pk': game_pk})))
 
 @login_required
-@transaction.atomic
-def jazzcash_payment(request, product_id):
-    product = get_object_or_404(Product, pk=product_id)
-
-    # Get data from session (either from checkout or direct POST)
-    checkout_data = request.session.get('checkout_data')
-    
-    if request.method == 'POST':
-        # Calculate payment details from POST data
-        try:
-            quantity = validate_quantity(request.POST.get('quantity', '1'), max_quantity=100)
-        except ValidationError as e:
-            messages.error(request, f"Invalid quantity: {str(e)}")
-            return redirect('product_detail', pk=product.pk)
-    elif checkout_data and checkout_data.get('product_id') == product.id:
-        # Get data from checkout session
-        quantity = checkout_data.get('quantity', 1)
-    else:
-        return redirect('product_detail', pk=product.pk)
-
-    total_price = product.price * quantity
-    user_balance = request.user.profile.available_balance
-    amount_from_balance = min(user_balance, total_price)
-    payment_amount = total_price - amount_from_balance
-    
-    # Store order details in session for later creation
-    request.session['pending_order'] = {
-        'product_id': product.id,
-        'quantity': quantity,
-        'total_price': float(total_price),
-        'amount_from_balance': float(amount_from_balance),
-        'payment_amount': float(payment_amount)
-    }
-    
-    # Generate unique reference ID for this payment attempt
-    import time
-    payment_ref = f"{request.user.id}_{product.id}_{int(time.time())}"
-    
-    jazzcash_params = get_jazzcash_payment_params(payment_amount, payment_ref)
-
-    context = {
-        'jazzcash_params': jazzcash_params,
-        'JAZZCASH_TRANSACTION_URL': settings.JAZZCASH_TRANSACTION_URL,
-        'product': product,
-        'payment_amount': payment_amount,
-        'total_price': total_price,
-        'amount_from_balance': amount_from_balance
-    }
-    return render(request, 'marketplace/jazzcash_payment_form.html', context)
-
-import logging
-payment_logger = logging.getLogger('marketplace.payment')
-
-@csrf_exempt  # Only exempt for external JazzCash callbacks, with additional security
-@transaction.atomic
-def jazzcash_callback(request):
-    """
-    Secure JazzCash payment callback handler.
-    Uses signature verification and additional security checks instead of CSRF for external callbacks.
-    """
-    # Additional security validation for callback
-    if request.method != 'POST':
-        return HttpResponseBadRequest("Only POST requests allowed")
-    
-    # Validate request size to prevent DoS
-    if len(request.body) > 10000:  # 10KB limit
-        return HttpResponseBadRequest("Request too large")
-    
-    # Basic rate limiting check (simplified)
-    user_agent = request.META.get('HTTP_USER_AGENT', '')
-    if 'bot' in user_agent.lower() or 'crawler' in user_agent.lower():
-        return HttpResponseForbidden("Bots not allowed")
-    
-    response_data = request.POST.dict()
-    
-    # Extract transaction reference for replay attack prevention
-    transaction_ref = response_data.get('pp_TxnRefNo', '')
-    if not transaction_ref:
-        return HttpResponseBadRequest("Missing transaction reference")
-    
-    # Check for replay attacks - ensure this callback hasn't been processed before
-    from .models import ProcessedPaymentCallback
-    client_ip = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
-    if not client_ip:
-        client_ip = request.META.get('REMOTE_ADDR', '')
-    
-    if ProcessedPaymentCallback.objects.filter(transaction_ref=transaction_ref).exists():
-        # This is a replay attack or duplicate callback
-        return HttpResponseBadRequest("Transaction already processed")
-    
-    # Validate JazzCash signature - this is our primary security check
-    if verify_jazzcash_response(response_data):
-        pp_ResponseCode = response_data.get('pp_ResponseCode')
-        payment_ref = response_data.get('pp_BillReference')
-        
-        # Record this callback as processed to prevent replay attacks
-        ProcessedPaymentCallback.objects.create(
-            transaction_ref=transaction_ref,
-            response_code=pp_ResponseCode,
-            client_ip=client_ip,
-            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]  # Truncate user agent
-        )
-        
-        # Log payment callback with sensitive data protection
-        payment_logger.info(f"Payment callback processed - TxnRef: {transaction_ref}, ResponseCode: {pp_ResponseCode}, IP: {client_ip}")
-
-        if pp_ResponseCode == '000':
-            # Payment successful - create order now
-            pending_order_data = request.session.get('pending_order')
-            
-            if not pending_order_data:
-                messages.error(request, "Order session expired. Please try again.")
-                return redirect('payment_failed')
-            
-            try:
-                from decimal import Decimal
-                product = Product.objects.select_for_update().get(id=pending_order_data['product_id'])
-                quantity = pending_order_data['quantity']
-                total_price = Decimal(str(pending_order_data['total_price']))
-                amount_from_balance = Decimal(str(pending_order_data['amount_from_balance']))
-                payment_amount = Decimal(str(pending_order_data['payment_amount']))
-                
-                # Check stock availability again before creating order
-                item_to_deliver = None
-                if product.automatic_delivery:
-                    stock_items = [item for item in product.stock_details.splitlines() if item.strip()]
-                    if len(stock_items) < quantity:
-                        messages.error(request, f"Sorry, stock became unavailable during payment. Only {len(stock_items)} left.")
-                        return redirect('payment_failed')
-
-                    items_to_deliver_list = stock_items[:quantity]
-                    product.stock_details = "\n".join(stock_items[quantity:])
-                    item_to_deliver = "\n".join(items_to_deliver_list)
-
-                    if not product.stock_details.strip():
-                        product.is_active = False
-                    product.save()
-                else:
-                    if product.stock is not None:
-                        if product.stock >= quantity:
-                            product.stock -= quantity
-                            if product.stock == 0:
-                                product.is_active = False
-                            product.save()
-                        else:
-                            messages.error(request, "Sorry, stock became unavailable during payment.")
-                            return redirect('payment_failed')
-                
-                # Create order with PROCESSING status
-                order = Order.objects.create(
-                    buyer=request.user,
-                    seller=product.seller,
-                    product=product,
-                    total_price=total_price,
-                    status='PROCESSING',
-                    amount_paid_from_balance=amount_from_balance,
-                    amount_paid_via_payment_method=payment_amount,
-                    # Snapshot fields
-                    listing_title_snapshot=product.listing_title,
-                    description_snapshot=product.description,
-                    game_snapshot=product.game,
-                    category_snapshot=product.category
-                )
-                order.filter_options_snapshot.set(product.filter_options.all())
-                
-                # Handle automatic delivery and messages
-                p1, p2 = sorted((order.buyer.id, order.seller.id))
-                conversation, created = Conversation.objects.get_or_create(participant1_id=p1, participant2_id=p2)
-
-                if product.automatic_delivery and item_to_deliver:
-                    Message.objects.create(
-                        conversation=conversation,
-                        sender=product.seller,
-                        content=item_to_deliver,
-                        is_system_message=False,
-                        is_auto_reply=True
-                    )
-
-                if product.post_purchase_message:
-                    Message.objects.create(
-                        conversation=conversation,
-                        sender=product.seller,
-                        content=product.post_purchase_message,
-                        is_system_message=False,
-                        is_auto_reply=True
-                    )
-                
-                # Clear session data
-                del request.session['pending_order']
-                
-                messages.success(request, "Payment successful!")
-                return redirect('order_confirmation', order_id=order.order_id)
-                
-            except Exception as e:
-                messages.error(request, "Error creating order. Please contact support.")
-                return redirect('payment_failed')
-        else:
-            # Payment failed
-            error_message = response_data.get('pp_ResponseMessage', 'An unknown error occurred.')
-            messages.error(request, f"Payment failed: {error_message}")
-            
-            # Clear session data
-            if 'pending_order' in request.session:
-                del request.session['pending_order']
-                
-            return redirect('payment_failed')
-    else:
-        messages.error(request, "Invalid response from Jazzcash. Payment could not be verified.")
-        return redirect('payment_failed')
-
-@login_required
-def payment_failed_view(request):
-    # You can pass more context here if needed, like an error message
-    return render(request, 'marketplace/payment_failed.html')
 
 @login_required
 def order_confirmation_view(request, order_id):
@@ -2041,7 +1857,7 @@ def report_dispute(request, conversation_id):
 
 @login_required
 def checkout_view(request, pk):
-    """Display checkout confirmation page with selected payment method"""
+    """Display checkout confirmation page for balance-only payments"""
     product = get_object_or_404(Product, pk=pk, is_active=True)
     
     if product.seller == request.user:
@@ -2062,7 +1878,6 @@ def checkout_view(request, pk):
         return redirect('product_detail', pk=product.pk)
     
     quantity = checkout_data.get('quantity', 1)
-    payment_method = checkout_data.get('payment_method', '')
     
     # Calculate pricing
     total_price = product.price * quantity
@@ -2072,17 +1887,22 @@ def checkout_view(request, pk):
     user_balance = Decimal(str(user_balance))
     total_price = Decimal(str(total_price))
     
-    amount_from_balance = min(user_balance, total_price)
-    remaining_amount = total_price - amount_from_balance
-    can_pay_from_balance = user_balance >= total_price
+    if user_balance < total_price:
+        request.session.pop('checkout_data', None)
+        messages.error(
+            request,
+            'Your wallet balance is no longer sufficient to complete this order. '
+            'Please top up your funds using the manual payment instructions.'
+        )
+        return redirect('funds')
+    
+    amount_from_balance = total_price
+    remaining_amount = Decimal('0')
+    can_pay_from_balance = True
+    balance_after_purchase = user_balance - amount_from_balance
     
     # Get ordered filter options for display
     ordered_filter_options = product.filter_options.select_related('filter').order_by('filter__order')
-    
-    # Check for Easypaisa message from session
-    easypaisa_message = None
-    if 'easypaisa_message' in request.session:
-        easypaisa_message = request.session.pop('easypaisa_message')
     
     context = {
         'product': product,
@@ -2092,9 +1912,9 @@ def checkout_view(request, pk):
         'amount_from_balance': amount_from_balance,
         'remaining_amount': remaining_amount,
         'can_pay_from_balance': can_pay_from_balance,
+        'balance_after_purchase': balance_after_purchase,
         'ordered_filter_options': ordered_filter_options,
-        'payment_method': payment_method,
-        'easypaisa_message': easypaisa_message,
+        'payment_label': 'Wallet Balance',
     }
     
     return render(request, 'marketplace/checkout.html', context)
@@ -2132,13 +1952,15 @@ def process_checkout(request, pk):
         messages.error(request, f"Invalid quantity: {str(e)}")
         return redirect('product_detail', pk=product.pk)
     
-    payment_method = request.POST.get('payment_method')
+    checkout_data = request.session.get('checkout_data')
+    if not checkout_data or checkout_data.get('product_id') != product.id:
+        messages.error(request, 'Checkout session has expired. Please start again.')
+        return redirect('product_detail', pk=product.pk)
     
-    # Validate payment method on checkout processing too
-    valid_payment_methods = ['Jazzcash', 'Easypaisa', 'balance']
-    if payment_method not in valid_payment_methods:
-        messages.error(request, 'Invalid payment method.')
-        return redirect('product_detail', pk=pk)
+    if checkout_data.get('quantity') != quantity:
+        messages.error(request, 'Checkout details have changed. Please try again.')
+        request.session.pop('checkout_data', None)
+        return redirect('product_detail', pk=product.pk)
     
     total_price = product.price * quantity
     
@@ -2149,31 +1971,17 @@ def process_checkout(request, pk):
     user_balance = Decimal(str(user_balance))
     total_price = Decimal(str(total_price))
     
-    # Calculate payment split
-    amount_from_balance = min(user_balance, total_price)
-    remaining_amount = total_price - amount_from_balance
+    if user_balance < total_price:
+        request.session.pop('checkout_data', None)
+        messages.error(
+            request,
+            'Your wallet balance is no longer sufficient to complete this order. '
+            'Please top up your funds using the manual payment instructions.'
+        )
+        return redirect('funds')
     
-    # If user has sufficient balance, always use balance only (regardless of selected payment method)
-    if user_balance >= total_price:
-        # Process order immediately using balance only
-        return create_order_with_balance(request, product, quantity, total_price)
-    
-    # If payment method requires external payment (only when balance is insufficient)
-    elif payment_method.lower() in ['jazzcash', 'easypaisa']:
-        # Store checkout data in session for later use
-        request.session['checkout_data'] = {
-            'product_id': product.id,
-            'quantity': quantity,
-            'total_price': float(total_price),
-            'payment_method': payment_method
-        }
-        
-        # Redirect to payment gateway
-        return redirect('jazzcash_payment', product_id=product.id)
-    
-    else:
-        # Don't add error message for invalid payment methods to prevent it showing on other pages
-        return redirect('product_detail', pk=product.pk)
+    request.session.pop('checkout_data', None)
+    return create_order_with_balance(request, product, quantity, total_price)
 
 def create_order_with_balance(request, product, quantity, total_price):
     """Helper function to create order using balance only"""

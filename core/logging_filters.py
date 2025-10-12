@@ -76,7 +76,7 @@ class PaymentCallbackFilter(logging.Filter):
                 
                 # Skip logging if it contains payment callback data
                 if any(keyword in msg.lower() for keyword in [
-                    'pp_password', 'pp_securehash', 'jazzcash', 'payment_callback'
+                    'pp_password', 'pp_securehash', 'payment_callback'
                 ]):
                     # Replace with generic message
                     record.msg = "Payment callback processed [sensitive data redacted]"

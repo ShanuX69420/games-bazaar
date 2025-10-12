@@ -64,6 +64,41 @@
         padding-top: 0.5rem;
         padding-bottom: 0.5rem;
     }
+    .deposit-card {
+        border: 1px solid #dee2e6;
+        border-radius: 0.75rem;
+    }
+    .deposit-card .bank-details-list {
+        list-style: none;
+        padding-left: 0;
+        margin-bottom: 0;
+    }
+    .deposit-card .bank-details-list li {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 1.5rem;
+        font-size: 0.9rem;
+        padding: 0.35rem 0;
+        border-bottom: 1px dashed #e9ecef;
+    }
+    .deposit-card .bank-details-list li:last-child {
+        border-bottom: none;
+    }
+    .deposit-card .bank-details-list span:first-child {
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        font-size: 0.7rem;
+        color: #6c757d;
+        flex-shrink: 0;
+    }
+    .deposit-card .bank-details-list span:last-child {
+        font-weight: 600;
+        color: #212529;
+    }
+    .deposit-alert {
+        border-radius: 0.5rem;
+    }
 
     /* --- MOBILE STYLES --- */
     @media (max-width: 767px) {
@@ -195,8 +230,104 @@
         {% endif %}
         <small class="text-muted">Total Balance: Rs{{ balance|floatformat:0 }}</small>
     </div>
-    <div class="col-md-4 text-md-end d-none d-md-block">
+    <div class="col-md-4 d-none d-md-flex justify-content-md-end align-items-start gap-2">
+        <button class="btn btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#depositFormCollapse" aria-expanded="{{ deposit_form.errors|yesno:'true,false,false' }}" aria-controls="depositFormCollapse" data-deposit-toggle>Deposit</button>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#withdrawModal">Withdraw</button>
+</div>
+</div>
+
+<div class="card deposit-card shadow-sm mt-3" id="depositCard">
+    <div class="card-body">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+            <div>
+                <h5 class="mb-1">Deposit Funds</h5>
+                <p class="text-muted small mb-0">Send a manual bank transfer and upload the receipt for quick approval.</p>
+            </div>
+            <div class="mt-3 mt-md-0">
+                <button class="btn btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#depositFormCollapse" aria-expanded="{{ deposit_form.errors|yesno:'true,false,false' }}" aria-controls="depositFormCollapse" data-deposit-toggle>
+                    Start Deposit
+                </button>
+            </div>
+        </div>
+
+        {% if pending_deposits %}
+        <div class="alert alert-warning deposit-alert mt-3 mb-0 d-flex align-items-center gap-2">
+            <i class="fas fa-info-circle"></i>
+            <div>You have {{ pending_deposits }} pending deposit request{{ pending_deposits|pluralize }} awaiting verification.</div>
+        </div>
+        {% endif %}
+
+        <div class="collapse {% if deposit_form.errors %}show{% endif %} mt-4" id="depositFormCollapse">
+            <div class="row g-4">
+                <div class="col-md-5">
+                    <h6 class="text-uppercase text-muted fw-semibold small mb-3">Bank details</h6>
+                    <ul class="bank-details-list">
+                        <li><span>Bank</span><span>{{ bank_details.bank_name|default:"Update bank name" }}</span></li>
+                        <li><span>Account title</span><span>{{ bank_details.account_title|default:"Update account title" }}</span></li>
+                        <li><span>Account number</span><span>{{ bank_details.account_number|default:"Update account number" }}</span></li>
+                        <li><span>IBAN</span><span class="font-monospace">{{ bank_details.iban|default:"Update IBAN" }}</span></li>
+                        {% if bank_details.branch %}
+                        <li><span>Branch</span><span>{{ bank_details.branch }}</span></li>
+                        {% endif %}
+                    </ul>
+                </div>
+                <div class="col-md-7">
+                    <h6 class="text-uppercase text-muted fw-semibold small mb-3">Add funds</h6>
+                    {% if deposit_form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in deposit_form.non_field_errors %}
+                        <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <form method="post" action="{% url 'funds' %}" enctype="multipart/form-data" novalidate>
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="deposit">
+                        <div class="mb-3">
+                            <label for="{{ deposit_form.amount.id_for_label }}" class="form-label">Amount (Rs)</label>
+                            {{ deposit_form.amount }}
+                            {% if deposit_form.amount.errors %}
+                                {% for error in deposit_form.amount.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ deposit_form.payment_reference.id_for_label }}" class="form-label">Bank reference (optional)</label>
+                            {{ deposit_form.payment_reference }}
+                            {% if deposit_form.payment_reference.errors %}
+                                {% for error in deposit_form.payment_reference.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ deposit_form.receipt.id_for_label }}" class="form-label">Upload receipt</label>
+                            {{ deposit_form.receipt }}
+                            <small class="text-muted d-block mt-1">Accepted formats: JPG, PNG, GIF, WEBP, PDF. Max 10MB.</small>
+                            {% if deposit_form.receipt.errors %}
+                                {% for error in deposit_form.receipt.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <div class="mb-4">
+                            <label for="{{ deposit_form.notes.id_for_label }}" class="form-label">Notes (optional)</label>
+                            {{ deposit_form.notes }}
+                            {% if deposit_form.notes.errors %}
+                                {% for error in deposit_form.notes.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+                            <button type="submit" class="btn btn-success px-4">Add Funds</button>
+                            <span class="text-muted small">Funds will be added in 2-4 hours.</span>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -213,7 +344,10 @@
             <li><a href="?filter=miscellaneous" class="dropdown-item {% if current_filter == 'miscellaneous' %}active{% endif %}">Miscellaneous</a></li>
         </ul>
     </div>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#withdrawModal">Withdraw</button>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#depositFormCollapse" aria-expanded="{{ deposit_form.errors|yesno:'true,false,false' }}" aria-controls="depositFormCollapse" data-deposit-toggle>Deposit</button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#withdrawModal">Withdraw</button>
+    </div>
 </div>
 
 
@@ -300,12 +434,19 @@
                     <td id="modal-deposit-id"></td>
                 </tr>
                 <tr id="modal-deposit-info-row-2" style="display: none;">
-                    <td class="text-muted">Payment system</td>
-                    <td><span class="text-muted fst-italic">Not available</span></td>
+                    <td class="text-muted">Deposit status</td>
+                    <td id="modal-deposit-status"></td>
                 </tr>
                 <tr id="modal-deposit-info-row-3" style="display: none;">
-                    <td class="text-muted">External transaction</td>
-                    <td><span class="text-muted fst-italic">Not available</span></td>
+                    <td class="text-muted">Payment reference</td>
+                    <td><span id="modal-deposit-reference-value" class="text-muted fst-italic">Not provided</span></td>
+                </tr>
+                <tr id="modal-deposit-info-row-4" style="display: none;">
+                    <td class="text-muted">Receipt</td>
+                    <td>
+                        <a id="modal-deposit-receipt-link" href="#" class="text-decoration-none d-none" target="_blank" rel="noopener">View receipt</a>
+                        <span id="modal-deposit-receipt-missing" class="text-muted fst-italic">Not uploaded</span>
+                    </td>
                 </tr>
 
                 <tr id="modal-withdrawal-info-row-1" style="display: none;">
@@ -338,6 +479,7 @@
         {% endif %}
         <form method="post" action="{% url 'funds' %}" id="withdrawalForm">
             {% csrf_token %}
+            <input type="hidden" name="form_type" value="withdrawal">
             
             <div class="mb-3">
                 <label for="{{ withdrawal_form.amount.id_for_label }}" class="form-label">Amount (Rs)</label>
@@ -369,20 +511,8 @@
                 {% endif %}
             </div>
 
-            <!-- Fields for EasyPaisa/JazzCash -->
-            <div class="mb-3" id="mobile-wallet-fields" style="display: none;">
-                <label for="{{ withdrawal_form.account_number.id_for_label }}" class="form-label">Mobile Number</label>
-                {{ withdrawal_form.account_number }}
-                <div class="form-text">Enter your 11-digit mobile number (e.g., 03XXXXXXXXX)</div>
-                {% if withdrawal_form.account_number.errors %}
-                    {% for error in withdrawal_form.account_number.errors %}
-                        <div class="text-danger small">{{ error }}</div>
-                    {% endfor %}
-                {% endif %}
-            </div>
-
-            <!-- Fields for Bank Transfer -->
-            <div class="mb-3" id="bank-transfer-fields" style="display: none;">
+            <!-- Bank Transfer Details -->
+            <div class="mb-3">
                 <label for="{{ withdrawal_form.iban.id_for_label }}" class="form-label">IBAN</label>
                 {{ withdrawal_form.iban }}
                 <div class="form-text">Enter your 24-character IBAN starting with PK</div>
@@ -418,6 +548,29 @@
       </div>
       <div class="modal-footer justify-content-center">
         <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Got it!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Success Modal for Deposit Request -->
+<div class="modal fade" id="depositSuccessModal" tabindex="-1" aria-labelledby="depositSuccessModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="depositSuccessModalLabel">Deposit Request Submitted</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div class="mb-3">
+          <i class="fas fa-piggy-bank text-primary" style="font-size: 3rem;"></i>
+        </div>
+        <h6>Thanks! We received your deposit details.</h6>
+        <p class="text-muted mb-2">Our finance team will verify the payment and credit your wallet within <strong>2-4 hours</strong>.</p>
+        <p class="text-muted small">You will receive a notification once the funds are available.</p>
+      </div>
+      <div class="modal-footer justify-content-center">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Great!</button>
       </div>
     </div>
   </div>
@@ -480,12 +633,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const depositInfoRows = [
                 document.getElementById('modal-deposit-info-row-1'),
                 document.getElementById('modal-deposit-info-row-2'),
-                document.getElementById('modal-deposit-info-row-3')
+                document.getElementById('modal-deposit-info-row-3'),
+                document.getElementById('modal-deposit-info-row-4')
             ];
             const withdrawalInfoRows = [
                 document.getElementById('modal-withdrawal-info-row-1'),
                 document.getElementById('modal-withdrawal-info-row-2')
             ];
+            const modalDepositStatusEl = document.getElementById('modal-deposit-status');
+            const modalDepositReferenceEl = document.getElementById('modal-deposit-reference-value');
+            const modalDepositReceiptLink = document.getElementById('modal-deposit-receipt-link');
+            const modalDepositReceiptMissing = document.getElementById('modal-deposit-receipt-missing');
 
             // Populate the common fields
             modalDateEl.textContent = txData.txDate;
@@ -493,10 +651,23 @@ document.addEventListener('DOMContentLoaded', function() {
             modalTotalEl.textContent = txData.txTotal;
             modalStatusEl.textContent = txData.txStatus;
             
-            // Hide all conditional rows to reset the modal's state
+            // Reset conditional sections
             orderInfoRow.style.display = 'none';
             depositInfoRows.forEach(row => row.style.display = 'none');
             withdrawalInfoRows.forEach(row => row.style.display = 'none');
+
+            if (modalDepositStatusEl) {
+                modalDepositStatusEl.textContent = '';
+            }
+            if (modalDepositReferenceEl) {
+                modalDepositReferenceEl.textContent = 'Not provided';
+                modalDepositReferenceEl.classList.add('text-muted', 'fst-italic');
+            }
+            if (modalDepositReceiptLink && modalDepositReceiptMissing) {
+                modalDepositReceiptLink.classList.add('d-none');
+                modalDepositReceiptLink.removeAttribute('href');
+                modalDepositReceiptMissing.classList.remove('d-none');
+            }
 
             // Show details based on the transaction type
             if (txData.txType === 'ORDER_PURCHASE' || txData.txType === 'ORDER_SALE') {
@@ -509,6 +680,29 @@ document.addEventListener('DOMContentLoaded', function() {
             } else if (txData.txType === 'DEPOSIT') {
                 if (txData.depositId) {
                     document.getElementById('modal-deposit-id').textContent = txData.depositId;
+                    if (modalDepositStatusEl) {
+                        modalDepositStatusEl.textContent = txData.depositStatus || 'Pending review';
+                    }
+                    if (modalDepositReferenceEl) {
+                        if (txData.depositReference) {
+                            modalDepositReferenceEl.textContent = txData.depositReference;
+                            modalDepositReferenceEl.classList.remove('text-muted', 'fst-italic');
+                        } else {
+                            modalDepositReferenceEl.textContent = 'Not provided';
+                            modalDepositReferenceEl.classList.add('text-muted', 'fst-italic');
+                        }
+                    }
+                    if (modalDepositReceiptLink && modalDepositReceiptMissing) {
+                        if (txData.depositReceipt) {
+                            modalDepositReceiptLink.href = txData.depositReceipt;
+                            modalDepositReceiptLink.classList.remove('d-none');
+                            modalDepositReceiptMissing.classList.add('d-none');
+                        } else {
+                            modalDepositReceiptLink.classList.add('d-none');
+                            modalDepositReceiptLink.removeAttribute('href');
+                            modalDepositReceiptMissing.classList.remove('d-none');
+                        }
+                    }
                     depositInfoRows.forEach(row => row.style.display = '');
                 }
             } else if (txData.txType === 'WITHDRAWAL') {
@@ -520,41 +714,35 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Withdrawal form payment method handling
-    const paymentMethodSelect = document.getElementById('id_payment_method');
-    const mobileWalletFields = document.getElementById('mobile-wallet-fields');
-    const bankTransferFields = document.getElementById('bank-transfer-fields');
+    // Smooth-scroll to deposit card when toggled
+    document.querySelectorAll('[data-deposit-toggle]').forEach(button => {
+        button.addEventListener('click', function() {
+            const depositCard = document.getElementById('depositCard');
+            if (!depositCard) return;
+            setTimeout(() => {
+                depositCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 150);
+        });
+    });
 
-    if (paymentMethodSelect) {
-        function togglePaymentFields() {
-            const selectedMethod = paymentMethodSelect.value;
-            
-            // Hide all conditional fields first
-            mobileWalletFields.style.display = 'none';
-            bankTransferFields.style.display = 'none';
-            
-            // Show relevant fields based on selection
-            if (selectedMethod === 'easypaisa' || selectedMethod === 'jazzcash') {
-                mobileWalletFields.style.display = 'block';
-            } else if (selectedMethod === 'bank_transfer') {
-                bankTransferFields.style.display = 'block';
-            }
+    {% if deposit_form.errors %}
+    (function() {
+        const depositCard = document.getElementById('depositCard');
+        if (depositCard) {
+            depositCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+    })();
+    {% endif %}
 
-        // Set initial state
-        togglePaymentFields();
-        
-        // Handle changes
-        paymentMethodSelect.addEventListener('change', togglePaymentFields);
-    }
-
-    // Check for withdrawal success message and show modal
+    // Show success modals based on flash messages
     {% if messages %}
         {% for message in messages %}
             {% if message.tags == 'success' and 'withdrawal request' in message.message|lower %}
-                // Show success modal for withdrawal requests
                 const withdrawalSuccessModal = new bootstrap.Modal(document.getElementById('withdrawalSuccessModal'));
                 withdrawalSuccessModal.show();
+            {% elif message.tags == 'success' and 'deposit request' in message.message|lower %}
+                const depositSuccessModal = new bootstrap.Modal(document.getElementById('depositSuccessModal'));
+                depositSuccessModal.show();
             {% endif %}
         {% endfor %}
     {% endif %}

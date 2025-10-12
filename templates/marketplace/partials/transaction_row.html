@@ -11,7 +11,13 @@
      data-tx-type="{{ tx.transaction_type }}"
      {% if tx.order %}data-order-id="{{ tx.order.order_id }}" data-order-url="{% url 'order_detail' tx.order.clean_order_id %}"{% endif %}
      {% if tx.withdrawal %}data-withdrawal-id="{{ tx.withdrawal.id }}"{% endif %}
-     {% if tx.transaction_type == 'DEPOSIT' %}data-deposit-id="{{ tx.id }}"{% endif %}
+     {% if tx.deposit %}
+        data-deposit-id="{{ tx.deposit.id }}"
+        data-deposit-status="{{ tx.deposit.get_status_display }}"
+        data-deposit-status-raw="{{ tx.deposit.status }}"
+        {% if tx.deposit.payment_reference %}data-deposit-reference="{{ tx.deposit.payment_reference }}"{% endif %}
+        {% if tx.deposit.receipt %}data-deposit-receipt="{{ tx.deposit.receipt.url }}"{% endif %}
+     {% endif %}
 >
     <div>
         <div class="fw-bold">{{ tx.created_at|date:"d M, H:i" }}</div>
@@ -44,7 +50,13 @@
      data-tx-type="{{ tx.transaction_type }}"
      {% if tx.order %}data-order-id="{{ tx.order.order_id }}" data-order-url="{% url 'order_detail' tx.order.clean_order_id %}"{% endif %}
      {% if tx.withdrawal %}data-withdrawal-id="{{ tx.withdrawal.id }}"{% endif %}
-     {% if tx.transaction_type == 'DEPOSIT' %}data-deposit-id="{{ tx.id }}"{% endif %}
+     {% if tx.deposit %}
+        data-deposit-id="{{ tx.deposit.id }}"
+        data-deposit-status="{{ tx.deposit.get_status_display }}"
+        data-deposit-status-raw="{{ tx.deposit.status }}"
+        {% if tx.deposit.payment_reference %}data-deposit-reference="{{ tx.deposit.payment_reference }}"{% endif %}
+        {% if tx.deposit.receipt %}data-deposit-receipt="{{ tx.deposit.receipt.url }}"{% endif %}
+     {% endif %}
 >
     <div class="mobile-left-col">
         <div class="mobile-tx-description">

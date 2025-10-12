@@ -7,9 +7,10 @@ from django.utils.html import format_html
 from django.db.models import Q, Case, When, Value, IntegerField
 from django.db import models
 from django.core.cache import cache
+from django.urls import reverse
 from .models import (
     SiteConfiguration, FlatPage, Game, Profile, Category, 
-    Product, Order, Review, ReviewReply, Conversation, Message, WithdrawalRequest, 
+    Product, Order, Review, ReviewReply, Conversation, Message, WithdrawalRequest, DepositRequest,
     SupportTicket, Transaction, Filter, FilterOption, GameCategory, ProductImage, HeldFund
 )
 from . import admin_views
@@ -260,11 +261,25 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'transaction_type', 'amount', 'status', 'created_at')
+    list_display = ('user', 'transaction_type', 'amount', 'status', 'related_record', 'created_at')
     list_filter = ('transaction_type', 'status', 'created_at')
     search_fields = ('user__username', 'description')
     readonly_fields = ('created_at',)
     date_hierarchy = 'created_at'
+    list_select_related = ('user', 'order', 'withdrawal', 'deposit')
+    
+    def related_record(self, obj):
+        if obj.deposit:
+            url = reverse('admin:marketplace_depositrequest_change', args=[obj.deposit.id])
+            return format_html('<a href="{}">Deposit #{}</a>', url, obj.deposit.id)
+        if obj.withdrawal:
+            url = reverse('admin:marketplace_withdrawalrequest_change', args=[obj.withdrawal.id])
+            return format_html('<a href="{}">Withdrawal #{}</a>', url, obj.withdrawal.id)
+        if obj.order:
+            url = reverse('admin:marketplace_order_change', args=[obj.order.id])
+            return format_html('<a href="{}">Order #{}</a>', url, obj.order.order_id)
+        return format_html('<span style="color:#6c757d;">—</span>')
+    related_record.short_description = 'Linked record'
 
 @admin.register(HeldFund)
 class HeldFundAdmin(admin.ModelAdmin):
@@ -318,6 +333,74 @@ class WithdrawalRequestAdmin(admin.ModelAdmin):
     def reject_requests(self, request, queryset): 
         queryset.update(status='REJECTED', processed_at=timezone.now())
     reject_requests.short_description = "❌ Reject selected requests"
+
+@admin.register(DepositRequest)
+class DepositRequestAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'amount', 'status_badge', 'payment_reference', 'requested_at', 'processed_at', 'transaction_link')
+    list_filter = ('status', 'requested_at', 'processed_at')
+    search_fields = ('user__username', 'payment_reference', 'notes')
+    actions = ['mark_approved', 'mark_rejected']
+    date_hierarchy = 'requested_at'
+    readonly_fields = ('requested_at', 'processed_at', 'transaction_link', 'receipt_preview')
+    list_select_related = ('user', 'transaction')
+    
+    fieldsets = (
+        ('Deposit Summary', {
+            'fields': ('user', 'amount', 'status', 'requested_at', 'processed_at', 'transaction_link')
+        }),
+        ('Payment Details', {
+            'fields': ('payment_reference', 'receipt', 'receipt_preview')
+        }),
+        ('Customer Notes', {
+            'fields': ('notes',)
+        }),
+        ('Admin Notes', {
+            'fields': ('admin_notes',)
+        })
+    )
+    
+    def status_badge(self, obj):
+        status_colors = {
+            DepositRequest.STATUS_PENDING: '#d39e00',
+            DepositRequest.STATUS_APPROVED: '#198754',
+            DepositRequest.STATUS_REJECTED: '#dc3545',
+        }
+        color = status_colors.get(obj.status, '#6c757d')
+        return format_html('<span style="font-weight:600; color:{};">{}</span>', color, obj.get_status_display())
+    status_badge.short_description = 'Status'
+    status_badge.admin_order_field = 'status'
+    
+    def receipt_preview(self, obj):
+        if not obj.receipt:
+            return format_html('<em>No receipt uploaded</em>')
+        return format_html('<a href="{}" target="_blank" rel="noopener">View receipt</a>', obj.receipt.url)
+    receipt_preview.short_description = 'Receipt'
+    
+    def transaction_link(self, obj):
+        transaction = getattr(obj, 'transaction', None)
+        if not transaction:
+            return format_html('<em>Pending transaction link</em>')
+        url = reverse('admin:marketplace_transaction_change', args=[transaction.id])
+        return format_html('<a href="{}">Transaction #{}</a>', url, transaction.id)
+    transaction_link.short_description = 'Transaction'
+    
+    def mark_approved(self, request, queryset):
+        updated = 0
+        for deposit in queryset.select_related('transaction'):
+            if deposit.status != DepositRequest.STATUS_APPROVED:
+                deposit.mark_approved()
+                updated += 1
+        self.message_user(request, f"{updated} deposit request{'s' if updated != 1 else ''} approved.")
+    mark_approved.short_description = "✅ Approve selected deposits"
+    
+    def mark_rejected(self, request, queryset):
+        updated = 0
+        for deposit in queryset.select_related('transaction'):
+            if deposit.status != DepositRequest.STATUS_REJECTED:
+                deposit.mark_rejected()
+                updated += 1
+        self.message_user(request, f"{updated} deposit request{'s' if updated != 1 else ''} rejected.")
+    mark_rejected.short_description = "❌ Reject selected deposits"
 
 @admin.register(SupportTicket)
 class SupportTicketAdmin(admin.ModelAdmin):

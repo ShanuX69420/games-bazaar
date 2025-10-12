@@ -548,14 +548,12 @@ class Message(models.Model):
 class WithdrawalRequest(models.Model):
     STATUS_CHOICES = [('PENDING', 'Pending'), ('APPROVED', 'Approved'), ('REJECTED', 'Rejected')]
     PAYMENT_METHOD_CHOICES = [
-        ('easypaisa', 'EasyPaisa'),
-        ('jazzcash', 'JazzCash'),
         ('bank_transfer', 'Bank Transfer'),
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='withdrawal_requests')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='jazzcash')
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='bank_transfer')
     account_title = models.CharField(max_length=100, default='Not specified')
     account_number = models.CharField(max_length=50, blank=True, null=True)
     iban = models.CharField(max_length=24, blank=True, null=True)
@@ -564,6 +562,97 @@ class WithdrawalRequest(models.Model):
     processed_at = models.DateTimeField(null=True, blank=True)
     admin_notes = models.TextField(blank=True, null=True)
     def __str__(self): return f"Withdrawal request for {self.user.username} of Rs{self.amount} via {self.get_payment_method_display()}"
+
+class DepositRequest(models.Model):
+    """Manual deposit request submitted by users after sending payment off-platform."""
+    STATUS_PENDING = 'PENDING'
+    STATUS_APPROVED = 'APPROVED'
+    STATUS_REJECTED = 'REJECTED'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_APPROVED, 'Approved'),
+        (STATUS_REJECTED, 'Rejected'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='deposit_requests')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    receipt = models.FileField(upload_to='deposit_receipts/')
+    payment_reference = models.CharField(max_length=100, blank=True, help_text="Optional reference or transaction ID from your bank transfer.")
+    notes = models.TextField(blank=True, help_text="Any additional details you want the finance team to see.")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    admin_notes = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['-requested_at']
+    
+    def __str__(self):
+        return f"Deposit request #{self.id} for {self.user.username} (Rs{self.amount})"
+    
+    @property
+    def is_pending(self):
+        return self.status == self.STATUS_PENDING
+    
+    def save(self, *args, **kwargs):
+        previous_status = None
+        if self.pk:
+            previous_status = DepositRequest.objects.filter(pk=self.pk).values_list('status', flat=True).first()
+        
+        if previous_status != self.status:
+            if self.status in (self.STATUS_APPROVED, self.STATUS_REJECTED):
+                if not self.processed_at:
+                    self.processed_at = timezone.now()
+            elif self.status == self.STATUS_PENDING:
+                self.processed_at = None
+        
+        super().save(*args, **kwargs)
+        self._sync_transaction(previous_status)
+    
+    def _sync_transaction(self, previous_status):
+        transaction = getattr(self, 'transaction', None)
+        if not transaction:
+            return
+        
+        if self.status == self.STATUS_APPROVED:
+            if transaction.status != 'COMPLETED' or previous_status != self.STATUS_APPROVED:
+                transaction.status = 'COMPLETED'
+                transaction.description = f"Manual deposit #{self.id} approved"
+                transaction.save(update_fields=['status', 'description'])
+        elif self.status == self.STATUS_REJECTED:
+            if transaction.status != 'CANCELLED' or previous_status != self.STATUS_REJECTED:
+                transaction.status = 'CANCELLED'
+                transaction.description = f"Manual deposit #{self.id} rejected"
+                transaction.save(update_fields=['status', 'description'])
+        else:
+            if transaction.status != 'PENDING' or previous_status != self.STATUS_PENDING:
+                transaction.status = 'PENDING'
+                transaction.description = f"Manual deposit #{self.id} awaiting review"
+                transaction.save(update_fields=['status', 'description'])
+    
+    def mark_approved(self, admin_notes=None):
+        if self.status == self.STATUS_APPROVED:
+            if admin_notes and admin_notes != (self.admin_notes or ''):
+                self.admin_notes = admin_notes
+                super().save(update_fields=['admin_notes'])
+            return
+        self.status = self.STATUS_APPROVED
+        self.processed_at = timezone.now()
+        if admin_notes:
+            self.admin_notes = admin_notes
+        self.save(update_fields=['status', 'processed_at', 'admin_notes'])
+    
+    def mark_rejected(self, admin_notes=None):
+        if self.status == self.STATUS_REJECTED:
+            if admin_notes is not None and admin_notes != (self.admin_notes or ''):
+                self.admin_notes = admin_notes
+                super().save(update_fields=['admin_notes'])
+            return
+        self.status = self.STATUS_REJECTED
+        self.processed_at = timezone.now()
+        if admin_notes is not None:
+            self.admin_notes = admin_notes
+        self.save(update_fields=['status', 'processed_at', 'admin_notes'])
 
 class SupportTicket(models.Model):
     STATUS_CHOICES = [('OPEN', 'Open'), ('IN_PROGRESS', 'In Progress'), ('CLOSED', 'Closed')]
@@ -611,6 +700,7 @@ class Transaction(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True)
     withdrawal = models.ForeignKey(WithdrawalRequest, on_delete=models.SET_NULL, null=True, blank=True)
+    deposit = models.OneToOneField('DepositRequest', on_delete=models.SET_NULL, null=True, blank=True, related_name='transaction')
     
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

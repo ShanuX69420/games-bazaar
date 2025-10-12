@@ -74,6 +74,15 @@ def send_system_message(conversation, message_type, order, user):
             is_system_message=True
         )
 
+
+def invalidate_balance_caches(*users):
+    """Clear cached balance values for the supplied users."""
+    for user in users:
+        if not user:
+            continue
+        cache.delete(f'user_balance_{user.id}')
+        cache.delete(f'user_held_balance_{user.id}')
+
 # --- Signal Handlers ---
 
 @receiver(post_save, sender=Message)
@@ -156,6 +165,7 @@ def order_status_change_handler(sender, instance, created, **kwargs):
             Transaction.objects.filter(order=instance, user=buyer).update(status='COMPLETED')
             net_earning = instance.total_price - (instance.commission_paid or 0)
             Transaction.objects.filter(order=instance, user=seller).update(status='COMPLETED', amount=net_earning)
+            invalidate_balance_caches(buyer, seller)
             if not seller.profile.is_verified_seller:
                 HeldFund.objects.get_or_create(
                     user=seller,
@@ -164,6 +174,7 @@ def order_status_change_handler(sender, instance, created, **kwargs):
                 )
         elif status in ['CANCELLED', 'REFUNDED']:
             Transaction.objects.filter(order=instance).update(status=status)
+            invalidate_balance_caches(buyer, seller)
 
     if instance.tracker.has_changed('status') or created:
         buyer_context = get_user_context(buyer)

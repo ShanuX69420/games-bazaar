@@ -7,10 +7,28 @@
             <a class="nav-link dropdown-toggle" href="#" id="supportDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 Support
             </a>
-            <ul class="dropdown-menu" aria-labelledby="supportDropdown">
-                <li><a class="dropdown-item" href="{% url 'support_center' %}">Submit a Request</a></li>
-                <li><a class="dropdown-item" href="/rules/">Rules</a></li>
-            </ul>
+            <div class="dropdown-menu dropdown-menu-support shadow-lg border-0" aria-labelledby="supportDropdown">
+                <div class="dropdown-heading">We're here to help</div>
+                <a class="support-option" href="{% url 'support_center' %}">
+                    <span class="support-option-icon"><i class="fas fa-headset"></i></span>
+                    <span>
+                        <span class="support-option-title">Submit a Request</span>
+                        <span class="support-option-meta">Get assistance with orders, listings, or account issues.</span>
+                    </span>
+                    <i class="fas fa-chevron-right small text-muted ms-auto"></i>
+                </a>
+                <a class="support-option" href="/rules/">
+                    <span class="support-option-icon"><i class="fas fa-shield-alt"></i></span>
+                    <span>
+                        <span class="support-option-title">Rules & Safety Guide</span>
+                        <span class="support-option-meta">Stay updated on marketplace policies for buyers and sellers.</span>
+                    </span>
+                    <i class="fas fa-chevron-right small text-muted ms-auto"></i>
+                </a>
+                <div class="support-quick-links">
+                    <a href="mailto:support@gamesbazaarpk.com"><i class="fas fa-envelope"></i> support@gamesbazaarpk.com</a>
+                </div>
+            </div>
         </li>
     </ul>
     <ul class="navbar-nav ms-auto align-items-center">
@@ -23,22 +41,43 @@
                 <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                     <img src="{{ user.profile.image_url }}" alt="p" width="32" height="32" class="rounded-circle" loading="lazy">
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                    <li>
-                        <a class="dropdown-item profile-dropdown-item" href="{% url 'public_profile' user.username %}">
-                            <span class="profile-username">{{ user.username }}</span>
-                            <span class="profile-subtext">Profile</span>
+                <div class="dropdown-menu dropdown-menu-end dropdown-menu-profile" aria-labelledby="navbarDropdown">
+                    <div class="profile-menu-header">
+                        <div class="profile-menu-avatar">
+                            <img src="{{ user.profile.image_url }}" alt="Profile photo">
+                        </div>
+                        <div class="profile-menu-identity">
+                            <span class="name">{{ user.username }}</span>
+                            <span class="meta">
+                                {% if user.profile.is_verified_seller %}Verified seller · {% endif %}
+                                Member since {{ user.date_joined|date:"M Y" }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="profile-menu-section">
+                        <a class="profile-menu-item" href="{% url 'public_profile' user.username %}">
+                            <i class="fas fa-id-badge"></i>
+                            <span>View Public Profile</span>
                         </a>
-                    </li>
-                    <li><a class="dropdown-item" href="{% url 'settings' %}">Settings</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li>
-                        <form action="{% url 'logout' %}" method="post" class="d-flex">
+                        <a class="profile-menu-item" href="{% url 'settings' %}">
+                            <i class="fas fa-cog"></i>
+                            <span>Account Settings</span>
+                        </a>
+                        <a class="profile-menu-item" href="{% url 'support_center' %}">
+                            <i class="fas fa-life-ring"></i>
+                            <span>Support Center</span>
+                        </a>
+                    </div>
+                    <div class="profile-menu-section">
+                        <form action="{% url 'logout' %}" method="post">
                             {% csrf_token %}
-                            <button type="submit" class="dropdown-item">Logout</button>
+                            <button type="submit" class="profile-menu-item logout">
+                                <i class="fas fa-sign-out-alt"></i>
+                                <span>Logout</span>
+                            </button>
                         </form>
-                    </li>
-                </ul>
+                    </div>
+                </div>
             </li>
         {% else %}
             <!-- Desktop: Show separate Login/Register links -->

@@ -2,12 +2,14 @@
 from django.db.models import Sum
 from django import forms
 from .models import (
-    Product, Review, ReviewReply, WithdrawalRequest, Order, SupportTicket, Profile, Category,
+    Product, Review, ReviewReply, WithdrawalRequest, DepositRequest, Order, SupportTicket, Profile, Category,
     Filter, FilterOption, GameCategory, ProductImage
 )
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from decimal import Decimal
 import re
+import os
 
 # Custom form field to handle the display of filter options
 class FilterOptionChoiceField(forms.ModelChoiceField):
@@ -97,16 +99,14 @@ class ReviewReplyForm(forms.ModelForm):
 
 class WithdrawalRequestForm(forms.ModelForm):
     PAYMENT_METHOD_CHOICES = [
-        ('', 'Select Payment Method'),
-        ('easypaisa', 'EasyPaisa'),
-        ('jazzcash', 'JazzCash'),
         ('bank_transfer', 'Bank Transfer'),
     ]
     
     payment_method = forms.ChoiceField(
         choices=PAYMENT_METHOD_CHOICES,
         widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_payment_method'}),
-        required=True
+        required=False,
+        initial='bank_transfer'
     )
     
     account_title = forms.CharField(
@@ -119,29 +119,9 @@ class WithdrawalRequestForm(forms.ModelForm):
         required=False
     )
     
-    account_number = forms.CharField(
-        max_length=50,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Enter account number',
-            'id': 'id_account_number'
-        }),
-        required=False
-    )
-    
-    iban = forms.CharField(
-        max_length=24,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Enter IBAN (24 digits)',
-            'id': 'id_iban'
-        }),
-        required=False
-    )
-
     class Meta:
         model = WithdrawalRequest
-        fields = ['amount', 'payment_method', 'account_title', 'account_number', 'iban']
+        fields = ['amount', 'payment_method', 'account_title', 'iban']
         widgets = {
             'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'})
         }
@@ -152,43 +132,24 @@ class WithdrawalRequestForm(forms.ModelForm):
         super(WithdrawalRequestForm, self).__init__(*args, **kwargs)
     
     def clean_payment_method(self):
-        payment_method = self.cleaned_data.get('payment_method')
-        if not payment_method:
-            raise forms.ValidationError("Please select a payment method.")
+        payment_method = self.cleaned_data.get('payment_method') or 'bank_transfer'
         return payment_method
     
     def clean_account_title(self):
         account_title = self.cleaned_data.get('account_title')
-        payment_method = self.cleaned_data.get('payment_method')
         
-        if payment_method and not account_title:
+        if not account_title:
             raise forms.ValidationError("Account title is required.")
         
-        if account_title and len(account_title.strip()) < 2:
+        account_title = account_title.strip()
+        if len(account_title) < 2:
             raise forms.ValidationError("Account title must be at least 2 characters long.")
         
-        return account_title.strip() if account_title else account_title
-    
-    def clean_account_number(self):
-        account_number = self.cleaned_data.get('account_number')
-        payment_method = self.cleaned_data.get('payment_method')
-        
-        if payment_method in ['easypaisa', 'jazzcash'] and not account_number:
-            raise forms.ValidationError("Account number is required for mobile wallet payments.")
-        
-        if account_number:
-            # Basic validation for mobile numbers (11 digits starting with 03)
-            if payment_method in ['easypaisa', 'jazzcash']:
-                if not account_number.isdigit() or len(account_number) != 11 or not account_number.startswith('03'):
-                    raise forms.ValidationError("Please enter a valid mobile number (11 digits starting with 03).")
-        
-        return account_number
+        return account_title
     
     def clean_iban(self):
         iban = self.cleaned_data.get('iban')
-        payment_method = self.cleaned_data.get('payment_method')
-        
-        if payment_method == 'bank_transfer' and not iban:
+        if not iban:
             raise forms.ValidationError("IBAN is required for bank transfers.")
         
         if iban:
@@ -214,6 +175,87 @@ class WithdrawalRequestForm(forms.ModelForm):
         if amount <= 0:
             raise forms.ValidationError("Withdrawal amount must be positive.")
         return amount
+
+class DepositRequestForm(forms.ModelForm):
+    """Form to capture manual deposit submissions with basic validation safeguards."""
+    MINIMUM_AMOUNT = Decimal('1000.00')
+    ALLOWED_MIME_TYPES = {
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'application/pdf',
+    }
+    MAX_UPLOAD_SIZE_MB = 10
+    
+    receipt = forms.FileField(
+        label='Payment receipt',
+        widget=forms.ClearableFileInput(attrs={
+            'class': 'form-control',
+            'accept': 'image/*,.pdf'
+        }),
+        help_text='Upload a clear screenshot or PDF of your bank transfer. Max 10MB.',
+        required=True
+    )
+    
+    class Meta:
+        model = DepositRequest
+        fields = ['amount', 'payment_reference', 'receipt', 'notes']
+        widgets = {
+            'amount': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': '1000',
+                'placeholder': 'Enter deposit amount (min Rs1000)'
+            }),
+            'payment_reference': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Optional bank reference / transaction ID'
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Additional details for the finance team (optional)'
+            }),
+        }
+    
+    def clean_amount(self):
+        amount = self.cleaned_data.get('amount')
+        if amount is None or amount <= 0:
+            raise forms.ValidationError("Deposit amount must be greater than zero.")
+        if amount < self.MINIMUM_AMOUNT:
+            raise forms.ValidationError(f"Minimum deposit is Rs{self.MINIMUM_AMOUNT:.0f}.")
+        return amount
+    
+    def clean_receipt(self):
+        uploaded = self.cleaned_data.get('receipt')
+        if not uploaded:
+            raise forms.ValidationError("Please upload a receipt for your deposit.")
+        
+        max_size_bytes = self.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+        if uploaded.size > max_size_bytes:
+            raise forms.ValidationError(f"Receipt file cannot exceed {self.MAX_UPLOAD_SIZE_MB}MB.")
+        
+        if uploaded.size < 512:
+            raise forms.ValidationError("Receipt file appears to be empty. Please upload a valid screenshot or PDF.")
+        
+        # Basic filename sanitisation
+        filename = os.path.basename(uploaded.name)
+        if any(char in filename for char in ['..', '/', '\\']):
+            raise forms.ValidationError("Invalid file name detected.")
+        
+        content_type = getattr(uploaded, 'content_type', None)
+        if content_type and content_type.lower() not in self.ALLOWED_MIME_TYPES:
+            raise forms.ValidationError("Unsupported file type. Please upload an image or PDF receipt.")
+        
+        # Fallback to extension check if content type missing
+        if not content_type:
+            _, ext = os.path.splitext(filename)
+            allowed_ext = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf'}
+            if ext.lower() not in allowed_ext:
+                raise forms.ValidationError("Unsupported file format. Allowed: JPEG, PNG, GIF, WEBP, PDF.")
+        
+        return uploaded
 
 class SupportTicketForm(forms.ModelForm):
     class Meta:

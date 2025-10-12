@@ -4,17 +4,6 @@
 
 {% block content %}
 
-<!-- Easypaisa Message -->
-{% if easypaisa_message %}
-<div class="container mt-3">
-    <div class="alert alert-info alert-dismissible fade show" role="alert">
-        <i class="fas fa-info-circle me-2"></i>
-        {{ easypaisa_message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-</div>
-{% endif %}
-
 <style nonce="{{ request.csp_nonce }}">
     .checkout-container {
         max-width: 1200px;
@@ -205,50 +194,43 @@
 
                 <!-- Payment Breakdown -->
                 <div class="mb-3">
-                    <div class="filter-label mb-2">PAYMENT BREAKDOWN</div>
-                    {% if amount_from_balance > 0 %}
-                        <div class="price-row">
-                            <span>Account Balance</span>
-                            <span>Rs {{ amount_from_balance|floatformat:0 }}</span>
-                        </div>
-                    {% endif %}
-                    {% if remaining_amount > 0 %}
-                        <div class="price-row">
-                            <span>{{ payment_method|title }}</span>
-                            <span>Rs {{ remaining_amount|floatformat:0 }}</span>
-                        </div>
-                    {% endif %}
-                    {% if amount_from_balance == 0 and remaining_amount == 0 %}
-                        <div class="price-row">
-                            <span>{{ payment_method|title }}</span>
-                            <span>Rs {{ total_price|floatformat:0|intcomma }}</span>
-                        </div>
-                    {% endif %}
+                    <div class="filter-label mb-2">PAYMENT SOURCE</div>
+                    <div class="price-row">
+                        <span>Current wallet balance</span>
+                        <span>Rs {{ user_balance|floatformat:0|intcomma }}</span>
+                    </div>
+                    <div class="price-row">
+                        <span>This order will use</span>
+                        <span>
+                            {% if amount_from_balance > 0 %}
+                                - Rs {{ amount_from_balance|floatformat:0|intcomma }}
+                            {% else %}
+                                Rs 0
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="price-row">
+                        <span>Balance after purchase</span>
+                        <span>Rs {{ balance_after_purchase|floatformat:0|intcomma }}</span>
+                    </div>
                 </div>
 
                 <!-- Total -->
                 <div class="price-row">
-                    <span><strong>REMAINING PRICE</strong></span>
-                    <span><strong>
-                        {% if payment_method == 'balance' and can_pay_from_balance %}
-                            Rs 0.00
-                        {% else %}
-                            Rs {{ remaining_amount|floatformat:0 }}
-                        {% endif %}
-                    </strong></span>
+                    <span><strong>TOTAL CHARGED</strong></span>
+                    <span><strong>Rs {{ total_price|floatformat:0|intcomma }}</strong></span>
                 </div>
 
                 <!-- Pay Button -->
                 <form method="post" action="{% url 'process_checkout' pk=product.pk %}">
                     {% csrf_token %}
                     <input type="hidden" name="quantity" value="{{ quantity }}">
-                    <input type="hidden" name="payment_method" value="{{ payment_method }}">
-                    <button type="submit" class="btn btn-primary btn-lg w-100 mt-3">Pay</button>
+                    <button type="submit" class="btn btn-primary btn-lg w-100 mt-3">Confirm Purchase</button>
                 </form>
 
                 <!-- Security Message -->
                 <div class="security-message">
-                    The seller will not be able to receive the payment until you confirm that he has fulfilled his obligations.
+                    Your wallet will be debited immediately. Sellers receive funds only after you confirm the order is fulfilled.
                 </div>
             </div>
         </div>
