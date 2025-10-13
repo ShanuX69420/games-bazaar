@@ -1,5 +1,10 @@
 from .base import *
 
+# Ensure security middleware runs even in development (for lockout testing)
+insert_index = 4  # After CSP middleware to keep ordering similar to production
+if 'marketplace.security_middleware.SecurityMiddleware' not in MIDDLEWARE:
+    MIDDLEWARE.insert(insert_index, 'marketplace.security_middleware.SecurityMiddleware')
+
 # Development-specific settings
 DEBUG = True
 

@@ -4,9 +4,20 @@ import logging
 import json
 from datetime import datetime
 from django.http import HttpResponseBadRequest, HttpResponse, JsonResponse
+from django.shortcuts import render
+from django.template import TemplateDoesNotExist
+from django.urls import NoReverseMatch, reverse
 from django.utils.deprecation import MiddlewareMixin
 from django.conf import settings
 from django.core.cache import cache
+from django.contrib.auth.models import AnonymousUser
+from marketplace.login_security import (
+    LOCK_MESSAGE,
+    LOCKOUT_SECONDS,
+    is_ip_locked,
+    is_user_locked,
+    normalize_identifier,
+)
 
 logger = logging.getLogger('marketplace.security')
 access_logger = logging.getLogger('marketplace.access')
@@ -14,6 +25,79 @@ access_logger = logging.getLogger('marketplace.access')
 class SecurityMiddleware(MiddlewareMixin):
     """Enhanced security middleware for production"""
     RATE_LIMIT_WINDOW = 3600  # seconds
+    login_paths_cache = None
+
+    @staticmethod
+    def _get_admin_root():
+        """Return the admin base path with leading slash."""
+        admin_slug = settings.ADMIN_URL.strip('/')
+        return f'/{admin_slug}' if admin_slug else '/admin'
+
+    @classmethod
+    def get_login_paths(cls):
+        """Cache and return the set of login URLs that should enforce lockouts."""
+        if cls.login_paths_cache is not None:
+            return cls.login_paths_cache
+
+        paths = set()
+        for view_name in ('login', 'account_login', 'admin:login'):
+            try:
+                paths.add(reverse(view_name))
+            except NoReverseMatch:
+                continue
+
+        # Ensure trailing slash consistency
+        normalized = set()
+        for path in paths:
+            normalized.add(path if path.endswith('/') else f'{path}/')
+        cls.login_paths_cache = normalized
+        return cls.login_paths_cache
+
+    @staticmethod
+    def _extract_login_identifier(request):
+        """Pull username/email from the login request for lockout checks."""
+        if request.method != 'POST':
+            return None
+
+        candidates = []
+        if request.content_type == 'application/json':
+            try:
+                payload = json.loads(request.body.decode('utf-8'))
+            except (ValueError, UnicodeDecodeError):
+                payload = {}
+            candidates.extend([
+                payload.get('username'),
+                payload.get('login'),
+                payload.get('email'),
+            ])
+        else:
+            candidates.extend([
+                request.POST.get('username'),
+                request.POST.get('login'),
+                request.POST.get('email'),
+            ])
+
+        for candidate in candidates:
+            normalized = normalize_identifier(candidate)
+            if normalized:
+                return normalized
+        return None
+
+    @staticmethod
+    def lockout_response(request):
+        """Return a consistent response when login is temporarily blocked."""
+        context = {
+            'lockout_minutes': max(1, LOCKOUT_SECONDS // 60),
+            'message': LOCK_MESSAGE,
+        }
+        if not hasattr(request, 'user'):
+            request.user = AnonymousUser()
+        try:
+            response = render(request, 'registration/lockout.html', context, status=429)
+        except TemplateDoesNotExist:
+            response = HttpResponse(LOCK_MESSAGE, status=429)
+        response['Retry-After'] = str(LOCKOUT_SECONDS)
+        return response
 
     def _increment_counter(self, key, amount=1, timeout=None):
         """Increment a cache counter without overwriting existing TTL."""
@@ -32,9 +116,21 @@ class SecurityMiddleware(MiddlewareMixin):
         
         client_ip = self.get_client_ip(request)
         user_agent = request.META.get('HTTP_USER_AGENT', '')
+        admin_root = self._get_admin_root()
+        normalized_ip = normalize_identifier(client_ip)
+        normalized_path = request.path if request.path.endswith('/') else f'{request.path}/'
+
+        # Enforce login lockouts before hitting view logic
+        if normalized_path in self.get_login_paths():
+            if normalized_ip and is_ip_locked(normalized_ip):
+                return self.lockout_response(request)
+
+            submitted_identifier = self._extract_login_identifier(request)
+            if submitted_identifier and is_user_locked(submitted_identifier):
+                return self.lockout_response(request)
         
         # Log all access attempts for sensitive endpoints
-        sensitive_paths = ['/admin', '/api', '/order-confirmation', '/settings']
+        sensitive_paths = [admin_root, '/api', '/order-confirmation', '/settings']
         if any(path in request.path for path in sensitive_paths):
             access_logger.info(json.dumps({
                 'timestamp': datetime.now().isoformat(),
@@ -60,7 +156,7 @@ class SecurityMiddleware(MiddlewareMixin):
         now_ts = int(datetime.now().timestamp())
         
         # Stricter rate limiting for admin endpoints
-        if request.path.startswith('/admin'):
+        if request.path.startswith(admin_root):
             if admin_count >= 200:  # 200 admin requests per hour (3+ per minute)
                 logger.critical(json.dumps({
                     'timestamp': datetime.now().isoformat(),

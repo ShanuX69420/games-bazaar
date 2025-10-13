@@ -72,7 +72,7 @@
                 <a href="{% url 'admin_chat:admin_join_conversation' conversation.id %}" class="btn btn-primary btn-sm">Join as Moderator</a>
             {% endif %}
             
-            <a href="/admin/marketplace/conversation/" class="btn btn-secondary btn-sm">Back to Admin</a>
+            <a href="{% url 'admin:marketplace_conversation_changelist' %}" class="btn btn-secondary btn-sm">Back to Admin</a>
         </div>
 
         {{ participant1.username|json_script:"other-user-username" }}

@@ -18,6 +18,12 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
+# Admin URL configuration (strip leading slashes and enforce trailing slash)
+ADMIN_URL = config('ADMIN_URL', default='secure-admin/')
+ADMIN_URL = ADMIN_URL.lstrip('/')
+if not ADMIN_URL.endswith('/'):
+    ADMIN_URL = f'{ADMIN_URL}/'
+
 # CSRF Protection Configuration
 CSRF_TRUSTED_ORIGINS = [
     'https://gamesbazaarpk.com',
@@ -123,7 +129,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
         'OPTIONS': {
-            'min_length': 8,  # Reduced from 12 to 8 for user convenience
+            'min_length': 12,  # Require longer passwords for privileged users
         }
     },
     {

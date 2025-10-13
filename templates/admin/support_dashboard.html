@@ -222,7 +222,7 @@
                 </div>
             </div>
             <div class="ticket-actions">
-                <a href="/admin/marketplace/supportticket/{{ ticket.id }}/change/" class="btn-sm btn-primary">View</a>
+                <a href="{% url 'admin:marketplace_supportticket_change' ticket.id %}" class="btn-sm btn-primary">View</a>
             </div>
         </div>
         {% endfor %}
@@ -254,11 +254,11 @@
                 </div>
             </div>
             <div class="ticket-actions">
-                <a href="/admin/marketplace/supportticket/{{ ticket.id }}/change/" class="btn-sm btn-primary">View</a>
+                <a href="{% url 'admin:marketplace_supportticket_change' ticket.id %}" class="btn-sm btn-primary">View</a>
                 {% if ticket.related_order %}
-                <a href="/admin/marketplace/order/{{ ticket.related_order.id }}/change/" class="btn-sm btn-info">Order</a>
+                <a href="{% url 'admin:marketplace_order_change' ticket.related_order.id %}" class="btn-sm btn-info">Order</a>
                 {% endif %}
-                <a href="/admin/auth/user/{{ ticket.user.id }}/change/" class="btn-sm btn-success">User</a>
+                <a href="{% url 'admin:auth_user_change' ticket.user.id %}" class="btn-sm btn-success">User</a>
             </div>
         </div>
         {% endfor %}
@@ -267,9 +267,9 @@
     <!-- Quick Actions -->
     <div class="dashboard-section">
         <h2 class="section-title">⚡ Quick Actions</h2>
-        <a href="/admin/marketplace/supportticket/" class="btn-sm btn-primary" style="margin-right: 10px;">All Support Tickets</a>
-        <a href="/admin/marketplace/supportticket/?status__exact=OPEN" class="btn-sm btn-primary" style="margin-right: 10px;">Open Tickets Only</a>
-        <a href="/admin/marketplace/conversation/?is_disputed__exact=1" class="btn-sm btn-info">Disputed Chats</a>
+        <a href="{% url 'admin:marketplace_supportticket_changelist' %}" class="btn-sm btn-primary" style="margin-right: 10px;">All Support Tickets</a>
+        <a href="{% url 'admin:marketplace_supportticket_changelist' %}?status__exact=OPEN" class="btn-sm btn-primary" style="margin-right: 10px;">Open Tickets Only</a>
+        <a href="{% url 'admin:marketplace_conversation_changelist' %}?is_disputed__exact=1" class="btn-sm btn-info">Disputed Chats</a>
     </div>
 </div>
 {% endblock %}

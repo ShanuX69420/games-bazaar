@@ -7,7 +7,8 @@ from django.utils.html import format_html
 from django.db.models import Q, Case, When, Value, IntegerField
 from django.db import models
 from django.core.cache import cache
-from django.urls import reverse
+from django.urls import reverse, path
+from django.shortcuts import get_object_or_404, redirect
 from .models import (
     SiteConfiguration, FlatPage, Game, Profile, Category, 
     Product, Order, Review, ReviewReply, Conversation, Message, WithdrawalRequest, DepositRequest,
@@ -160,32 +161,35 @@ class OrderAdmin(admin.ModelAdmin):
     
     def get_product_link(self, obj):
         if obj.product:
+            product_url = reverse('admin:marketplace_product_change', args=[obj.product.id])
             return format_html(
-                '<a href="/admin/marketplace/product/{}/change/" target="_blank" '
+                '<a href="{}" target="_blank" '
                 'style="background: #28a745; color: white; padding: 5px 10px; text-decoration: none; '
                 'border-radius: 3px;">View Original Product</a><br>'
                 '<small style="color: #666; margin-top: 5px; display: block;">Product ID: {}</small>',
-                obj.product.id,
+                product_url,
                 obj.product.id
             )
         return format_html('<em style="color: #dc3545;">Original product deleted or unavailable</em>')
     get_product_link.short_description = 'Original Product'
     
     def get_buyer_profile(self, obj):
+        user_url = reverse('admin:auth_user_change', args=[obj.buyer.id])
         return format_html(
-            '<a href="/admin/auth/user/{}/change/" target="_blank" '
+            '<a href="{}" target="_blank" '
             'style="background: #007cba; color: white; padding: 3px 8px; text-decoration: none; '
             'border-radius: 3px; font-size: 12px;">View Profile</a>',
-            obj.buyer.id
+            user_url
         )
     get_buyer_profile.short_description = 'Buyer Profile'
     
     def get_seller_profile(self, obj):
+        user_url = reverse('admin:auth_user_change', args=[obj.seller.id])
         return format_html(
-            '<a href="/admin/auth/user/{}/change/" target="_blank" '
+            '<a href="{}" target="_blank" '
             'style="background: #28a745; color: white; padding: 3px 8px; text-decoration: none; '
             'border-radius: 3px; font-size: 12px;">View Profile</a>',
-            obj.seller.id
+            user_url
         )
     get_seller_profile.short_description = 'Seller Profile'
     
@@ -227,6 +231,8 @@ class OrderAdmin(admin.ModelAdmin):
                     
                     # Get recent message count
                     msg_count = conv.messages.count()
+                    chat_url = reverse('admin_chat:admin_chat', args=[conv.id])
+                    manage_url = reverse('admin:marketplace_conversation_change', args=[conv.id])
                     
                     conv_html.append(
                         f'<div style="border: 1px solid #dee2e6; padding: 10px; margin: 5px 0; border-radius: 5px;">'
@@ -234,9 +240,9 @@ class OrderAdmin(admin.ModelAdmin):
                         f'<span style="background: {badge_color}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">{dispute_badge}</span> '
                         f'<strong>{msg_count} messages</strong> • Updated {conv.updated_at.strftime("%b %d, %Y")}'
                         f'</div>'
-                        f'<a href="/admin/chat/conversation/{conv.id}/chat/" target="_blank" '
+                        f'<a href="{chat_url}" target="_blank" '
                         f'style="background: #6f42c1; color: white; padding: 3px 8px; text-decoration: none; border-radius: 3px; font-size: 12px; margin-right: 5px;">View Chat</a>'
-                        f'<a href="/admin/marketplace/conversation/{conv.id}/change/" target="_blank" '
+                        f'<a href="{manage_url}" target="_blank" '
                         f'style="background: #17a2b8; color: white; padding: 3px 8px; text-decoration: none; border-radius: 3px; font-size: 12px;">Manage</a>'
                         f'</div>'
                     )
@@ -458,9 +464,10 @@ class SupportTicketAdmin(admin.ModelAdmin):
                     if len(description) > 100:
                         description = description[:100] + '...'
                     
+                    order_url = reverse('admin:marketplace_order_change', args=[order.id])
                     return format_html(
                         '<div style="margin-bottom: 10px;"><strong>Order {}</strong><br>'
-                        '<a href="/admin/marketplace/order/{}/change/" target="_blank" '
+                        '<a href="{}" target="_blank" '
                         'style="background: #17a2b8; color: white; padding: 5px 15px; text-decoration: none; '
                         'border-radius: 5px; display: inline-block; margin-top: 5px;">'
                         '📦 View Order Details</a><br>'
@@ -468,7 +475,7 @@ class SupportTicketAdmin(admin.ModelAdmin):
                         '<small style="color: #666; display: block;"><strong>Description:</strong> {}</small>'
                         '<small style="color: #666; display: block;"><strong>Buyer:</strong> {} | <strong>Seller:</strong> {}</small></div>',
                         clean_order_id,
-                        order.id,
+                        order_url,
                         order.listing_title_snapshot or 'N/A',
                         description,
                         order.buyer.username,
@@ -491,12 +498,13 @@ class SupportTicketAdmin(admin.ModelAdmin):
     get_order_link.short_description = 'Related Order'
     
     def get_user_profile_link(self, obj):
+        user_url = reverse('admin:auth_user_change', args=[obj.user.id])
         return format_html(
-            '<a href="/admin/auth/user/{}/change/" target="_blank" '
+            '<a href="{}" target="_blank" '
             'style="background: #28a745; color: white; padding: 5px 15px; text-decoration: none; '
             'border-radius: 5px; display: inline-block;">'
             '👤 View User Profile</a>',
-            obj.user.id
+            user_url
         )
     get_user_profile_link.short_description = 'User Profile'
     
@@ -555,8 +563,9 @@ class SupportTicketAdmin(admin.ModelAdmin):
                 
                 order = Order.objects.filter(order_id=clean_order_id).first()
                 if order:
+                    order_url = reverse('admin:marketplace_order_change', args=[order.id])
                     actions.append(
-                        f'<a href="/admin/marketplace/order/{order.id}/change/" target="_blank" '
+                        f'<a href="{order_url}" target="_blank" '
                         f'style="background: #17a2b8; color: white; padding: 3px 8px; text-decoration: none; '
                         f'border-radius: 3px; font-size: 11px; margin-right: 5px;">View Order</a>'
                     )
@@ -569,8 +578,9 @@ class SupportTicketAdmin(admin.ModelAdmin):
                 Q(participant1=obj.user) | Q(participant2=obj.user)
             ).first()
             if chat:
+                chat_url = reverse('admin_chat:admin_chat', args=[chat.id])
                 actions.append(
-                    f'<a href="/admin/chat/conversation/{chat.id}/chat/" target="_blank" '
+                    f'<a href="{chat_url}" target="_blank" '
                     f'style="background: #6f42c1; color: white; padding: 3px 8px; text-decoration: none; '
                     f'border-radius: 3px; font-size: 11px; margin-right: 5px;">View Chat</a>'
                 )
@@ -579,7 +589,7 @@ class SupportTicketAdmin(admin.ModelAdmin):
         
         # User profile link
         actions.append(
-            f'<a href="/admin/auth/user/{obj.user.id}/change/" target="_blank" '
+            f'<a href="{reverse("admin:auth_user_change", args=[obj.user.id])}" target="_blank" '
             f'style="background: #28a745; color: white; padding: 3px 8px; text-decoration: none; '
             f'border-radius: 3px; font-size: 11px;">User Profile</a>'
         )
@@ -655,6 +665,60 @@ class UserAdmin(BaseUserAdmin):
     inlines = (ProfileInline,)
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'date_joined')
     list_filter = ('is_staff', 'is_superuser', 'is_active', 'date_joined')
+    change_form_template = 'admin/auth/user/change_form.html'
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                '<int:user_id>/message/',
+                self.admin_site.admin_view(self.start_direct_chat),
+                name='auth_user_start_chat'
+            ),
+        ]
+        return custom_urls + urls
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        extra_context.setdefault('can_start_chat', False)
+        extra_context.setdefault('chat_with_user_url', None)
+
+        try:
+            user_obj = User.objects.get(pk=object_id)
+        except (User.DoesNotExist, ValueError, TypeError):
+            user_obj = None
+
+        if (
+            user_obj
+            and request.user.is_staff
+            and user_obj.pk != request.user.pk
+        ):
+            extra_context['can_start_chat'] = True
+            extra_context['chat_with_user_url'] = reverse(
+                'admin:auth_user_start_chat',
+                args=[user_obj.pk],
+            )
+
+        return super().change_view(request, object_id, form_url, extra_context)
+
+    def start_direct_chat(self, request, user_id):
+        target_user = get_object_or_404(User, pk=user_id)
+
+        if target_user == request.user:
+            self.message_user(request, "You are already logged in as this user.")
+            return redirect('admin:auth_user_change', target_user.pk)
+
+        participant_ids = sorted([request.user.pk, target_user.pk])
+        conversation, created = Conversation.objects.get_or_create(
+            participant1_id=participant_ids[0],
+            participant2_id=participant_ids[1],
+        )
+
+        if created:
+            self.message_user(request, f"Conversation with {target_user.username} created.")
+
+        chat_url = reverse('admin_chat:admin_chat', args=[conversation.pk])
+        return redirect(chat_url)
 
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
@@ -733,10 +797,11 @@ class ConversationAdmin(admin.ModelAdmin):
         if obj.is_disputed:
             dispute_badge = '<span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px; margin-right: 5px;">DISPUTED</span>'
         
+        chat_url = reverse('admin_chat:admin_chat', args=[obj.id])
         return format_html(
-            '{}<a href="/admin/chat/conversation/{}/chat/" class="button" style="background: #007cba; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px;">View Chat</a>',
+            '{}<a href="{}" class="button" style="background: #007cba; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px;">View Chat</a>',
             dispute_badge,
-            obj.id
+            chat_url
         )
     view_chat.short_description = 'Actions'
     
@@ -768,12 +833,9 @@ admin.site.site_title = "GamesBazaar"
 admin.site.index_title = "Welcome to GamesBazaar Administration"
 
 # Add custom admin view for support dashboard
-from django.urls import path
-from django.shortcuts import redirect
-
 def admin_index_redirect(request):
     """Custom admin index with support dashboard link"""
-    return redirect('/admin/chat/support-dashboard/')
+    return redirect(reverse('admin_chat:support_dashboard'))
 
 # Override admin URLs to include support dashboard
 original_get_urls = admin.site.get_urls

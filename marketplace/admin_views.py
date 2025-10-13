@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import timedelta
+from django.urls import reverse
 from .models import Conversation, Message, User, SupportTicket, Order
 import json
 
@@ -77,7 +78,7 @@ def admin_leave_conversation(request, conversation_id):
     conversation.save()
     
     messages.success(request, "You have left the conversation")
-    return redirect('/admin/marketplace/conversation/')
+    return redirect(reverse('admin:marketplace_conversation_changelist'))
 
 @staff_member_required
 def admin_resolve_dispute(request, conversation_id):
@@ -97,7 +98,7 @@ def admin_resolve_dispute(request, conversation_id):
     conversation.save()
     
     messages.success(request, "Dispute has been resolved")
-    return redirect('/admin/marketplace/conversation/')
+    return redirect(reverse('admin:marketplace_conversation_changelist'))
 
 @staff_member_required
 @csrf_protect

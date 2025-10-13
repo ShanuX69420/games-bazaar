@@ -168,7 +168,7 @@
             </span>
         </p>
         <p><strong>Created:</strong> {{ related_order.created_at|date:"M d, Y H:i" }}</p>
-        <a href="/admin/marketplace/order/{{ related_order.id }}/change/" target="_blank" class="chat-btn">
+        <a href="{% url 'admin:marketplace_order_change' related_order.id %}" target="_blank" class="chat-btn">
             View Full Order Details
         </a>
     </div>
@@ -214,11 +214,11 @@
                 {% endif %}
                 
                 <div class="chat-actions">
-                    <a href="/admin/chat/conversation/{{ conversation.id }}/chat/" target="_blank" class="chat-btn">
+                    <a href="{% url 'admin_chat:admin_chat' conversation.id %}" target="_blank" class="chat-btn">
                         View Full Chat
                     </a>
                     {% if conversation.is_disputed %}
-                    <a href="/admin/marketplace/conversation/{{ conversation.id }}/change/" target="_blank" class="chat-btn" style="background: #dc3545;">
+                    <a href="{% url 'admin:marketplace_conversation_change' conversation.id %}" target="_blank" class="chat-btn" style="background: #dc3545;">
                         Manage Dispute
                     </a>
                     {% endif %}

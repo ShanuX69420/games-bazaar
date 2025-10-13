@@ -8,3 +8,4 @@ class MarketplaceConfig(AppConfig):
     def ready(self):
         # This line is essential for your signals to work.
         import marketplace.signals
+        import marketplace.login_security
