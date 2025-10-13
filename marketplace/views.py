@@ -24,7 +24,12 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.cache import cache
 from django.views.decorators.cache import cache_page
 from django.core.exceptions import ValidationError
+from django.http import StreamingHttpResponse, FileResponse, HttpResponseRedirect
+from django.utils.cache import patch_response_headers
+from django.views.decorators.http import require_http_methods
+from django.core.files.storage import default_storage
 
+from django.templatetags.static import static
 def validate_quantity(quantity_str, max_quantity=1000):
     """
     Securely validate quantity input with proper bounds checking.
@@ -2148,5 +2153,40 @@ def check_user_blocked_status(request, user_id):
         return JsonResponse({'success': False, 'error': 'User not found'})
 
 
+@require_http_methods(["GET", "HEAD"])
+def cdn_proxy_view(request, path):
+    """
+    Reverse-proxy Google Cloud Storage assets so they appear under our domain.
+    Keeps avatars/chat uploads accessible even when the bucket is private.
+    """
+    from django.conf import settings
 
+    bucket = settings.GS_BUCKET_NAME
+    if not bucket:
+        raise Http404("Storage bucket not configured")
 
+    target_url = f"https://storage.googleapis.com/{bucket}/{path}"
+
+    try:
+        upstream = requests.get(target_url, stream=True, timeout=10)
+    except requests.RequestException:
+        upstream = None
+
+    if upstream and upstream.status_code == 200:
+        response = StreamingHttpResponse(
+            streaming_content=upstream.iter_content(chunk_size=64 * 1024),
+            status=200,
+            content_type=upstream.headers.get('content-type', 'application/octet-stream'),
+        )
+        response['Content-Length'] = upstream.headers.get('content-length', '0')
+        patch_response_headers(response, cache_timeout=3600)
+        return response
+
+    # Fallback to local storage (useful in development or when upload failed)
+    if default_storage.exists(path):
+        file_obj = default_storage.open(path, 'rb')
+        response = FileResponse(file_obj, content_type='application/octet-stream')
+        patch_response_headers(response, cache_timeout=3600)
+        return response
+
+    return HttpResponseRedirect(static('images/default.jpg'))

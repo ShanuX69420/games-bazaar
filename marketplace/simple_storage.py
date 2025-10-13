@@ -154,11 +154,17 @@ class GoogleCloudUniversalStorage(Storage):
             return self.default_storage.url(name)
         
         # If GCS is enabled and we have a custom endpoint
-        if settings.GS_CUSTOM_ENDPOINT:
-            # For new WebP files, assume they're in GCS
-            if name.lower().endswith('.webp'):
-                blob_name = f"{self.folder_name}/{os.path.basename(name)}"
-                return f"{settings.GS_CUSTOM_ENDPOINT}/{blob_name}"
+        if name.lower().endswith('.webp'):
+            blob_name = f"{self.folder_name}/{os.path.basename(name)}"
+            if settings.DEBUG:
+                return f"/cdn/{blob_name}"
+            endpoint = (settings.GS_CUSTOM_ENDPOINT or '').rstrip('/')
+            if endpoint.startswith('http://') or endpoint.startswith('https://'):
+                return f"{endpoint}/{blob_name}"
+            base_path = endpoint if endpoint else '/cdn'
+            if not base_path.startswith('/'):
+                base_path = f'/{base_path}'
+            return f"{base_path}/{blob_name}"
         
         # For existing files or when GCS is not properly configured, use local storage
         return self.default_storage.url(name)

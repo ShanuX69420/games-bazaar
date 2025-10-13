@@ -87,6 +87,9 @@ urlpatterns = [
     # API 404 handler - must come before the catch-all pattern
     path('api/', lambda request: JsonResponse({'error': 'API endpoint not found'}, status=404), name='api_404'),
 
+    # CDN proxy for Google Cloud Storage assets
+    path('cdn/<path:path>', views.cdn_proxy_view, name='cdn_proxy'),
+
     # The generic slug URL MUST BE LAST.
     path('<slug:slug>/', views.flat_page_view, name='flat_page'),
 ]
