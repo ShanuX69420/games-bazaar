@@ -60,6 +60,14 @@ class ProductForm(forms.ModelForm):
             price_field.widget.attrs.setdefault('min', '0')
             price_field.widget.attrs.setdefault('step', '0.01')
 
+        stock_details_field = self.fields.get('stock_details')
+        if stock_details_field:
+            stock_details_field.widget.attrs.setdefault(
+                'placeholder',
+                "Example:\nCODE-1234-ABCD\nCODE-5678-EFGH\nCODE-9012-IJKL"
+            )
+            stock_details_field.help_text = "Automatic delivery pulls one line per buyer (top to bottom)."
+
         # Hide automatic_delivery field if category doesn't allow it
         if game_category_link and not game_category_link.allows_automated_delivery:
             self.fields.pop('automatic_delivery', None)

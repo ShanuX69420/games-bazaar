@@ -67,14 +67,19 @@ class GoogleCloudUniversalStorage(Storage):
         bucket = client.bucket(settings.GS_BUCKET_NAME)
         blob = bucket.blob(blob_name)
         
-        # Set content type so images display in browser instead of downloading
+        # Set content type and caching to make browsers reuse already-downloaded images
         blob.content_type = content_type
+        blob.cache_control = 'public, max-age=31536000, immutable'
         
         # Reset content position if possible
         if hasattr(content, 'seek'):
             content.seek(0)
             
         blob.upload_from_file(content)
+        try:
+            blob.patch()
+        except Exception as patch_err:
+            print(f"Warning: failed to persist cache headers for {blob_name}: {patch_err}")
         
         # Return the filename (without the folder prefix for Django)
         return os.path.basename(filename)

@@ -2213,6 +2213,11 @@ def cdn_proxy_view(request, path):
     Keeps avatars/chat uploads accessible even when the bucket is private.
     """
     from django.conf import settings
+    from django.utils.http import http_date
+    import time
+
+    CACHE_SECONDS = getattr(settings, 'CDN_PROXY_CACHE_SECONDS', 60 * 60 * 24 * 30)
+    cache_control_value = f'public, max-age={CACHE_SECONDS}, immutable'
 
     bucket = settings.GS_BUCKET_NAME
     if not bucket:
@@ -2232,14 +2237,22 @@ def cdn_proxy_view(request, path):
             content_type=upstream.headers.get('content-type', 'application/octet-stream'),
         )
         response['Content-Length'] = upstream.headers.get('content-length', '0')
-        patch_response_headers(response, cache_timeout=3600)
+        etag = upstream.headers.get('etag')
+        if etag:
+            response['ETag'] = etag
+        last_modified = upstream.headers.get('last-modified')
+        if last_modified:
+            response['Last-Modified'] = last_modified
+        response['Cache-Control'] = cache_control_value
+        response['Expires'] = http_date(time.time() + CACHE_SECONDS)
         return response
 
     # Fallback to local storage (useful in development or when upload failed)
     if default_storage.exists(path):
         file_obj = default_storage.open(path, 'rb')
         response = FileResponse(file_obj, content_type='application/octet-stream')
-        patch_response_headers(response, cache_timeout=3600)
+        response['Cache-Control'] = cache_control_value
+        response['Expires'] = http_date(time.time() + CACHE_SECONDS)
         return response
 
     return HttpResponseRedirect(static('images/default.jpg'))
