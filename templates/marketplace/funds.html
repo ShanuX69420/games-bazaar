@@ -491,9 +491,11 @@
                 {% endif %}
             </div>
 
+            {% with withdrawal_form.payment_method.value|default:'bank_transfer' as selected_method %}
             <div class="mb-3">
                 <label for="{{ withdrawal_form.payment_method.id_for_label }}" class="form-label">Payment Method</label>
                 {{ withdrawal_form.payment_method }}
+                <div class="form-text">Choose Bank Transfer, Easypaisa, JazzCash, SadaPay, or NayaPay.</div>
                 {% if withdrawal_form.payment_method.errors %}
                     {% for error in withdrawal_form.payment_method.errors %}
                         <div class="text-danger small">{{ error }}</div>
@@ -502,7 +504,7 @@
             </div>
 
             <div class="mb-3">
-                <label for="{{ withdrawal_form.account_title.id_for_label }}" class="form-label">Account Title</label>
+                <label for="{{ withdrawal_form.account_title.id_for_label }}" class="form-label">Account Holder Name</label>
                 {{ withdrawal_form.account_title }}
                 {% if withdrawal_form.account_title.errors %}
                     {% for error in withdrawal_form.account_title.errors %}
@@ -511,17 +513,27 @@
                 {% endif %}
             </div>
 
-            <!-- Bank Transfer Details -->
             <div class="mb-3">
-                <label for="{{ withdrawal_form.iban.id_for_label }}" class="form-label">IBAN</label>
-                {{ withdrawal_form.iban }}
-                <div class="form-text">Enter your 24-character IBAN starting with PK</div>
-                {% if withdrawal_form.iban.errors %}
-                    {% for error in withdrawal_form.iban.errors %}
+                <label for="{{ withdrawal_form.account_identifier.id_for_label }}" class="form-label" id="account-identifier-label">Account Number / IBAN</label>
+                {{ withdrawal_form.account_identifier }}
+                <div class="form-text" id="account-identifier-help">Enter the number linked to your selected payment method.</div>
+                {% if withdrawal_form.account_identifier.errors %}
+                    {% for error in withdrawal_form.account_identifier.errors %}
                         <div class="text-danger small">{{ error }}</div>
                     {% endfor %}
                 {% endif %}
             </div>
+
+            <div class="mb-3 bank-only" id="bank-name-group" {% if selected_method != 'bank_transfer' %}style="display: none;"{% endif %}>
+                <label for="{{ withdrawal_form.bank_name.id_for_label }}" class="form-label">Bank Name</label>
+                {{ withdrawal_form.bank_name }}
+                {% if withdrawal_form.bank_name.errors %}
+                    {% for error in withdrawal_form.bank_name.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            {% endwith %}
 
             <button type="submit" class="btn btn-primary">Submit Request</button>
         </form>
@@ -578,6 +590,52 @@
 
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
+    const paymentSelect = document.getElementById('id_payment_method');
+    const bankOnlySections = document.querySelectorAll('.bank-only');
+    const accountIdentifierLabel = document.getElementById('account-identifier-label');
+    const accountIdentifierHelp = document.getElementById('account-identifier-help');
+    const accountIdentifierInput = document.getElementById('id_account_identifier');
+    const bankNameInput = document.getElementById('id_bank_name');
+
+    function updateWithdrawalFieldVisibility() {
+        if (!paymentSelect) return;
+        const method = paymentSelect.value;
+        const isBank = method === 'bank_transfer';
+
+        bankOnlySections.forEach(section => {
+            section.style.display = isBank ? '' : 'none';
+        });
+
+        if (accountIdentifierLabel) {
+            accountIdentifierLabel.textContent = isBank
+                ? 'Bank Account Number or IBAN'
+                : 'Wallet Number';
+        }
+
+        if (accountIdentifierHelp) {
+            accountIdentifierHelp.textContent = isBank
+                ? 'Enter your bank account number or 24-character IBAN (starts with PK).'
+                : 'Enter the mobile or account number linked to your selected wallet.';
+        }
+
+        if (accountIdentifierInput) {
+            accountIdentifierInput.placeholder = isBank
+                ? 'Enter bank account number or IBAN'
+                : 'Enter wallet number';
+        }
+
+        if (!isBank) {
+            if (bankNameInput) {
+                bankNameInput.value = '';
+            }
+        }
+    }
+
+    if (paymentSelect) {
+        updateWithdrawalFieldVisibility();
+        paymentSelect.addEventListener('change', updateWithdrawalFieldVisibility);
+    }
+
     const loadMoreButton = document.getElementById('load-more-btn');
     if (loadMoreButton) {
         loadMoreButton.addEventListener('click', function() {

@@ -17,7 +17,6 @@ class FilterOptionChoiceField(forms.ModelChoiceField):
         return obj.value
 
 class ProductForm(forms.ModelForm):
-    
     class Meta:
         model = Product
         fields = [
@@ -31,7 +30,7 @@ class ProductForm(forms.ModelForm):
             'price': forms.NumberInput(attrs={'class': 'form-control'}),
             'automatic_delivery': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'post_purchase_message': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
-            'stock': forms.NumberInput(attrs={'class': 'form-control'}),
+            'stock': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Optional'}),
         }
         labels = {
             'listing_title': 'Title',
@@ -43,7 +42,23 @@ class ProductForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         game_category_link = kwargs.pop('game_category_link', None)
+        commission_rate = kwargs.pop('commission_rate', None)
         super().__init__(*args, **kwargs)
+
+        self.commission_rate = Decimal(str(commission_rate)) if commission_rate is not None else None
+
+        price_field = self.fields.get('price')
+        if price_field:
+            price_field.label = 'Amount you will receive'
+            if self.commission_rate is not None:
+                price_field.help_text = (
+                    f"You receive this amount. Buyers pay this plus {self.commission_rate}% marketplace fee."
+                )
+                price_field.widget.attrs['data-commission-rate'] = str(self.commission_rate)
+            else:
+                price_field.help_text = "You receive this amount per sale."
+            price_field.widget.attrs.setdefault('min', '0')
+            price_field.widget.attrs.setdefault('step', '0.01')
 
         # Hide automatic_delivery field if category doesn't allow it
         if game_category_link and not game_category_link.allows_automated_delivery:
@@ -66,11 +81,25 @@ class ProductForm(forms.ModelForm):
                     empty_label=f"Select {f.name}"
                 )
 
+        if self.errors:
+            for field_name in self.errors:
+                if field_name in self.fields:
+                    widget = self.fields[field_name].widget
+                    existing_classes = widget.attrs.get('class', '')
+                    if 'is-invalid' not in existing_classes:
+                        widget.attrs['class'] = (existing_classes + ' is-invalid').strip()
+
     def clean_stock(self):
         stock = self.cleaned_data.get('stock')
         if stock is not None and stock == 0:
             raise forms.ValidationError("Stock cannot be 0. Leave empty if stock is not applicable, or enter a positive number.")
         return stock
+
+    def clean_listing_title(self):
+        return (self.cleaned_data.get('listing_title') or '').strip()
+
+    def clean_description(self):
+        return (self.cleaned_data.get('description') or '').strip()
 
 class ReviewForm(forms.ModelForm):
     RATING_CHOICES = [(i, str(i)) for i in reversed(range(1, 6))]
@@ -100,15 +129,19 @@ class ReviewReplyForm(forms.ModelForm):
 class WithdrawalRequestForm(forms.ModelForm):
     PAYMENT_METHOD_CHOICES = [
         ('bank_transfer', 'Bank Transfer'),
+        ('easypaisa', 'Easypaisa'),
+        ('jazzcash', 'JazzCash'),
+        ('sadapay', 'SadaPay'),
+        ('nayapay', 'NayaPay'),
     ]
-    
+
     payment_method = forms.ChoiceField(
         choices=PAYMENT_METHOD_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_payment_method'}),
+        widget=forms.Select(attrs={'class': 'form-select', 'id': 'id_payment_method'}),
         required=False,
         initial='bank_transfer'
     )
-    
+
     account_title = forms.CharField(
         max_length=100,
         widget=forms.TextInput(attrs={
@@ -118,10 +151,30 @@ class WithdrawalRequestForm(forms.ModelForm):
         }),
         required=False
     )
+
+    bank_name = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter bank name (e.g. HBL, MCB)',
+            'id': 'id_bank_name'
+        }),
+        required=False
+    )
+
+    account_identifier = forms.CharField(
+        max_length=50,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter account number or IBAN',
+            'id': 'id_account_identifier'
+        }),
+        required=False
+    )
     
     class Meta:
         model = WithdrawalRequest
-        fields = ['amount', 'payment_method', 'account_title', 'iban']
+        fields = ['amount', 'payment_method', 'account_title', 'bank_name']
         widgets = {
             'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'})
         }
@@ -130,6 +183,13 @@ class WithdrawalRequestForm(forms.ModelForm):
         self.user = kwargs.pop('user', None)
         self.balance = kwargs.pop('balance', 0)
         super(WithdrawalRequestForm, self).__init__(*args, **kwargs)
+
+        # Pre-fill identifier if editing an existing request
+        if self.instance and self.instance.pk:
+            if self.instance.iban:
+                self.fields['account_identifier'].initial = self.instance.iban
+            elif self.instance.account_number:
+                self.fields['account_identifier'].initial = self.instance.account_number
     
     def clean_payment_method(self):
         payment_method = self.cleaned_data.get('payment_method') or 'bank_transfer'
@@ -146,20 +206,7 @@ class WithdrawalRequestForm(forms.ModelForm):
             raise forms.ValidationError("Account title must be at least 2 characters long.")
         
         return account_title
-    
-    def clean_iban(self):
-        iban = self.cleaned_data.get('iban')
-        if not iban:
-            raise forms.ValidationError("IBAN is required for bank transfers.")
-        
-        if iban:
-            # Basic IBAN validation for Pakistan (PK followed by 22 digits)
-            iban_clean = iban.replace(' ', '').upper()
-            if not iban_clean.startswith('PK') or len(iban_clean) != 24 or not iban_clean[2:].isdigit():
-                raise forms.ValidationError("Please enter a valid Pakistani IBAN (24 characters starting with PK).")
-        
-        return iban
-    
+
     def clean_amount(self):
         amount = self.cleaned_data.get('amount')
         if self.balance is None: self.balance = 0
@@ -175,6 +222,83 @@ class WithdrawalRequestForm(forms.ModelForm):
         if amount <= 0:
             raise forms.ValidationError("Withdrawal amount must be positive.")
         return amount
+
+    def clean(self):
+        cleaned_data = super().clean()
+        payment_method = cleaned_data.get('payment_method') or 'bank_transfer'
+        identifier = (cleaned_data.get('account_identifier') or '').strip()
+        bank_name = (cleaned_data.get('bank_name') or '').strip()
+
+        account_number_value = ''
+        iban_value = ''
+
+        if identifier:
+            identifier_normalized = identifier.replace(' ', '')
+        else:
+            identifier_normalized = ''
+        cleaned_data['account_identifier'] = identifier_normalized
+
+        if bank_name:
+            bank_name = bank_name.strip()
+            cleaned_data['bank_name'] = bank_name
+        else:
+            bank_name = ''
+            cleaned_data['bank_name'] = ''
+
+        if payment_method == 'bank_transfer':
+            if not bank_name:
+                self.add_error('bank_name', "Bank name is required for bank transfers.")
+
+            if not identifier_normalized:
+                self.add_error('account_identifier', "Provide your bank account number or IBAN.")
+            else:
+                identifier_upper = identifier_normalized.upper()
+                if identifier_upper.startswith('PK'):
+                    if len(identifier_upper) != 24 or not identifier_upper[2:].isdigit():
+                        self.add_error('account_identifier', "Please enter a valid Pakistani IBAN (24 characters starting with PK).")
+                    else:
+                        iban_value = identifier_upper
+                else:
+                    if not re.fullmatch(r'^[0-9+\-]{6,32}$', identifier_normalized):
+                        self.add_error('account_identifier', "Enter a valid bank account number (6-32 digits, optional + or -).")
+                    else:
+                        account_number_value = identifier_normalized
+
+            # If we successfully parsed an IBAN, clear account number and vice versa
+            if iban_value:
+                account_number_value = ''
+            elif account_number_value:
+                iban_value = ''
+        else:
+            # Non-bank wallets require an account number and must not include an IBAN or bank name
+            if not identifier_normalized:
+                self.add_error('account_identifier', "Account or wallet number is required for this payment method.")
+            elif not re.fullmatch(r'^\+?[0-9]{8,16}$', identifier_normalized):
+                self.add_error('account_identifier', "Enter a valid wallet number (8-16 digits, optional leading +).")
+            else:
+                account_number_value = identifier_normalized
+            iban_value = ''
+            if bank_name:
+                self.add_error('bank_name', "Bank name should only be provided for bank transfers.")
+            cleaned_data['bank_name'] = ''
+
+        cleaned_data['_account_number'] = account_number_value
+        cleaned_data['_iban'] = iban_value
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        account_number_value = self.cleaned_data.get('_account_number', '').strip()
+        iban_value = self.cleaned_data.get('_iban', '').strip()
+
+        instance.account_number = account_number_value or None
+        instance.iban = iban_value or None
+        if instance.payment_method != 'bank_transfer':
+            instance.bank_name = None
+
+        if commit:
+            instance.save()
+        return instance
 
 class DepositRequestForm(forms.ModelForm):
     """Form to capture manual deposit submissions with basic validation safeguards."""

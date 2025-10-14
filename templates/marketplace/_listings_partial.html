@@ -51,7 +51,7 @@
         {# Column 4: Price #}
         <div class="listing-price-wrapper">
             <div class="listing-price">
-                Rs {{ listing.price|floatformat:0|intcomma }}
+                Rs {{ listing.buyer_price|floatformat:0|intcomma }}
             </div>
             {% if listing.automatic_delivery %}
                 <div class="auto-delivery-indicator">

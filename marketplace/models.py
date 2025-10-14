@@ -7,13 +7,24 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from model_utils import FieldTracker
-from decimal import Decimal # Import Decimal
-from django.core.exceptions import ValidationError
+from decimal import Decimal, ROUND_HALF_UP # Import Decimal helpers
+from django.core.exceptions import ValidationError, NON_FIELD_ERRORS
 from django.conf import settings
 import string
 import random
 # Import simple Google Cloud Storage
 from .simple_storage import google_cloud_chat_storage, google_cloud_profile_storage, google_cloud_product_storage
+
+# Money helpers
+MONEY_QUANTIZER = Decimal('0.01')
+
+
+def quantize_money(value):
+    """Round monetary values to 2 decimal places using bankers rounding."""
+    if value is None:
+        return Decimal('0.00')
+    return Decimal(value).quantize(MONEY_QUANTIZER, rounding=ROUND_HALF_UP)
+
 
 # Custom QuerySet classes for optimized queries
 class ProductQuerySet(models.QuerySet):
@@ -105,6 +116,26 @@ class SiteConfiguration(models.Model):
     default_commission_rate = models.DecimalField(max_digits=5, decimal_places=2, default=10.00)
     def __str__(self): return "Site Configuration"
 
+
+def get_effective_commission_rate_for_listing(seller, category=None):
+    """
+    Determine the commission rate for a seller/category combination.
+    Priority: seller-specific override, category override, then site default.
+    """
+    profile = getattr(seller, 'profile', None)
+    if profile and profile.commission_rate is not None:
+        return Decimal(profile.commission_rate)
+
+    if category and category.commission_rate is not None:
+        return Decimal(category.commission_rate)
+
+    config = SiteConfiguration.objects.first()
+    if config and config.default_commission_rate is not None:
+        return Decimal(config.default_commission_rate)
+
+    return Decimal('10.00')
+
+
 class FlatPage(models.Model):
     title = models.CharField(max_length=200)
     slug = models.SlugField(unique=True)
@@ -136,6 +167,16 @@ class GameCategory(models.Model):
     )
 
     allows_automated_delivery = models.BooleanField(default=False, help_text="Check if listings in this category can be for automated delivery.")
+    requires_special_approval = models.BooleanField(
+        default=False,
+        help_text="Only approved sellers can create listings when enabled."
+    )
+    approved_sellers = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name='approved_game_categories',
+        help_text="Sellers allowed to create listings when special approval is required."
+    )
 
     class Meta:
         unique_together = ('game', 'category')
@@ -143,6 +184,32 @@ class GameCategory(models.Model):
 
     def __str__(self):
         return f"{self.game.title} - {self.category.name}"
+
+    def seller_can_list(self, user):
+        """
+        Determine if a seller is allowed to create listings in this game/category.
+        Staff bypass the restriction to simplify internal moderation tasks.
+        """
+        if not self.requires_special_approval:
+            return True
+
+        if not getattr(user, 'is_authenticated', False):
+            return False
+
+        if user.is_staff or user.is_superuser:
+            return True
+
+        return self.approved_sellers.filter(pk=user.pk).exists()
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        from django.core.cache import cache
+        cache.delete(f'game_category_{self.game_id}_{self.category_id}')
+
+    def delete(self, *args, **kwargs):
+        from django.core.cache import cache
+        cache.delete(f'game_category_{self.game_id}_{self.category_id}')
+        super().delete(*args, **kwargs)
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -339,25 +406,45 @@ class Product(models.Model):
         are correctly set based on the automatic_delivery flag.
         """
         super().clean()
+        errors = {}
+        non_field_errors = []
+
+        title = (self.listing_title or '').strip()
+        if len(title) < 20:
+            errors['listing_title'] = 'Title must be at least 20 characters long.'
+
+        description = (self.description or '').strip()
+        if len(description) < 20:
+            errors['description'] = 'Description must be at least 20 characters long.'
+
+        if self.price is not None and self.price < Decimal('300'):
+            errors['price'] = 'Minimum listing price is 300.'
+
         if self.automatic_delivery:
             if self.stock is not None:
-                raise ValidationError(
+                non_field_errors.append(
                     "For automatic delivery, 'In Stock' must be empty. Use 'Products for Automatic Delivery' instead."
                 )
-            if not self.stock_details.strip():
-                raise ValidationError(
+            if not (self.stock_details or '').strip():
+                non_field_errors.append(
                     "For automatic delivery, 'Products for Automatic Delivery' cannot be empty."
                 )
         else:
-            if self.stock_details.strip():
-                raise ValidationError(
+            if (self.stock_details or '').strip():
+                non_field_errors.append(
                     "For manual delivery, 'Products for Automatic Delivery' must be empty. Use 'In Stock' instead."
                 )
             # For manual delivery, stock is optional. If provided, it cannot be negative.
             if self.stock is not None and self.stock < 0:
-                raise ValidationError(
+                non_field_errors.append(
                     "'In Stock' must not be a negative number."
                 )
+
+        if non_field_errors:
+            errors[NON_FIELD_ERRORS] = non_field_errors
+
+        if errors:
+            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         # Clear stock_count cache when saving
@@ -365,6 +452,32 @@ class Product(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self): return f'{self.game.title} - {self.listing_title}'
+
+    def get_commission_rate(self):
+        return get_effective_commission_rate_for_listing(self.seller, self.category)
+
+    def get_net_total(self, quantity=1):
+        return quantize_money(Decimal(self.price or 0) * Decimal(quantity))
+
+    def get_buyer_total(self, quantity=1):
+        net_total = self.get_net_total(quantity)
+        rate = self.get_commission_rate()
+        multiplier = Decimal('1.00') + (Decimal(rate) / Decimal('100'))
+        return quantize_money(net_total * multiplier)
+
+    def get_buyer_price(self):
+        return self.get_buyer_total(quantity=1)
+
+    def get_commission_amount(self, quantity=1):
+        return self.get_buyer_total(quantity) - self.get_net_total(quantity)
+
+    @property
+    def buyer_price(self):
+        return self.get_buyer_price()
+
+    @property
+    def commission_amount(self):
+        return self.get_commission_amount()
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
@@ -404,6 +517,7 @@ class Order(models.Model):
     seller = models.ForeignKey(User, related_name='sales', on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    seller_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PROCESSING', db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True, db_index=True)
@@ -440,23 +554,15 @@ class Order(models.Model):
         return self.order_id.lstrip('#') if self.order_id else ''
 
     def calculate_commission(self):
-        rate = None
-        # Priority 1: Seller's custom commission rate
-        if self.seller.profile.commission_rate is not None:
-            rate = self.seller.profile.commission_rate
-        # Priority 2: Category-specific commission rate (use snapshot if product is deleted)
-        elif self.category_snapshot and self.category_snapshot.commission_rate is not None:
-            rate = self.category_snapshot.commission_rate
-        # Fallback to product's category if snapshot isn't populated for some reason (older orders)
-        elif self.product and self.product.category and self.product.category.commission_rate is not None:
-            rate = self.product.category.commission_rate
-        # Priority 3: Site-wide default commission rate
-        else:
-            config = SiteConfiguration.objects.first()
-            rate = config.default_commission_rate if config else Decimal('10.00')
+        seller_amount = getattr(self, 'seller_amount', None)
+        if seller_amount and Decimal(seller_amount) > Decimal('0.00'):
+            return quantize_money(Decimal(self.total_price) - Decimal(seller_amount))
 
-        # Ensure rate is a Decimal before calculation
-        return (self.total_price * Decimal(rate)) / 100
+        rate = get_effective_commission_rate_for_listing(
+            self.seller,
+            self.category_snapshot or (self.product.category if self.product else None)
+        )
+        return quantize_money((Decimal(self.total_price) * Decimal(rate)) / Decimal('100'))
 
 class Review(models.Model):
     order = models.OneToOneField(Order, on_delete=models.CASCADE)
@@ -549,6 +655,10 @@ class WithdrawalRequest(models.Model):
     STATUS_CHOICES = [('PENDING', 'Pending'), ('APPROVED', 'Approved'), ('REJECTED', 'Rejected')]
     PAYMENT_METHOD_CHOICES = [
         ('bank_transfer', 'Bank Transfer'),
+        ('easypaisa', 'Easypaisa'),
+        ('jazzcash', 'JazzCash'),
+        ('sadapay', 'SadaPay'),
+        ('nayapay', 'NayaPay'),
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='withdrawal_requests')
@@ -557,6 +667,7 @@ class WithdrawalRequest(models.Model):
     account_title = models.CharField(max_length=100, default='Not specified')
     account_number = models.CharField(max_length=50, blank=True, null=True)
     iban = models.CharField(max_length=24, blank=True, null=True)
+    bank_name = models.CharField(max_length=100, blank=True, null=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
     requested_at = models.DateTimeField(auto_now_add=True)
     processed_at = models.DateTimeField(null=True, blank=True)

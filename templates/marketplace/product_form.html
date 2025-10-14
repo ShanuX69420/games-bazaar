@@ -122,6 +122,14 @@
 
                 <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                     
                     {% for field in form %}
                         {% if field.name|slice:":7" == "filter_" %}
@@ -139,12 +147,22 @@
                         <label for="{{ form.listing_title.id_for_label }}" class="form-label-custom">{{ form.listing_title.label }}</label>
                         {{ form.listing_title }}
                         <small class="form-text-custom">Appears directly on the table.</small>
+                        {% if form.listing_title.errors %}
+                            {% for error in form.listing_title.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
                     </div>
                     
                     <div class="form-group-custom">
                         <label for="{{ form.description.id_for_label }}" class="form-label-custom">{{ form.description.label }}</label>
                         {{ form.description }}
                         <small class="form-text-custom">Links to download games are prohibited.</small>
+                        {% if form.description.errors %}
+                            {% for error in form.description.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
                     </div>
 
                     <div class="form-group-custom">
@@ -176,11 +194,20 @@
                     
                     <div class="row">
                         <div class="col-md-6 form-group-custom">
-                            <label for="{{ form.price.id_for_label }}" class="form-label-custom" id="price-label">Price for 1 Pcs.</label>
+                            <label for="{{ form.price.id_for_label }}" class="form-label-custom" id="price-label">Amount you will receive</label>
                             <div class="input-group">
                                 <span class="input-group-text">Rs</span>
                                 {{ form.price }}
                             </div>
+                            {% if form.price.help_text %}
+                                <small class="form-text-custom d-block mt-1">{{ form.price.help_text }}</small>
+                            {% endif %}
+                            <div class="form-text-custom mt-2" id="buyer-price-preview"></div>
+                            {% if form.price.errors %}
+                                {% for error in form.price.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
                         </div>
                         <div class="col-md-6 form-group-custom" id="stock-container">
                             <label for="{{ form.stock.id_for_label }}" class="form-label-custom">{{ form.stock.label }}</label>
@@ -266,18 +293,56 @@ document.addEventListener('DOMContentLoaded', function() {
     const stockDetailsContainer = document.getElementById('stock-details-container');
     const stockContainer = document.getElementById('stock-container');
     const priceLabel = document.getElementById('price-label');
+    const priceLabelDefaultText = 'Amount you will receive per unit';
+    const priceLabelAutoText = 'Amount you will receive per delivered item';
 
     if (autoDeliveryCheckbox && stockDetailsContainer && stockContainer && priceLabel) {
         function toggleStockDetails() {
             const isAuto = autoDeliveryCheckbox.checked;
             stockDetailsContainer.style.display = isAuto ? 'block' : 'none';
             stockContainer.style.display = isAuto ? 'none' : 'block';
-            priceLabel.textContent = isAuto ? 'Price for 1 Pcs.' : 'Price';
+            priceLabel.textContent = isAuto ? priceLabelAutoText : priceLabelDefaultText;
         }
         toggleStockDetails();
         autoDeliveryCheckbox.addEventListener('change', toggleStockDetails);
     }
     {% endif %}
+
+    const priceInput = document.getElementById('id_price');
+    const buyerPreview = document.getElementById('buyer-price-preview');
+
+    function formatMoney(value) {
+        return value.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function updateBuyerPreview() {
+        if (!priceInput || !buyerPreview) return;
+        const commissionRate = parseFloat(priceInput.dataset.commissionRate || '0');
+        const rawValue = parseFloat(priceInput.value);
+
+        if (isNaN(rawValue) || rawValue <= 0) {
+            buyerPreview.textContent = 'Buyers will pay: —';
+            return;
+        }
+
+        const feeMultiplier = 1 + (commissionRate / 100);
+        const grossAmount = rawValue * feeMultiplier;
+        const feeAmount = grossAmount - rawValue;
+
+        if (commissionRate > 0) {
+            buyerPreview.innerHTML = `Buyers pay: <strong>Rs ${formatMoney(grossAmount)}</strong> <span class="text-muted">(includes Rs ${formatMoney(feeAmount)} marketplace fee)</span>`;
+        } else {
+            buyerPreview.innerHTML = `Buyers pay: <strong>Rs ${formatMoney(grossAmount)}</strong>`;
+        }
+    }
+
+    if (priceInput) {
+        updateBuyerPreview();
+        priceInput.addEventListener('input', updateBuyerPreview);
+    }
 
     // --- NEW JS FOR MULTI-IMAGE UPLOAD ---
     const imageInput = document.getElementById('id_images');

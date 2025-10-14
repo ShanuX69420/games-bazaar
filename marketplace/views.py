@@ -272,7 +272,7 @@ from django.conf import settings
 
 from .models import (
     Game, Category, Product, Order, Review, ReviewReply, FlatPage,
-    Conversation, Message, WithdrawalRequest, DepositRequest, SupportTicket, SiteConfiguration, Profile, Transaction, GameCategory, UserGameBoost, ProductImage, BlockedUser
+    Conversation, Message, WithdrawalRequest, DepositRequest, SupportTicket, SiteConfiguration, Profile, Transaction, GameCategory, UserGameBoost, ProductImage, BlockedUser, get_effective_commission_rate_for_listing
 )
 from .forms import (
     ProductForm, ReviewForm, ReviewReplyForm, WithdrawalRequestForm, DepositRequestForm, SupportTicketForm,
@@ -339,7 +339,12 @@ class RegisterView(generic.CreateView):
     success_url = reverse_lazy('login')
     template_name = 'registration/register.html'
 
-def form_valid(self, form):
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect('home')
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
         recaptcha_response = self.request.POST.get('g-recaptcha-response')
         if not recaptcha_response:
             messages.error(self.request, 'Please complete the reCAPTCHA.')
@@ -589,8 +594,12 @@ def listing_page_view(request, game_pk, category_pk):
             product__game=game,
             product__is_active=True,
             product__seller__profile__show_listings_on_site=True
-        ))
-    ).order_by('gamecategory__id')
+          ))
+      ).order_by('gamecategory__id')
+
+    seller_can_create_listing = True
+    if request.user.is_authenticated:
+        seller_can_create_listing = game_category_link.seller_can_list(request.user)
 
     context = {
         'game': game,
@@ -602,6 +611,7 @@ def listing_page_view(request, game_pk, category_pk):
         'active_filters': active_filters,
         'game_category_link': game_category_link,
         'sort_order': sort_order,
+        'seller_can_create_listing': seller_can_create_listing,
     }
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -805,6 +815,7 @@ def my_listings_in_category(request, game_pk, category_pk):
 
     # NEW: Fetch the GameCategory link
     game_category_link = get_object_or_404(GameCategory, game=game, category=category)
+    seller_can_create_listing = game_category_link.seller_can_list(request.user)
 
     listings = Product.objects.filter(
         seller=request.user,
@@ -821,6 +832,7 @@ def my_listings_in_category(request, game_pk, category_pk):
         'listings': listings,
         'user_has_listings_in_game': user_has_listings_in_game,
         'game_category_link': game_category_link, # NEW: Add to context
+        'seller_can_create_listing': seller_can_create_listing,
     }
     return render(request, 'marketplace/my_listings.html', context)
 
@@ -890,17 +902,27 @@ def create_product(request, game_pk, category_pk):
     game = get_object_or_404(Game, pk=game_pk)
     category = get_object_or_404(Category, pk=category_pk)
     game_category_link = get_object_or_404(GameCategory, game=game, category=category)
+    commission_rate = get_effective_commission_rate_for_listing(request.user, category)
+
+    if not game_category_link.seller_can_list(request.user):
+        return redirect('my_listings_in_category', game_pk=game.pk, category_pk=category.pk)
 
     if request.method == 'POST':
         # Double-click prevention: Check if user has a pending submission
         processing_key = f'processing_listing_{request.user.id}_{game_pk}_{category_pk}'
         if cache.get(processing_key):
             messages.error(request, 'Please wait, your previous submission is still being processed.')
-            form = ProductForm(request.POST, request.FILES, game_category_link=game_category_link)
+            form = ProductForm(
+                request.POST,
+                request.FILES,
+                game_category_link=game_category_link,
+                commission_rate=commission_rate
+            )
             context = {
                 'form': form,
                 'game': game,
                 'category': category,
+                'commission_rate': commission_rate,
             }
             return render(request, 'marketplace/product_form.html', context)
         
@@ -913,15 +935,26 @@ def create_product(request, game_pk, category_pk):
             cache.delete(processing_key)  # Clear lock before returning
             messages.error(request, f'Too many listing creation attempts for {game.title}. Please try again later.')
             # Create form without validating to preserve user data
-            form = ProductForm(request.POST, request.FILES, game_category_link=game_category_link)
+            form = ProductForm(
+                request.POST,
+                request.FILES,
+                game_category_link=game_category_link,
+                commission_rate=commission_rate
+            )
             context = {
                 'form': form,
                 'game': game,
                 'category': category,
+                'commission_rate': commission_rate,
             }
             return render(request, 'marketplace/product_form.html', context)
-        
-        form = ProductForm(request.POST, request.FILES, game_category_link=game_category_link)
+
+        form = ProductForm(
+            request.POST,
+            request.FILES,
+            game_category_link=game_category_link,
+            commission_rate=commission_rate
+        )
         if form.is_valid():
             product = form.save(commit=False)
             product.seller = request.user
@@ -952,12 +985,13 @@ def create_product(request, game_pk, category_pk):
             # Clear processing lock if form validation fails
             cache.delete(processing_key)
     else:
-        form = ProductForm(game_category_link=game_category_link)
+        form = ProductForm(game_category_link=game_category_link, commission_rate=commission_rate)
 
     context = {
         'form': form,
         'game': game,
         'category': category,
+        'commission_rate': commission_rate,
     }
     return render(request, 'marketplace/product_form.html', context)
 
@@ -965,6 +999,7 @@ def create_product(request, game_pk, category_pk):
 def edit_product(request, pk):
     product = get_object_or_404(Product, pk=pk, seller=request.user)
     game_category_link = get_object_or_404(GameCategory, game=product.game, category=product.category)
+    commission_rate = product.get_commission_rate()
 
     if request.method == 'POST':
         # Rate limiting: 10 listing edits per hour per game
@@ -972,16 +1007,27 @@ def edit_product(request, pk):
         if not check_rate_limit(request, rate_limit_key, limit=10, period=3600):
             messages.error(request, f'Too many edit attempts for {product.game.title}. Please try again later.')
             # Stay on the same edit form page
-            form = ProductForm(instance=product, game_category_link=game_category_link)
+            form = ProductForm(
+                instance=product,
+                game_category_link=game_category_link,
+                commission_rate=commission_rate
+            )
             context = {
                 'form': form,
                 'game': product.game,
                 'category': product.category,
                 'product': product,
-                'is_editing': True
+                'is_editing': True,
+                'commission_rate': commission_rate,
             }
             return render(request, 'marketplace/product_form.html', context)
-        form = ProductForm(request.POST, request.FILES, instance=product, game_category_link=game_category_link)
+        form = ProductForm(
+            request.POST,
+            request.FILES,
+            instance=product,
+            game_category_link=game_category_link,
+            commission_rate=commission_rate
+        )
         if form.is_valid():
             updated_product = form.save()
 
@@ -1018,14 +1064,19 @@ def edit_product(request, pk):
             messages.success(request, 'Your listing has been updated.')
             return redirect('product_detail', pk=updated_product.pk)
     else:
-        form = ProductForm(instance=product, game_category_link=game_category_link)
+        form = ProductForm(
+            instance=product,
+            game_category_link=game_category_link,
+            commission_rate=commission_rate
+        )
 
     context = {
         'form': form,
         'game': product.game,
         'category': product.category,
         'product': product,
-        'is_editing': True
+        'is_editing': True,
+        'commission_rate': commission_rate,
     }
     return render(request, 'marketplace/product_form.html', context)
 
@@ -1069,7 +1120,7 @@ def create_order(request, pk):
         return redirect('product_detail', pk=pk)
 
     # Calculate pricing to ensure the buyer has sufficient balance
-    total_price = product.price * quantity
+    total_price = product.get_buyer_total(quantity)
     user_balance = request.user.profile.available_balance
     
     from decimal import Decimal
@@ -1885,7 +1936,7 @@ def checkout_view(request, pk):
     quantity = checkout_data.get('quantity', 1)
     
     # Calculate pricing
-    total_price = product.price * quantity
+    total_price = product.get_buyer_total(quantity)
     user_balance = request.user.profile.available_balance
     
     from decimal import Decimal
@@ -1967,7 +2018,7 @@ def process_checkout(request, pk):
         request.session.pop('checkout_data', None)
         return redirect('product_detail', pk=product.pk)
     
-    total_price = product.price * quantity
+    total_price = product.get_buyer_total(quantity)
     
     # Get user's current available balance
     user_balance = request.user.profile.available_balance
@@ -1991,6 +2042,7 @@ def process_checkout(request, pk):
 def create_order_with_balance(request, product, quantity, total_price):
     """Helper function to create order using balance only"""
     from decimal import Decimal
+    seller_total = product.get_net_total(quantity)
     
     # Check stock availability
     order_status = 'PROCESSING'
@@ -2027,6 +2079,7 @@ def create_order_with_balance(request, product, quantity, total_price):
         seller=product.seller,
         product=product,
         total_price=total_price,
+        seller_amount=seller_total,
         status=order_status,
         amount_paid_from_balance=total_price,
         amount_paid_via_payment_method=Decimal('0.00'),

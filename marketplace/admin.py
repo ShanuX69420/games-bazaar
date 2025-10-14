@@ -31,8 +31,16 @@ class FlatPageAdmin(admin.ModelAdmin):
 class GameCategoryInline(admin.TabularInline):
     model = GameCategory
     extra = 0
-    fields = ('category', 'allows_automated_delivery', 'primary_filter', 'filters')
-    filter_horizontal = ('filters',)
+    fields = (
+        'category',
+        'allows_automated_delivery',
+        'requires_special_approval',
+        'primary_filter',
+        'filters',
+        'approved_sellers',
+    )
+    filter_horizontal = ('filters', 'approved_sellers')
+    autocomplete_fields = ('approved_sellers',)
     verbose_name = "Category Setup"
     verbose_name_plural = "Game Categories"
 
@@ -55,6 +63,19 @@ class GameAdmin(admin.ModelAdmin):
         super().delete_model(request, obj)
         # Clear cache when games are deleted
         cache.delete('home_games_list')
+
+
+@admin.register(GameCategory)
+class GameCategoryAdmin(admin.ModelAdmin):
+    list_display = ('game', 'category', 'requires_special_approval', 'allows_automated_delivery', 'approved_sellers_count')
+    list_filter = ('requires_special_approval', 'allows_automated_delivery', 'game')
+    search_fields = ('game__title', 'category__name', 'approved_sellers__username')
+    filter_horizontal = ('filters', 'approved_sellers')
+    autocomplete_fields = ('approved_sellers',)
+
+    def approved_sellers_count(self, obj):
+        return obj.approved_sellers.count()
+    approved_sellers_count.short_description = 'Approved Sellers'
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -120,10 +141,10 @@ class ProductAdmin(admin.ModelAdmin):
 # ==== ORDERS & TRANSACTIONS ====
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('get_order_id', 'get_product_title', 'buyer', 'seller', 'status', 'total_price', 'created_at')
+    list_display = ('get_order_id', 'get_product_title', 'buyer', 'seller', 'status', 'total_price', 'seller_amount', 'created_at')
     list_filter = ('status', 'created_at')
     search_fields = ('id', 'order_id', 'listing_title_snapshot', 'buyer__username', 'seller__username')
-    readonly_fields = ('id', 'order_id', 'buyer', 'seller', 'total_price', 'commission_paid', 'created_at', 'updated_at', 'get_product_link', 'get_buyer_profile', 'get_seller_profile', 'get_filter_options', 'get_related_conversations')
+    readonly_fields = ('id', 'order_id', 'buyer', 'seller', 'total_price', 'seller_amount', 'commission_paid', 'created_at', 'updated_at', 'get_product_link', 'get_buyer_profile', 'get_seller_profile', 'get_filter_options', 'get_related_conversations')
     date_hierarchy = 'created_at'
     actions = ['mark_completed', 'mark_cancelled']
     
@@ -138,7 +159,7 @@ class OrderAdmin(admin.ModelAdmin):
             'fields': ('get_product_link', 'listing_title_snapshot', 'description_snapshot', 'game_snapshot', 'category_snapshot', 'get_filter_options')
         }),
         ('Financial Information', {
-            'fields': ('total_price', 'commission_paid')
+            'fields': ('total_price', 'seller_amount', 'commission_paid')
         }),
         ('Related Communications', {
             'fields': ('get_related_conversations',),
@@ -314,7 +335,7 @@ class HeldFundAdmin(admin.ModelAdmin):
 class WithdrawalRequestAdmin(admin.ModelAdmin):
     list_display = ('user', 'amount', 'payment_method', 'account_title', 'status', 'requested_at')
     list_filter = ('status', 'payment_method', 'requested_at')
-    search_fields = ('user__username', 'account_title', 'account_number', 'iban')
+    search_fields = ('user__username', 'account_title', 'account_number', 'iban', 'bank_name')
     actions = ['approve_requests', 'reject_requests']
     date_hierarchy = 'requested_at'
     readonly_fields = ('requested_at',)
@@ -324,7 +345,7 @@ class WithdrawalRequestAdmin(admin.ModelAdmin):
             'fields': ('user', 'amount', 'status', 'requested_at', 'processed_at')
         }),
         ('Payment Details', {
-            'fields': ('payment_method', 'account_title', 'account_number', 'iban')
+            'fields': ('payment_method', 'account_title', 'account_number', 'iban', 'bank_name')
         }),
         ('Admin Notes', {
             'fields': ('admin_notes',),

@@ -31,11 +31,13 @@ class BalanceCacheInvalidationTests(TestCase):
             stock=1,
         )
 
+        buyer_total = self.product.buyer_price
         self.order = Order.objects.create(
             buyer=self.buyer,
             seller=self.seller,
             product=self.product,
-            total_price=Decimal("500.00"),
+            total_price=buyer_total,
+            seller_amount=self.product.price,
             status="PROCESSING",
             commission_paid=Decimal("0.00"),
             listing_title_snapshot=self.product.listing_title,
@@ -62,7 +64,7 @@ class BalanceCacheInvalidationTests(TestCase):
         )
 
         updated_balance = self.seller.profile.balance
-        self.assertEqual(updated_balance, Decimal("450.00"))
+        self.assertEqual(updated_balance, self.product.price)
         self.assertEqual(
             self.seller.profile.available_balance,
             Decimal("0.00"),

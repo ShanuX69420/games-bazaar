@@ -537,7 +537,7 @@
                                 {% endif %}
                                 <div class="listing-description">{{ product.listing_title }}</div>
                                 <div class="listing-price-wrapper">
-                                    <div class="listing-price">Rs {{ product.price|floatformat:0|intcomma }}</div>
+                                    <div class="listing-price">Rs {{ product.buyer_price|floatformat:0|intcomma }}</div>
                                     {% if product.automatic_delivery %}
                                         <div class="auto-delivery-indicator">
                                             <i class="fas fa-bolt" title="Automatic Delivery"></i>

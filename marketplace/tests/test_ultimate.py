@@ -66,11 +66,15 @@ class UltimateMarketplaceFlowTests(TestCase):
         )
 
         self.product = self._create_manual_product(
-            title="Starter Pack", price=Decimal("100.00"), stock=3
+            title="Starter Pack Bundle 2024", price=Decimal("350.00"), stock=3
         )
 
     def _create_manual_product(
-        self, title: str, price: Decimal, stock: int, description: str = "Manual delivery item"
+        self,
+        title: str,
+        price: Decimal,
+        stock: int,
+        description: str = "Manual delivery item with extended details",
     ) -> Product:
         product = Product(
             seller=self.seller,
@@ -87,12 +91,21 @@ class UltimateMarketplaceFlowTests(TestCase):
         product.save()
         return product
 
-    def _create_order(self, product: Product, total_price: Decimal | None = None) -> Order:
+    def _create_order(
+        self,
+        product: Product,
+        total_price: Decimal | None = None,
+        seller_amount: Decimal | None = None,
+    ) -> Order:
+        buyer_total = total_price or product.buyer_price
+        seller_total = seller_amount if seller_amount is not None else product.price
+
         return Order.objects.create(
             buyer=self.buyer,
             seller=self.seller,
             product=product,
-            total_price=total_price or product.price,
+            total_price=buyer_total,
+            seller_amount=seller_total,
             status="PROCESSING",
             commission_paid=Decimal("0.00"),
             listing_title_snapshot=product.listing_title,
@@ -106,9 +119,9 @@ class UltimateMarketplaceFlowTests(TestCase):
             seller=self.seller,
             game=self.game,
             category=self.category,
-            listing_title="Auto Delivery Pack",
-            description="Two instant delivery codes",
-            price=Decimal("59.99"),
+            listing_title="Auto Delivery Pack Ultimate",
+            description="Two instant delivery codes delivered instantly",
+            price=Decimal("359.99"),
             automatic_delivery=True,
             stock=None,
             stock_details="CODE-1\nCODE-2\n",
@@ -121,9 +134,9 @@ class UltimateMarketplaceFlowTests(TestCase):
             seller=self.seller,
             game=self.game,
             category=self.category,
-            listing_title="Manual Pack",
-            description="Ships manually",
-            price=Decimal("19.99"),
+            listing_title="Manual Delivery Package Pro",
+            description="Ships manually with careful handling",
+            price=Decimal("329.99"),
             automatic_delivery=False,
             stock=5,
             stock_details="",
@@ -161,7 +174,11 @@ class UltimateMarketplaceFlowTests(TestCase):
             invalid_manual.full_clean()
 
     def test_order_commission_priority_and_id_generation(self) -> None:
-        order = self._create_order(self.product, total_price=Decimal("100.00"))
+        order = self._create_order(
+            self.product,
+            total_price=Decimal("100.00"),
+            seller_amount=Decimal("0.00"),
+        )
 
         self.assertRegex(
             order.order_id,
@@ -187,7 +204,11 @@ class UltimateMarketplaceFlowTests(TestCase):
         commission = order.calculate_commission()
         self.assertEqual(commission.quantize(Decimal("0.01")), Decimal("11.00"))
 
-        second_order = self._create_order(self.product, total_price=Decimal("25.00"))
+        second_order = self._create_order(
+            self.product,
+            total_price=Decimal("25.00"),
+            seller_amount=Decimal("0.00"),
+        )
         self.assertNotEqual(
             order.order_id,
             second_order.order_id,
@@ -195,7 +216,11 @@ class UltimateMarketplaceFlowTests(TestCase):
         )
 
     def test_transaction_cache_and_held_funds_flow(self) -> None:
-        order = self._create_order(self.product, total_price=Decimal("150.00"))
+        order = self._create_order(
+            self.product,
+            total_price=Decimal("150.00"),
+            seller_amount=Decimal("150.00"),
+        )
 
         Transaction.objects.create(
             user=self.seller,
@@ -369,7 +394,8 @@ class UltimateMarketplaceFlowTests(TestCase):
                 "amount": "150.00",
                 "payment_method": "bank_transfer",
                 "account_title": "Ultimate Seller",
-                "iban": "PK" + "0" * 22,
+                "bank_name": "HBL",
+                "account_identifier": "PK" + "0" * 22,
             },
             user=self.seller,
             balance=self.seller.profile.available_balance,
@@ -381,7 +407,8 @@ class UltimateMarketplaceFlowTests(TestCase):
                 "amount": "0",
                 "payment_method": "bank_transfer",
                 "account_title": "A",
-                "iban": "INVALID",
+                "bank_name": "",
+                "account_identifier": "INVALID",
             },
             user=self.seller,
             balance=self.seller.profile.available_balance,
@@ -389,7 +416,20 @@ class UltimateMarketplaceFlowTests(TestCase):
         self.assertFalse(invalid_form.is_valid())
         self.assertIn("amount", invalid_form.errors)
         self.assertIn("account_title", invalid_form.errors)
-        self.assertIn("iban", invalid_form.errors)
+        self.assertIn("account_identifier", invalid_form.errors)
+        self.assertIn("bank_name", invalid_form.errors)
+
+        wallet_form = WithdrawalRequestForm(
+            data={
+                "amount": "200.00",
+                "payment_method": "easypaisa",
+                "account_title": "Ultimate Seller",
+                "account_identifier": "03001234567",
+            },
+            user=self.seller,
+            balance=self.seller.profile.available_balance,
+        )
+        self.assertTrue(wallet_form.is_valid(), wallet_form.errors.as_json())
 
     def test_deposit_request_form_file_validation(self) -> None:
         valid_file = SimpleUploadedFile(

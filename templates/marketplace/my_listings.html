@@ -172,9 +172,18 @@
                         {% if user_has_listings_in_game %}
                             <a href="{% url 'boost_listings' game_pk=game.pk %}" class="btn btn-boost-custom">Boost listings</a>
                         {% endif %}
-                        <a href="{% url 'create_product' game_pk=game.pk category_pk=category.pk %}" class="btn btn-primary">Add a listing</a>
+                        {% if seller_can_create_listing %}
+                            <a href="{% url 'create_product' game_pk=game.pk category_pk=category.pk %}" class="btn btn-primary">Add a listing</a>
+                        {% else %}
+                            <button type="button" class="btn btn-outline-secondary" disabled>Approval required</button>
+                        {% endif %}
                     </div>
                 </div>
+                {% if game_category_link.requires_special_approval and not seller_can_create_listing %}
+                    <div class="alert alert-warning">
+                        You need special approval to sell in this category. Please contact support to request access.
+                    </div>
+                {% endif %}
             </div>
 
             <div class="offer-card">
@@ -182,25 +191,25 @@
                     
                     {# Desktop Header #}
                     <div class="profile-listing-header d-none d-md-grid" 
-                         style="grid-template-columns: {% if game_category_link.primary_filter %}1.5fr 5fr 1fr 1fr{% else %}6.5fr 1fr 1fr{% endif %};">
+                         style="grid-template-columns: {% if game_category_link.primary_filter %}1.5fr 5fr 1fr 1.5fr{% else %}6.5fr 1fr 1.5fr{% endif %};">
                         {% if game_category_link.primary_filter %}
                         <div>{{ game_category_link.primary_filter.name }}</div>
                         {% endif %}
                         <div>Description</div>
                         <div class="text-end">In Stock</div>
-                        <div class="text-end">Price</div>
+                        <div class="text-end">Buyer Price</div>
                     </div>
 
                     {# Mobile Header #}
                     <div class="mobile-header d-md-none">
                         <span>Description</span>
-                        <span>Price</span>
+                        <span>Buyer Price</span>
                     </div>
 
                     {% for listing in listings %}
                         {# Desktop Row #}
                         <a href="{% url 'product_detail' listing.pk %}" class="profile-listing-row d-none d-md-grid"
-                           style="grid-template-columns: {% if game_category_link.primary_filter %}1.5fr 5fr 1fr 1fr{% else %}6.5fr 1fr 1fr{% endif %};">
+                           style="grid-template-columns: {% if game_category_link.primary_filter %}1.5fr 5fr 1fr 1.5fr{% else %}6.5fr 1fr 1.5fr{% endif %};">
                             
                             {% if game_category_link.primary_filter %}
                             <div class="listing-primary-filter">
@@ -211,15 +220,15 @@
                             {% endif %}
                             <div class="listing-description">{{ listing.listing_title }}</div>
                             <div class="listing-stock text-end">{{ listing.stock_count|default:"N/A" }}</div>
-                            <div class="listing-price-wrapper">
-                                <div class="listing-price">
-                                    Rs {{ listing.price|floatformat:0|intcomma }}
+                        <div class="listing-price-wrapper">
+                            <div class="listing-price">
+                                Rs {{ listing.buyer_price|floatformat:0|intcomma }}
+                            </div>
+                            {% if listing.automatic_delivery %}
+                                <div class="auto-delivery-indicator">
+                                    <i class="fas fa-bolt" title="Automatic Delivery"></i>
                                 </div>
-                                {% if listing.automatic_delivery %}
-                                    <div class="auto-delivery-indicator">
-                                        <i class="fas fa-bolt" title="Automatic Delivery"></i>
-                                    </div>
-                                {% endif %}
+                            {% endif %}
                             </div>
                         </a>
 
@@ -236,15 +245,15 @@
                                 <div class="listing-description">{{ listing.listing_title }}</div>
                             </div>
                             <div class="mobile-right-col">
-                                <div class="listing-price-wrapper">
-                                    <div class="listing-price">
-                                        Rs {{ listing.price|floatformat:0|intcomma }}
+                            <div class="listing-price-wrapper">
+                                 <div class="listing-price">
+                                    Rs {{ listing.buyer_price|floatformat:0|intcomma }}
+                                </div>
+                                {% if listing.automatic_delivery %}
+                                    <div class="auto-delivery-indicator">
+                                        <i class="fas fa-bolt" title="Automatic Delivery"></i>
                                     </div>
-                                    {% if listing.automatic_delivery %}
-                                        <div class="auto-delivery-indicator">
-                                            <i class="fas fa-bolt" title="Automatic Delivery"></i>
-                                        </div>
-                                    {% endif %}
+                                {% endif %}
                                 </div>
                             </div>
                         </a>

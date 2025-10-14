@@ -187,7 +187,7 @@
         <div class="price-highlight mt-3">
             <div>
                 <div class="label">Price</div>
-                <p class="amount mb-0">Rs {{ product.price|floatformat:0|intcomma }}</p>
+                <p class="amount mb-0">Rs {{ product.buyer_price|floatformat:0|intcomma }}</p>
             </div>
             <div class="text-end small text-muted">
                 {% if product.stock_count %}
@@ -237,14 +237,14 @@
                         <input type="hidden" name="quantity" id="selected-quantity" value="1">
                         <button type="submit" id="buy-now-btn" class="btn btn-success btn-lg w-100">Buy Now</button>
                         <small id="payment-helper-text" class="form-text text-muted d-block text-center mt-1">
-                            {% if user.profile.available_balance >= product.price %}
+                            {% if user.profile.available_balance >= product.buyer_price %}
                                 Entire amount will be deducted from your wallet (Rs {{ user.profile.available_balance|floatformat:0|intcomma }} available)
                             {% else %}
                                 Wallet balance: Rs {{ user.profile.available_balance|floatformat:0|intcomma }}. <a href="{% url 'funds' %}" class="text-decoration-none">Add funds</a> to complete this purchase.
                             {% endif %}
                         </small>
                     </form>
-                    {% if user.profile.available_balance < product.price %}
+                    {% if user.profile.available_balance < product.buyer_price %}
                         <div class="insufficient-balance-alert mt-3 text-center">
                             Not enough balance for this listing. Add funds now and come back to finish the order.
                         </div>
@@ -413,7 +413,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const multiplePurchaseSection = document.getElementById('multiple-purchase-section');
     const quantityInput = document.getElementById('quantity-input');
     const totalPriceDisplay = document.getElementById('total-price-display');
-    const productPrice = parseFloat("{{ product.price }}");
+    const productPrice = parseFloat("{{ product.buyer_price }}");
     const userBalance = parseFloat("{{ user.profile.available_balance|default:'0' }}") || 0;
     const paymentHelperText = document.getElementById('payment-helper-text');
 
