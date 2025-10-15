@@ -2,6 +2,103 @@
 
 {% block content %}
 <style nonce="{{ request.csp_nonce }}">
+    .hero-section {
+        position: relative;
+        background: #ffffff;
+        color: #0b2117;
+        padding: 3rem clamp(1.5rem, 3vw, 3rem);
+        border-radius: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: clamp(1.75rem, 4vw, 4rem);
+        margin-bottom: 3rem;
+        box-shadow: 0 1.25rem 2.5rem rgba(12, 46, 29, 0.08);
+        border: 1px solid rgba(34, 154, 80, 0.08);
+    }
+
+    .hero-copy,
+    .hero-stats {
+        position: relative;
+        z-index: 1;
+    }
+
+    .hero-copy {
+        max-width: 34rem;
+    }
+
+    .hero-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        font-weight: 600;
+        color: rgba(11, 33, 23, 0.55);
+        margin-bottom: 0.75rem;
+    }
+
+    .hero-eyebrow::before {
+        content: "";
+        display: inline-block;
+        width: 1.75rem;
+        height: 1px;
+        background: rgba(11, 33, 23, 0.2);
+    }
+
+    .hero-section h1 {
+        font-size: clamp(2.25rem, 5vw, 3.25rem);
+        line-height: 1.1;
+        margin-bottom: 1rem;
+        font-weight: 700;
+    }
+
+    .hero-section p {
+        font-size: 1.05rem;
+        color: rgba(11, 33, 23, 0.7);
+        margin-bottom: 1.75rem;
+    }
+
+    .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .hero-actions .btn {
+        padding: 0.75rem 1.75rem;
+        font-weight: 600;
+        border-radius: 999px;
+    }
+
+    .hero-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+        gap: 1.5rem;
+        padding: 2rem;
+        border-radius: 1.25rem;
+        background: #ffffff;
+        border: 1px solid rgba(34, 154, 80, 0.12);
+    }
+
+    .hero-stat-number {
+        display: block;
+        font-size: 2.25rem;
+        font-weight: 700;
+        color: #219a54;
+        line-height: 1;
+        margin-bottom: 0.35rem;
+    }
+
+    .hero-stat-label {
+        font-size: 0.95rem;
+        color: rgba(11, 33, 23, 0.55);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-weight: 600;
+    }
+
     /*
       These styles will position the alphabet bar on the left,
       perfectly aligned with the content below the header.
@@ -31,11 +128,63 @@
         color: #229a50;
     }
 
+    @media (max-width: 991.98px) {
+        .hero-section {
+            flex-direction: column;
+            text-align: center;
+            padding: 2.5rem 1.75rem;
+        }
+
+        .hero-copy {
+            max-width: none;
+        }
+
+        .hero-actions {
+            justify-content: center;
+        }
+
+        .hero-stats {
+            width: 100%;
+            grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        .hero-section {
+            padding: 2.25rem 1.5rem;
+        }
+
+        .hero-actions .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .hero-stats {
+            padding: 1.5rem;
+        }
+    }
 
     /* Game cells inherit enhanced styles from base.html */
 </style>
 
-<div class="row">
+<div class="hero-section">
+    <div class="hero-copy">
+        <span class="hero-eyebrow">Built for local gamers</span>
+        <h1>Pakistan's First Gaming Marketplace</h1>
+        <p>Discover trusted accounts, keys, and boosting services curated by players, for players. Secure payments, vetted sellers, and dedicated support in one hub.</p>
+        <div class="hero-actions">
+            <a class="btn btn-success btn-lg" href="#browse-games">Browse games</a>
+        </div>
+    </div>
+    <div class="hero-stats">
+        <div>
+            <span class="hero-stat-number">{{ games|length }}</span>
+            <span class="hero-stat-label">Games available</span>
+        </div>
+    </div>
+</div>
+
+<div id="browse-games" class="row">
 
     <div class="col-md-1 d-none d-md-block">
         <div class="alphabet-sidebar">
