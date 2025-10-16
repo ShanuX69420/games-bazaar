@@ -24,6 +24,12 @@ ADMIN_URL = ADMIN_URL.lstrip('/')
 if not ADMIN_URL.endswith('/'):
     ADMIN_URL = f'{ADMIN_URL}/'
 
+# Admin rate limit whitelist (comma-separated IPs)
+ADMIN_RATE_LIMIT_WHITELIST = [
+    value for value in config('ADMIN_RATE_LIMIT_WHITELIST', default='', cast=Csv())
+    if value
+]
+
 # CSRF Protection Configuration
 CSRF_TRUSTED_ORIGINS = [
     'https://gamesbazaarpk.com',

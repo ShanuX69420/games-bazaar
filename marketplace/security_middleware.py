@@ -26,6 +26,7 @@ class SecurityMiddleware(MiddlewareMixin):
     """Enhanced security middleware for production"""
     RATE_LIMIT_WINDOW = 3600  # seconds
     login_paths_cache = None
+    admin_whitelist_cache = None
 
     @staticmethod
     def _get_admin_root():
@@ -119,6 +120,7 @@ class SecurityMiddleware(MiddlewareMixin):
         admin_root = self._get_admin_root()
         normalized_ip = normalize_identifier(client_ip)
         normalized_path = request.path if request.path.endswith('/') else f'{request.path}/'
+        admin_whitelisted = self._is_admin_whitelisted(client_ip, normalized_ip)
 
         # Enforce login lockouts before hitting view logic
         if normalized_path in self.get_login_paths():
@@ -156,7 +158,7 @@ class SecurityMiddleware(MiddlewareMixin):
         now_ts = int(datetime.now().timestamp())
         
         # Stricter rate limiting for admin endpoints
-        if request.path.startswith(admin_root):
+        if request.path.startswith(admin_root) and not admin_whitelisted:
             if admin_count >= 200:  # 200 admin requests per hour (3+ per minute)
                 logger.critical(json.dumps({
                     'timestamp': datetime.now().isoformat(),
@@ -299,3 +301,32 @@ class SecurityMiddleware(MiddlewareMixin):
         else:
             ip = request.META.get('REMOTE_ADDR', 'unknown')
         return ip
+
+    @classmethod
+    def get_admin_whitelist(cls):
+        """Return cached set of whitelisted admin IP identifiers."""
+        if cls.admin_whitelist_cache is not None:
+            return cls.admin_whitelist_cache
+
+        raw_whitelist = getattr(settings, 'ADMIN_RATE_LIMIT_WHITELIST', ())
+        normalized = set()
+        for entry in raw_whitelist:
+            if not entry:
+                continue
+            normalized.add(entry)
+            normalized_entry = normalize_identifier(entry)
+            if normalized_entry:
+                normalized.add(normalized_entry)
+        cls.admin_whitelist_cache = normalized
+        return cls.admin_whitelist_cache
+
+    def _is_admin_whitelisted(self, client_ip, normalized_ip):
+        """Determine if admin rate limiting should be skipped for the request IP."""
+        whitelist = self.get_admin_whitelist()
+        if not whitelist:
+            return False
+        if client_ip in whitelist:
+            return True
+        if normalized_ip and normalized_ip in whitelist:
+            return True
+        return False
