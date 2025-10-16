@@ -311,10 +311,11 @@ class SecurityMiddleware(MiddlewareMixin):
         raw_whitelist = getattr(settings, 'ADMIN_RATE_LIMIT_WHITELIST', ())
         normalized = set()
         for entry in raw_whitelist:
-            if not entry:
+            sanitized = str(entry).strip().strip('"').strip("'")
+            if not sanitized:
                 continue
-            normalized.add(entry)
-            normalized_entry = normalize_identifier(entry)
+            normalized.add(sanitized)
+            normalized_entry = normalize_identifier(sanitized)
             if normalized_entry:
                 normalized.add(normalized_entry)
         cls.admin_whitelist_cache = normalized

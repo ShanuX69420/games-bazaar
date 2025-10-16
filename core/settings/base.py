@@ -24,11 +24,13 @@ ADMIN_URL = ADMIN_URL.lstrip('/')
 if not ADMIN_URL.endswith('/'):
     ADMIN_URL = f'{ADMIN_URL}/'
 
-# Admin rate limit whitelist (comma-separated IPs)
-ADMIN_RATE_LIMIT_WHITELIST = [
-    value for value in config('ADMIN_RATE_LIMIT_WHITELIST', default='', cast=Csv())
-    if value
-]
+# Admin rate limit whitelist (comma-separated IPs, quotes/spaces stripped)
+_raw_admin_whitelist = config('ADMIN_RATE_LIMIT_WHITELIST', default='', cast=Csv())
+ADMIN_RATE_LIMIT_WHITELIST = []
+for raw_value in _raw_admin_whitelist:
+    cleaned = str(raw_value).strip().strip('"').strip("'")
+    if cleaned:
+        ADMIN_RATE_LIMIT_WHITELIST.append(cleaned)
 
 # CSRF Protection Configuration
 CSRF_TRUSTED_ORIGINS = [
