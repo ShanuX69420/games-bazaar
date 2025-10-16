@@ -5,6 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>GamesBazaar</title>
+    <script nonce="{{ request.csp_nonce }}" async src="https://www.googletagmanager.com/gtag/js?id=G-0MPX4RM2HX"></script>
+    <script nonce="{{ request.csp_nonce }}">
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag("js", new Date());
+        gtag("config", "G-0MPX4RM2HX");
+    </script>
     
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{% static 'images/logo.png' %}">
